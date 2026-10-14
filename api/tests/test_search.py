@@ -21,6 +21,7 @@ def _auth(client: TestClient) -> None:
 def test_keyword_search_filters_chunks_by_term(client: TestClient) -> None:
     _auth(client)
     respx.post(EMBED).mock(return_value=httpx.Response(200, json={"data": [{"embedding": [0.1]}]}))
+    respx.post(QUERY).mock(return_value=httpx.Response(200, json={"documents": [{"sys_id": "d1"}]}))
     respx.post(VECTOR_QUERY).mock(
         return_value=httpx.Response(
             200,
@@ -44,6 +45,7 @@ def test_keyword_search_filters_chunks_by_term(client: TestClient) -> None:
 def test_semantic_search_embeds_then_calls_vector_api(client: TestClient) -> None:
     _auth(client)
     respx.post(EMBED).mock(return_value=httpx.Response(200, json={"data": [{"embedding": [0.1, 0.2]}]}))
+    respx.post(QUERY).mock(return_value=httpx.Response(200, json={"documents": [{"sys_id": "d1"}]}))
     vector_route = respx.post(VECTOR_QUERY).mock(
         return_value=httpx.Response(
             200,
@@ -89,6 +91,7 @@ def test_semantic_search_excludes_unauthorized_results(client: TestClient) -> No
     # Two identities, two different ACL-filtered result sets from OpenArch.
     _auth(client)
     respx.post(EMBED).mock(return_value=httpx.Response(200, json={"data": [{"embedding": [0.1]}]}))
+    respx.post(QUERY).mock(return_value=httpx.Response(200, json={"documents": [{"sys_id": "admin-doc"}]}))
     respx.post(VECTOR_QUERY).mock(
         return_value=httpx.Response(
             200, json={"embeddings": [{"sysembed_docId": "admin-doc", "sysembed_text": "secret"}]}

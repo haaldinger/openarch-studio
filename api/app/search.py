@@ -5,7 +5,6 @@ what, and all three run as the signed-in user so OpenArch ACLs stay in force.
 
 from __future__ import annotations
 
-import re
 import time
 from typing import Any
 
@@ -35,14 +34,6 @@ def _escape(term: str) -> str:
     return term.replace("'", "''")
 
 
-def _scoped_query(scope: str | None) -> str:
-    """HXQL filter for the embeddings query: a folder subtree, or the whole repository."""
-    if scope:
-        safe = re.sub(r"[^A-Za-z0-9-]", "", scope)
-        return f"SELECT * FROM SysContent WHERE sys_ancestorIds = '{safe}'"
-    return "SELECT * FROM SysContent"
-
-
 def get_enrichment(request: Request) -> EnrichmentService:
     return request.app.state.enrichment
 
@@ -65,7 +56,7 @@ async def search(
             vector = await service.embed_query(body.query)
             embedding_type = f"{service.embedding_type()}*"
             result = await client.semantic_search(
-                vector, embedding_type=embedding_type, query=_scoped_query(body.scope), limit=50
+                vector, embedding_type=embedding_type, scope=body.scope, limit=50
             )
             terms = [t.lower() for t in body.query.split() if t]
             results = [
@@ -94,7 +85,7 @@ async def search(
             vector = await service.embed_query(body.query)
             embedding_type = f"{service.embedding_type()}*"
             result = await client.semantic_search(
-                vector, embedding_type=embedding_type, query=_scoped_query(body.scope), limit=body.limit
+                vector, embedding_type=embedding_type, scope=body.scope, limit=body.limit
             )
             results = [
                 {

@@ -35,6 +35,7 @@ def creds() -> Credentials:
 @respx.mock
 async def test_retrieve_runs_as_user_and_maps_hits() -> None:
     respx.post(EMBED).mock(return_value=httpx.Response(200, json={"data": [{"embedding": [0.1]}]}))
+    respx.post(f"{OA}/api/query").mock(return_value=httpx.Response(200, json={"documents": [{"sys_id": "d1"}]}))
     route = respx.post(VECTOR_QUERY).mock(
         return_value=httpx.Response(
             200,
@@ -93,6 +94,7 @@ def test_chat_route_streams_sse_with_citations(client: TestClient) -> None:
     client.post("/api/session", json={"username": "admin", "password": "p"})
 
     respx.post(EMBED).mock(return_value=httpx.Response(200, json={"data": [{"embedding": [0.1]}]}))
+    respx.post(f"{OA}/api/query").mock(return_value=httpx.Response(200, json={"documents": [{"sys_id": "d1"}]}))
     respx.post(VECTOR_QUERY).mock(
         return_value=httpx.Response(
             200,

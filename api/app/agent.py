@@ -10,7 +10,6 @@ from the evidence it actually retrieved.
 from __future__ import annotations
 
 import json
-import re
 from dataclasses import dataclass
 from typing import Any, AsyncIterator
 
@@ -52,12 +51,8 @@ class AgentService:
         client = OpenArchClient(self._settings.openarch_url, credentials)
         vector = await self._enrichment.embed_query(question)
         embedding_type = f"{self._enrichment.embedding_type()}*"
-        query = "SELECT * FROM SysContent"
-        if scope:
-            safe = re.sub(r"[^A-Za-z0-9-]", "", scope)
-            query = f"SELECT * FROM SysContent WHERE sys_ancestorIds = '{safe}'"
         result = await client.semantic_search(
-            vector, embedding_type=embedding_type, query=query, limit=top_k
+            vector, embedding_type=embedding_type, scope=scope, limit=top_k
         )
         return [
             Evidence(

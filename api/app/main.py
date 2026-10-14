@@ -1,0 +1,37 @@
+"""FastAPI application factory and router registration."""
+
+from __future__ import annotations
+
+from fastapi import FastAPI
+
+from .auth import SessionStore
+from .config import Settings, get_settings
+from .enrichment import EnrichmentService
+from .graph import GraphService
+from .jobs import router as jobs_router
+from .library import router as library_router
+from .routes import router
+from .search import router as search_router
+from .chat import router as chat_router
+from .capabilities import router as capabilities_router
+from .graphapi import router as graph_router
+
+
+def create_app(settings: Settings | None = None) -> FastAPI:
+    settings = settings or get_settings()
+    app = FastAPI(title="OpenArch Studio", version="0.1.0")
+    app.state.settings = settings
+    app.state.sessions = SessionStore(settings.session_ttl_seconds)
+    app.state.graph = GraphService(settings)
+    app.state.enrichment = EnrichmentService(settings, graph=app.state.graph)
+    app.include_router(router)
+    app.include_router(library_router)
+    app.include_router(jobs_router)
+    app.include_router(search_router)
+    app.include_router(chat_router)
+    app.include_router(capabilities_router)
+    app.include_router(graph_router)
+    return app
+
+
+app = create_app()

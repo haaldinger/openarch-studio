@@ -1,0 +1,8 @@
+<svg width="180" height="180" viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Apple touch / maskable icon — same mark, scaled with safe padding. -->
+  <rect width="180" height="180" rx="40" fill="#1b1a22"/>
+  <path d="M54 128V92a36 36 0 0 1 72 0v36" stroke="#efece3" stroke-width="11" stroke-linecap="round"/>
+  <circle cx="54" cy="128" r="15" fill="#3b3ad6"/>
+  <circle cx="126" cy="128" r="15" fill="#2f5d50"/>
+  <circle cx="90" cy="56" r="15" fill="#b4531a"/>
+</svg>

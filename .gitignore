@@ -1,0 +1,12 @@
+dist/
+node_modules/
+.venv/
+__pycache__/
+*.pyc
+.env
+playwright-report/
+test-results/
+
+# PDF build intermediates
+docs/pdf/preview/
+docs/pdf/diagrams/cap-*/

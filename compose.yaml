@@ -1,0 +1,63 @@
+# OpenArch Studio — companion POC stack.
+# Includes the OpenArch base stack and adds Studio API, UI, Tika, and Ollama.
+# Run from this directory:  docker compose up -d --build
+name: openarch-studio
+
+include:
+  - ../../docker-compose.yml
+
+services:
+  # The base compose ships OpenSearch without a volume, so a container recreate
+  # (e.g. after a Docker restart) wipes its index while Mongo persists — leaving
+  # the two stores inconsistent. Give OpenSearch a durable volume to match Mongo.
+  opensearch:
+    volumes:
+      - opensearch-data:/usr/share/opensearch/data
+
+  studio-api:
+    build: ./api
+    environment:
+      STUDIO_OPENARCH_URL: http://openarch-app:8080
+      STUDIO_TIKA_URL: http://tika:9998
+      STUDIO_MODEL_BASE_URL: http://ollama:11434/v1
+      STUDIO_EMBEDDING_MODEL: ${STUDIO_EMBEDDING_MODEL:-nomic-embed-text}
+      STUDIO_CHAT_MODEL: ${STUDIO_CHAT_MODEL:-llama3.1}
+      STUDIO_GRAPH_MODEL: ${STUDIO_GRAPH_MODEL:-llama3.2:1b}
+      STUDIO_GRAPH_STORE_PATH: /data/graph.json
+    volumes:
+      - studio-data:/data
+    depends_on:
+      - openarch-app
+      - tika
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8800/api/health').status==200 else 1)"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+  studio-web:
+    build: ./web
+    ports:
+      - "${STUDIO_PORT:-8900}:80"
+    depends_on:
+      - studio-api
+
+  tika:
+    image: apache/tika:2.9.2.1-full
+    expose:
+      - "9998"
+
+  # Local model runtime (OpenAI-compatible). Pull models once after start:
+  #   docker compose exec ollama ollama pull nomic-embed-text
+  #   docker compose exec ollama ollama pull llama3.1
+  ollama:
+    image: ollama/ollama:latest
+    expose:
+      - "11434"
+    volumes:
+      - ollama-data:/root/.ollama
+
+volumes:
+  ollama-data:
+  studio-data:
+  opensearch-data:

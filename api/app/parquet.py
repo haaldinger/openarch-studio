@@ -1,0 +1,116 @@
+"""Embedding chunking, vector normalization, and OpenArch-compatible Parquet.
+
+OpenArch stores one `SysEmbeddings` child document per source document, carrying a
+Parquet blob whose rows match its embedding schema (see
+`modules/platform/openarch-opensearch/src/test/resources/schemas/embedding.avsc`).
+OpenArch's EmbeddingModel pads vectors to 1024 and rejects longer ones, so Studio
+normalizes to exactly that width before writing — and, critically, uses the same
+normalization for query vectors so stored and query dimensions always agree.
+"""
+
+from __future__ import annotations
+
+import io
+import uuid
+from dataclasses import dataclass
+
+import pyarrow as pa
+import pyarrow.parquet as pq
+
+VECTOR_SIZE = 1024
+_CHUNK_NAMESPACE = uuid.UUID("5f6d1b2e-0000-4000-8000-000000000001")
+
+# Arrow schema mirroring embedding.avsc (id, type, vector, text, blobref, location).
+EMBEDDING_SCHEMA = pa.schema(
+    [
+        pa.field("id", pa.string(), nullable=False),
+        pa.field("type", pa.string(), nullable=False),
+        pa.field("vector", pa.list_(pa.float64()), nullable=False),
+        pa.field("text", pa.string(), nullable=False),
+        pa.field("blobref", pa.string(), nullable=True),
+        pa.field(
+            "location",
+            pa.struct(
+                [
+                    pa.field(
+                        "text",
+                        pa.struct(
+                            [pa.field("page", pa.int32()), pa.field("paragraph", pa.int32())]
+                        ),
+                        nullable=True,
+                    )
+                ]
+            ),
+            nullable=True,
+        ),
+    ]
+)
+
+
+@dataclass(frozen=True)
+class Chunk:
+    id: str
+    text: str
+    page: int
+    paragraph: int
+
+
+@dataclass(frozen=True)
+class EmbeddedChunk:
+    id: str
+    text: str
+    vector: list[float]
+    page: int
+    paragraph: int
+
+
+def normalize_vector(vector: list[float]) -> list[float]:
+    """Pad a vector with zeros to exactly VECTOR_SIZE; reject empty or oversized ones."""
+    if not vector:
+        raise ValueError("vector must be non-empty")
+    if len(vector) > VECTOR_SIZE:
+        raise ValueError(f"vector length {len(vector)} exceeds {VECTOR_SIZE}")
+    if len(vector) == VECTOR_SIZE:
+        return list(vector)
+    return list(vector) + [0.0] * (VECTOR_SIZE - len(vector))
+
+
+def chunk_text(text: str, *, max_chars: int = 1000) -> list[Chunk]:
+    """Split text into deterministic, paragraph-based chunks."""
+    paragraphs = [p.strip() for p in text.replace("\r\n", "\n").split("\n\n")]
+    paragraphs = [p for p in paragraphs if p]
+
+    chunks: list[Chunk] = []
+    index = 0
+    for paragraph in paragraphs:
+        pieces = [paragraph[i : i + max_chars] for i in range(0, len(paragraph), max_chars)]
+        for piece in pieces:
+            chunk_id = str(uuid.uuid5(_CHUNK_NAMESPACE, f"{index}:{piece}"))
+            chunks.append(Chunk(id=chunk_id, text=piece, page=1, paragraph=index + 1))
+            index += 1
+    return chunks
+
+
+def write_embeddings(chunks: list[EmbeddedChunk], embedding_type: str) -> bytes:
+    """Serialize embedded chunks to an OpenArch-compatible Parquet blob."""
+    if not chunks:
+        raise ValueError("no chunks to write")
+
+    lengths = {len(c.vector) for c in chunks}
+    if lengths != {VECTOR_SIZE}:
+        raise ValueError(f"all vectors must be normalized to {VECTOR_SIZE}; saw {sorted(lengths)}")
+
+    table = pa.table(
+        {
+            "id": [c.id for c in chunks],
+            "type": [embedding_type] * len(chunks),
+            "vector": [c.vector for c in chunks],
+            "text": [c.text for c in chunks],
+            "blobref": [None] * len(chunks),
+            "location": [{"text": {"page": c.page, "paragraph": c.paragraph}} for c in chunks],
+        },
+        schema=EMBEDDING_SCHEMA,
+    )
+    buffer = io.BytesIO()
+    pq.write_table(table, buffer)
+    return buffer.getvalue()

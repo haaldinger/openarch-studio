@@ -16,16 +16,18 @@ export interface NavItem {
   icon: LucideIcon;
   /** Short line shown under the label in the rail. */
   hint: string;
+  /** A Studio extension surface — hidden in baseline (OpenArch-only) mode. */
+  ext?: boolean;
 }
 
 /** Single source of truth for the authenticated shell's navigation and routes. */
 export const NAV_ITEMS: NavItem[] = [
   { path: "/library", label: "Library", icon: LayoutGrid, hint: "Upload & browse" },
-  { path: "/search", label: "Search", icon: Search, hint: "Keyword & semantic" },
-  { path: "/ask", label: "Ask", icon: MessagesSquare, hint: "Grounded answers" },
-  { path: "/graph", label: "Graph", icon: Share2, hint: "Entities & relations" },
+  { path: "/search", label: "Search", icon: Search, hint: "Keyword & semantic", ext: true },
+  { path: "/ask", label: "Ask", icon: MessagesSquare, hint: "Grounded answers", ext: true },
+  { path: "/graph", label: "Graph", icon: Share2, hint: "Entities & relations", ext: true },
   { path: "/documents", label: "Documents", icon: FileStack, hint: "Inspect records" },
-  { path: "/activity", label: "Activity", icon: Activity, hint: "Enrichment jobs" },
+  { path: "/activity", label: "Activity", icon: Activity, hint: "Enrichment jobs", ext: true },
   { path: "/capabilities", label: "Capabilities", icon: Layers, hint: "Native vs added" },
   { path: "/help", label: "Help", icon: HelpCircle, hint: "How Studio works" },
 ];

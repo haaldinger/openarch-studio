@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 
 router = APIRouter(prefix="/api")
 
@@ -54,15 +54,25 @@ _RUNTIMES = [
 ]
 
 
+@router.get("/config")
+async def config(request: Request) -> dict[str, Any]:
+    """Client-readable runtime flags. Never gated, so the shell can adapt on load."""
+    settings = request.app.state.settings
+    return {"baselineMode": bool(getattr(settings, "baseline_mode", False))}
+
+
 @router.get("/capabilities")
-async def capabilities() -> dict[str, Any]:
+async def capabilities(request: Request) -> dict[str, Any]:
+    baseline = bool(getattr(request.app.state.settings, "baseline_mode", False))
     native = [
         {"name": n, "owner": NATIVE_OWNER, "description": d, "evidence": e} for n, d, e in _NATIVE
     ]
     extensions = [
-        {"name": n, "owner": o, "description": d, "evidence": e} for n, o, d, e in _EXTENSIONS
+        {"name": n, "owner": o, "description": d, "evidence": e, "disabled": baseline}
+        for n, o, d, e in _EXTENSIONS
     ]
     return {
+        "baselineMode": baseline,
         "native": native,
         "extensions": extensions,
         "provenanceFlow": [

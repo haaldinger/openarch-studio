@@ -1,4 +1,5 @@
 import type {
+  AppConfig,
   Citation,
   DocumentDetail,
   DocumentEmbeddings,
@@ -47,6 +48,11 @@ export function login(username: string, password: string): Promise<SessionInfo> 
 
 export function logout(): Promise<void> {
   return request<void>("/api/session", { method: "DELETE" });
+}
+
+/** Runtime flags the shell reads on load (e.g. baseline mode). Never auth-gated. */
+export function getConfig(): Promise<AppConfig> {
+  return request<AppConfig>("/api/config");
 }
 
 export async function getSession(): Promise<SessionInfo | null> {

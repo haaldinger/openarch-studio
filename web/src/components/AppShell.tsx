@@ -7,10 +7,13 @@ interface AppShellProps {
   username: string;
   onSignOut: () => void;
   children: ReactNode;
+  /** Baseline (OpenArch-only) mode hides every Studio extension surface. */
+  baselineMode?: boolean;
 }
 
 /** Authenticated frame: an editorial left rail, a running provenance line, and the active view. */
-export function AppShell({ username, onSignOut, children }: AppShellProps) {
+export function AppShell({ username, onSignOut, children, baselineMode = false }: AppShellProps) {
+  const items = NAV_ITEMS.filter((item) => !baselineMode || !item.ext);
   return (
     <div className="shell">
       <a className="skip-link" href="#view">
@@ -21,11 +24,11 @@ export function AppShell({ username, onSignOut, children }: AppShellProps) {
         <div className="wordmark">
           <span className="wordmark-open">Open</span>
           <span className="wordmark-arch">Arch</span>
-          <em>Studio</em>
+          <em>{baselineMode ? "Baseline" : "Studio"}</em>
         </div>
 
         <nav className="rail-nav">
-          {NAV_ITEMS.map((item) => {
+          {items.map((item) => {
             const Icon = item.icon;
             return (
               <NavLink
@@ -55,16 +58,28 @@ export function AppShell({ username, onSignOut, children }: AppShellProps) {
       </aside>
 
       <div className="stage">
+        {baselineMode && (
+          <div className="baseline-banner" role="status">
+            <strong>Baseline mode</strong> — Studio extensions are disabled. Showing native
+            OpenArch out-of-the-box capabilities only.
+          </div>
+        )}
         <header className="provenance" aria-label="Provenance">
-          <span className="prov-step native">OpenArch record</span>
-          <span className="prov-arrow" aria-hidden="true">
-            →
-          </span>
-          <span className="prov-step studio">Studio enrichment</span>
-          <span className="prov-arrow" aria-hidden="true">
-            →
-          </span>
-          <span className="prov-step model">Grounded answer</span>
+          {baselineMode ? (
+            <span className="prov-step native">OpenArch record — native only</span>
+          ) : (
+            <>
+              <span className="prov-step native">OpenArch record</span>
+              <span className="prov-arrow" aria-hidden="true">
+                →
+              </span>
+              <span className="prov-step studio">Studio enrichment</span>
+              <span className="prov-arrow" aria-hidden="true">
+                →
+              </span>
+              <span className="prov-step model">Grounded answer</span>
+            </>
+          )}
           <Link to="/help" className="prov-help" aria-label="Guide" title="Help & guide">
             <HelpCircle size={18} strokeWidth={1.75} />
           </Link>

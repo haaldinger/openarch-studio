@@ -258,6 +258,9 @@ async def upload_document(
         raise _translate(exc) from exc
 
     # Auto-start enrichment: a successful upload begins extraction/embedding in the background.
+    # Baseline mode keeps the app to native OpenArch only: store the SysFile, skip enrichment.
+    if getattr(request.app.state.settings, "baseline_mode", False):
+        return document
     service = request.app.state.enrichment
     job = service.store.create(doc_id, filename)
     background.add_task(service.run, job, credentials, content=content, mime=mime)

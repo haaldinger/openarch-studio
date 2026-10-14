@@ -1812,3 +1812,17 @@ select.modal-input {
     animation: none !important;
   }
 }
+
+/* ── Baseline (OpenArch-only) mode banner ───────────────────────────────── */
+.baseline-banner {
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: var(--model);
+  background: var(--model-bg);
+  border-bottom: 1px solid var(--line);
+  padding: 8px 20px;
+}
+.baseline-banner strong {
+  font-weight: 650;
+  letter-spacing: 0.01em;
+}

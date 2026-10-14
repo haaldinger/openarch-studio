@@ -2,6 +2,11 @@ export interface SessionInfo {
   username: string;
 }
 
+export interface AppConfig {
+  /** When true, Studio extensions are disabled and only native OpenArch is shown. */
+  baselineMode: boolean;
+}
+
 export interface DocumentSummary {
   id: string;
   title: string | null;

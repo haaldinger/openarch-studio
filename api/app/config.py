@@ -33,6 +33,9 @@ class Settings(BaseSettings):
     graph_store_path: str = ""
     # Session lifetime for the in-memory credential store.
     session_ttl_seconds: int = 3600
+    # Baseline mode: disable every Studio extension and present only native
+    # OpenArch out-of-the-box capabilities. Flip with STUDIO_BASELINE_MODE=true.
+    baseline_mode: bool = False
 
 
 @lru_cache

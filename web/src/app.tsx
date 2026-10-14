@@ -10,19 +10,29 @@ import { DocumentPage } from "./pages/DocumentPage";
 import { ActivityPage } from "./pages/ActivityPage";
 import { CapabilityPage } from "./pages/CapabilityPage";
 import { HelpPage } from "./pages/HelpPage";
-import { getSession, logout } from "./api";
+import { getSession, getConfig, logout } from "./api";
 import { ScopeProvider } from "./scope";
 
 export function App() {
   const [username, setUsername] = useState<string | null>(null);
+  const [baselineMode, setBaselineMode] = useState(false);
   const [restoring, setRestoring] = useState(true);
   const navigate = useNavigate();
 
-  // Restore an existing server session on load (cookie-based).
+  // Restore an existing server session and read runtime flags on load.
   useEffect(() => {
-    getSession()
-      .then((session) => setUsername(session?.username ?? null))
-      .catch(() => setUsername(null))
+    Promise.all([
+      getSession()
+        .then((session) => session?.username ?? null)
+        .catch(() => null),
+      getConfig()
+        .then((config) => config.baselineMode)
+        .catch(() => false),
+    ])
+      .then(([name, baseline]) => {
+        setUsername(name);
+        setBaselineMode(baseline);
+      })
       .finally(() => setRestoring(false));
   }, []);
 
@@ -51,16 +61,28 @@ export function App() {
 
   return (
     <ScopeProvider>
-      <AppShell username={username} onSignOut={handleSignOut}>
+      <AppShell username={username} baselineMode={baselineMode} onSignOut={handleSignOut}>
         <Routes>
           <Route path="/" element={<Navigate to="/library" replace />} />
           <Route path="/library" element={<LibraryPage />} />
-          <Route path="/search" element={<SearchPage />} />
-          <Route path="/ask" element={<AskPage />} />
-          <Route path="/graph" element={<GraphPage />} />
+          <Route
+            path="/search"
+            element={baselineMode ? <Navigate to="/library" replace /> : <SearchPage />}
+          />
+          <Route
+            path="/ask"
+            element={baselineMode ? <Navigate to="/library" replace /> : <AskPage />}
+          />
+          <Route
+            path="/graph"
+            element={baselineMode ? <Navigate to="/library" replace /> : <GraphPage />}
+          />
           <Route path="/documents" element={<DocumentPage />} />
           <Route path="/documents/:docId" element={<DocumentPage />} />
-          <Route path="/activity" element={<ActivityPage />} />
+          <Route
+            path="/activity"
+            element={baselineMode ? <Navigate to="/library" replace /> : <ActivityPage />}
+          />
           <Route path="/capabilities" element={<CapabilityPage />} />
           <Route path="/help" element={<HelpPage />} />
           <Route path="*" element={<Navigate to="/library" replace />} />

@@ -25,6 +25,13 @@ docker build -f server/openarch-app/Dockerfile.local \
 
 ## Upstream candidates (OpenArch product repo)
 
+> **Filed 2026-10-13** on [Hyland/OpenArch](https://github.com/Hyland/OpenArch):
+> #1 build-without-git, #2 dev Dockerfile, #3 version inconsistency,
+> #4 image visibility, #5 embedding write endpoint. Draft bodies in
+> [`upstream-issues/`](./upstream-issues). Finding #6 (full-text) stays in the
+> Studio repo as issue #1 pending root-cause.
+
+
 ### Build / packaging robustness — strong PR candidates
 1. **Source build fails without `.git`.** `buildnumber-maven-plugin` and
    `git-commit-id-maven-plugin:revision` both hard-fail on a source download

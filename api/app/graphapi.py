@@ -28,8 +28,21 @@ def get_enrichment(request: Request) -> EnrichmentService:
 async def full_graph(
     scope: str | None = None,
     service: GraphService = Depends(get_graph),
+    client: OpenArchClient = Depends(get_openarch_client),
     credentials: Credentials = Depends(current_credentials),
 ) -> dict[str, Any]:
+    # Self-heal: enrichment extracts a graph automatically, but a cold or slow model
+    # can leave a document without one. Build any that are missing (from chunk text
+    # already in OpenArch) so the view is reliable; results persist to the store.
+    for doc_id in await client.list_embedded_doc_ids(scope):
+        if service.store.get(doc_id) is not None:
+            continue
+        text = "\n".join(t for t in await client.fetch_chunk_texts(doc_id) if t)
+        if text:
+            try:
+                await service.extract(doc_id, text)
+            except httpx.HTTPError:
+                pass
     return await service.merged(credentials, scope=scope)
 
 

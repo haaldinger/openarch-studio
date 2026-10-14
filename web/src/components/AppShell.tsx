@@ -9,10 +9,18 @@ interface AppShellProps {
   children: ReactNode;
   /** Baseline (OpenArch-only) mode hides every Studio extension surface. */
   baselineMode?: boolean;
+  /** Flip baseline mode live; omit to hide the switch. */
+  onToggleBaseline?: () => void;
 }
 
 /** Authenticated frame: an editorial left rail, a running provenance line, and the active view. */
-export function AppShell({ username, onSignOut, children, baselineMode = false }: AppShellProps) {
+export function AppShell({
+  username,
+  onSignOut,
+  children,
+  baselineMode = false,
+  onToggleBaseline,
+}: AppShellProps) {
   const items = NAV_ITEMS.filter((item) => !baselineMode || !item.ext);
   return (
     <div className="shell">
@@ -47,6 +55,24 @@ export function AppShell({ username, onSignOut, children, baselineMode = false }
         </nav>
 
         <div className="rail-foot">
+          {onToggleBaseline && (
+            <button
+              type="button"
+              role="switch"
+              aria-checked={baselineMode}
+              className={baselineMode ? "baseline-switch on" : "baseline-switch"}
+              onClick={onToggleBaseline}
+              title="Show only native OpenArch, or re-enable Studio extensions"
+            >
+              <span className="baseline-switch-track" aria-hidden="true">
+                <span className="baseline-switch-thumb" />
+              </span>
+              <span className="baseline-switch-text">
+                <span className="baseline-switch-label">Baseline mode</span>
+                <span className="baseline-switch-state">{baselineMode ? "On · native only" : "Off · Studio on"}</span>
+              </span>
+            </button>
+          )}
           <div className="whoami">
             <span className="whoami-dot" aria-hidden="true" />
             <span className="whoami-name">{username}</span>

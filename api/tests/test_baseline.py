@@ -45,3 +45,18 @@ def test_baseline_gates_extension_routes_but_keeps_native() -> None:
 
 def test_extensions_reachable_by_default(client: TestClient) -> None:
     assert client.get("/api/jobs").status_code == 200
+
+
+def test_put_config_requires_a_session(client: TestClient) -> None:
+    # The live switch must not be flippable by an anonymous caller.
+    assert client.put("/api/config", json={"baselineMode": True}).status_code == 401
+
+
+def test_baseline_flips_live_without_restart(client: TestClient) -> None:
+    # Same app instance: mutating runtime state gates extensions immediately.
+    assert client.get("/api/jobs").status_code == 200
+    client.app.state.baseline_mode = True
+    assert client.get("/api/config").json() == {"baselineMode": True}
+    assert client.get("/api/jobs").status_code == 403
+    client.app.state.baseline_mode = False
+    assert client.get("/api/jobs").status_code == 200

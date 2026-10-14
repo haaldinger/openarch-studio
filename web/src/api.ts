@@ -55,6 +55,15 @@ export function getConfig(): Promise<AppConfig> {
   return request<AppConfig>("/api/config");
 }
 
+/** Flip baseline mode live (no restart). Requires a signed-in session. */
+export function setConfig(baselineMode: boolean): Promise<AppConfig> {
+  return request<AppConfig>("/api/config", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ baselineMode }),
+  });
+}
+
 export async function getSession(): Promise<SessionInfo | null> {
   try {
     return await request<SessionInfo>("/api/session");

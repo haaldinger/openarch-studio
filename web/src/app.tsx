@@ -10,7 +10,7 @@ import { DocumentPage } from "./pages/DocumentPage";
 import { ActivityPage } from "./pages/ActivityPage";
 import { CapabilityPage } from "./pages/CapabilityPage";
 import { HelpPage } from "./pages/HelpPage";
-import { getSession, getConfig, logout } from "./api";
+import { getSession, getConfig, setConfig, logout } from "./api";
 import { ScopeProvider } from "./scope";
 
 export function App() {
@@ -59,9 +59,23 @@ export function App() {
     }
   }
 
+  async function handleToggleBaseline() {
+    try {
+      const config = await setConfig(!baselineMode);
+      setBaselineMode(config.baselineMode);
+    } catch {
+      /* leave the current mode in place if the flip fails */
+    }
+  }
+
   return (
     <ScopeProvider>
-      <AppShell username={username} baselineMode={baselineMode} onSignOut={handleSignOut}>
+      <AppShell
+        username={username}
+        baselineMode={baselineMode}
+        onToggleBaseline={handleToggleBaseline}
+        onSignOut={handleSignOut}
+      >
         <Routes>
           <Route path="/" element={<Navigate to="/library" replace />} />
           <Route path="/library" element={<LibraryPage />} />

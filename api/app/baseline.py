@@ -14,7 +14,7 @@ from fastapi import HTTPException, Request, status
 
 
 def extensions_disabled(request: Request) -> bool:
-    return bool(getattr(request.app.state.settings, "baseline_mode", False))
+    return bool(getattr(request.app.state, "baseline_mode", False))
 
 
 async def require_extensions(request: Request) -> None:

@@ -22,6 +22,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or get_settings()
     app = FastAPI(title="OpenArch Studio", version="0.1.0")
     app.state.settings = settings
+    # Runtime-mutable so the switch can flip live via PUT /api/config (no restart).
+    app.state.baseline_mode = settings.baseline_mode
     app.state.sessions = SessionStore(settings.session_ttl_seconds)
     app.state.graph = GraphService(settings)
     app.state.enrichment = EnrichmentService(settings, graph=app.state.graph)

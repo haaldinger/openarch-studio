@@ -9,7 +9,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
+from pydantic import BaseModel
+
+from .auth import current_credentials
+from .models import Credentials
 
 router = APIRouter(prefix="/api")
 
@@ -57,13 +61,27 @@ _RUNTIMES = [
 @router.get("/config")
 async def config(request: Request) -> dict[str, Any]:
     """Client-readable runtime flags. Never gated, so the shell can adapt on load."""
-    settings = request.app.state.settings
-    return {"baselineMode": bool(getattr(settings, "baseline_mode", False))}
+    return {"baselineMode": bool(getattr(request.app.state, "baseline_mode", False))}
+
+
+class ConfigUpdate(BaseModel):
+    baselineMode: bool
+
+
+@router.put("/config")
+async def set_config(
+    update: ConfigUpdate,
+    request: Request,
+    _credentials: Credentials = Depends(current_credentials),
+) -> dict[str, Any]:
+    """Flip baseline mode live (no restart). Requires a signed-in session."""
+    request.app.state.baseline_mode = update.baselineMode
+    return {"baselineMode": request.app.state.baseline_mode}
 
 
 @router.get("/capabilities")
 async def capabilities(request: Request) -> dict[str, Any]:
-    baseline = bool(getattr(request.app.state.settings, "baseline_mode", False))
+    baseline = bool(getattr(request.app.state, "baseline_mode", False))
     native = [
         {"name": n, "owner": NATIVE_OWNER, "description": d, "evidence": e} for n, d, e in _NATIVE
     ]

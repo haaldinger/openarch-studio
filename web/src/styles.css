@@ -224,6 +224,70 @@ code {
   text-decoration: underline;
 }
 
+/* Live baseline switch — flips Studio extensions on/off without a restart. */
+.baseline-switch {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  margin-bottom: 4px;
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.baseline-switch:hover {
+  border-color: var(--line-strong);
+}
+.baseline-switch.on {
+  border-color: var(--model);
+  background: var(--model-bg);
+}
+.baseline-switch-track {
+  flex: none;
+  width: 34px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--line-strong);
+  transition: background 0.15s ease;
+}
+.baseline-switch.on .baseline-switch-track {
+  background: var(--model);
+}
+.baseline-switch-thumb {
+  display: block;
+  width: 16px;
+  height: 16px;
+  margin: 2px;
+  border-radius: 50%;
+  background: #fff;
+  transform: translateX(0);
+  transition: transform 0.15s ease;
+}
+.baseline-switch.on .baseline-switch-thumb {
+  transform: translateX(14px);
+}
+.baseline-switch-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+.baseline-switch-label {
+  font-weight: 600;
+  color: var(--ink);
+}
+.baseline-switch-state {
+  font-size: 11px;
+  color: var(--ink-faint);
+}
+.baseline-switch.on .baseline-switch-state {
+  color: var(--model);
+}
+
 /* ── Stage ──────────────────────────────────────────────────────── */
 .stage {
   display: flex;

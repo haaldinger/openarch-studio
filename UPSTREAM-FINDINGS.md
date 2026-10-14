@@ -30,6 +30,12 @@ docker build -f server/openarch-app/Dockerfile.local \
 > #4 image visibility, #5 embedding write endpoint. Draft bodies in
 > [`upstream-issues/`](./upstream-issues). Finding #6 (full-text) stays in the
 > Studio repo as issue #1 pending root-cause.
+>
+> **Draft 2026-10-14 (not yet filed):** #7 embeddings query 404s when
+> unfiltered — draft in
+> [`upstream-issues/06-embeddings-query-unfiltered-404.md`](./upstream-issues/06-embeddings-query-unfiltered-404.md).
+> Studio-repo drafts (graph cold-start, heavy default chat model) in
+> [`studio-issues/`](./studio-issues).
 
 
 ### Build / packaging robustness — strong PR candidates
@@ -63,6 +69,13 @@ docker build -f server/openarch-app/Dockerfile.local \
    extraction wired in this deployment, or does it require a transform/converter
    service that isn't present? Studio sidesteps this by doing its own Tika
    extraction + embedding, so semantic search and chat work regardless.
+7. **Embeddings query 404s when unfiltered (OpenArch 1.0.0).**
+   `POST /api/query/embeddings` returns `404` for a kNN query with no
+   document-scoping `WHERE` (`SELECT * FROM SysContent`); the identical vector +
+   type returns `200` once scoped to a `sys_id`. Blocks whole-repository semantic
+   search via the public endpoint. Studio works around it by enumerating embedded
+   docs (`SysHasEmbeddings`) and running per-doc kNN, then merging. Draft:
+   [`upstream-issues/06-embeddings-query-unfiltered-404.md`](./upstream-issues/06-embeddings-query-unfiltered-404.md).
 
 ## Studio-side notes
 - **Keyword search** depends on #6. Workaround shipped: keyword mode searches the

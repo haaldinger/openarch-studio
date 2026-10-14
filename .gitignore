@@ -10,3 +10,5 @@ test-results/
 # PDF build intermediates
 docs/pdf/preview/
 docs/pdf/diagrams/cap-*/
+
+docs/pdf/deckpreview/

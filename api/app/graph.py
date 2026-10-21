@@ -37,6 +37,30 @@ def _norm(name: str) -> str:
     return re.sub(r"\s+", " ", name).strip().lower()
 
 
+# Legal forms appear inconsistently across OCR'd documents, so they carry no
+# identity: "Hyland Software" and "Hyland Software, Inc." are one organization.
+_LEGAL_SUFFIXES = {
+    "inc", "incorporated", "corp", "corporation", "co", "company", "llc", "llp",
+    "ltd", "limited", "plc", "gmbh", "mbh", "ag", "kg", "nv", "bv", "sa", "sas",
+    "spa", "srl", "oy", "ab", "pty", "group", "holdings",
+}
+
+
+def _canonical(name: str) -> str:
+    """Identity key for an entity: case, punctuation and legal-suffix insensitive."""
+    words = [w for w in re.sub(r"[^\w\s&]", " ", name.lower()).split() if w]
+    while len(words) > 1 and words[-1] in _LEGAL_SUFFIXES:
+        words.pop()
+    return " ".join(words) or _norm(name)
+
+
+def _better_label(current: str, candidate: str) -> str:
+    """Prefer a readable name: mixed case over OCR'd all-caps, then the fuller one."""
+    if current.isupper() != candidate.isupper():
+        return candidate if current.isupper() else current
+    return candidate if len(candidate) > len(current) else current
+
+
 def _is_noise(label: str) -> bool:
     """OCR'd amounts, invoice numbers, and 1-2 char fragments make poor graph nodes."""
     letters = sum(c.isalpha() for c in label)
@@ -45,7 +69,7 @@ def _is_noise(label: str) -> bool:
 
 def _resolve(name: str, entities: dict[str, dict[str, str]]) -> str | None:
     """Map a relation endpoint to an entity id, tolerating model name variants."""
-    n = _norm(name)
+    n = _canonical(name)
     if not n:
         return None
     if n in entities:
@@ -128,7 +152,7 @@ def parse_graph(raw: str) -> DocGraph:
         etype = str(ent.get("type", "")).strip()
         if not name or etype not in ENTITY_TYPES:
             continue
-        graph.entities[_norm(name)] = {"label": name, "type": etype}
+        graph.entities[_canonical(name)] = {"label": name, "type": etype}
     for rel in data.get("relations", []):
         source = _resolve(str(rel.get("source", "")), graph.entities)
         target = _resolve(str(rel.get("target", "")), graph.entities)
@@ -188,19 +212,34 @@ class GraphService:
             if graph is None:
                 continue
             surviving: list[str] = []
+            # Re-canonicalize on read so graphs stored before this ran still merge.
+            alias: dict[str, str] = {}
             for node_id, meta in graph.entities.items():
                 if _is_noise(meta["label"]):
                     continue
-                node = nodes.setdefault(
-                    node_id, {"id": node_id, "label": meta["label"], "type": meta["type"], "docIds": []}
-                )
+                merged_id = f"{meta['type']}:{_canonical(meta['label'])}"
+                alias[node_id] = merged_id
+                node = nodes.get(merged_id)
+                if node is None:
+                    node = nodes[merged_id] = {
+                        "id": merged_id,
+                        "label": meta["label"],
+                        "type": meta["type"],
+                        "docIds": [],
+                    }
+                else:
+                    node["label"] = _better_label(node["label"], meta["label"])
                 if doc_id not in node["docIds"]:
                     node["docIds"].append(doc_id)
-                surviving.append(node_id)
+                if merged_id not in surviving:
+                    surviving.append(merged_id)
             doc_node_ids[doc_id] = surviving
             for source, target, rtype in graph.relations:
-                if source in nodes and target in nodes:
-                    model_edges.append({"source": source, "target": target, "type": rtype, "inferred": False})
+                start, end = alias.get(source), alias.get(target)
+                if start and end and start != end:
+                    model_edges.append(
+                        {"source": start, "target": end, "type": rtype, "inferred": False}
+                    )
 
         edges = list(model_edges)
         for ids in doc_node_ids.values():
@@ -211,4 +250,9 @@ class GraphService:
                 if node_id != hub:
                     edges.append({"source": hub, "target": node_id, "type": "appears with", "inferred": True})
 
-        return {"nodes": list(nodes.values()), "edges": edges, "entityTypes": ENTITY_TYPES}
+        # Merging nodes collapses distinct endpoints onto the same pair.
+        unique: dict[tuple[str, str, str], dict[str, Any]] = {}
+        for edge in edges:
+            unique.setdefault((edge["source"], edge["target"], edge["type"]), edge)
+
+        return {"nodes": list(nodes.values()), "edges": list(unique.values()), "entityTypes": ENTITY_TYPES}

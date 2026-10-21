@@ -32,6 +32,171 @@ def _entry(key: str, value: str) -> dict[str, str]:
     return {"key": key, "valueString": value}
 
 
+def _messages(surface_id: str, components: list[dict[str, Any]], contents: list[dict[str, Any]]):
+    return [
+        {
+            "version": VERSION,
+            "updateComponents": {"surfaceId": surface_id, "components": components},
+        },
+        {
+            "version": VERSION,
+            "updateDataModel": {"surfaceId": surface_id, "contents": contents},
+        },
+        {
+            "version": VERSION,
+            "createSurface": {
+                "surfaceId": surface_id,
+                "root": "root",
+                "catalogId": CATALOG_ID,
+            },
+        },
+    ]
+
+
+def comparison_surface(surface_id: str, citations: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Side-by-side view for an answer drawn from several documents."""
+    shown = citations[:MAX_SOURCES]
+    block_ids = [f"block-{i}" for i in range(len(shown))]
+
+    components: list[dict[str, Any]] = [
+        _component("root", "Card", {"child": "body"}),
+        _component(
+            "body",
+            "Column",
+            {"children": {"explicitList": ["title", "rule", *block_ids, "footer"]}},
+        ),
+        _component(
+            "title", "Text", {"text": {"literalString": "What each document says"}, "usageHint": "h5"}
+        ),
+        _component("rule", "Divider", {"axis": "horizontal"}),
+        _component(
+            "footer",
+            "Text",
+            {
+                "text": {"literalString": "Composed by the agent as an A2UI surface."},
+                "usageHint": "caption",
+            },
+        ),
+    ]
+
+    for i in range(len(shown)):
+        components += [
+            _component(
+                block_ids[i],
+                "Column",
+                {"children": {"explicitList": [f"head-{i}", f"snip-{i}"]}},
+            ),
+            _component(
+                f"head-{i}",
+                "Row",
+                {
+                    "children": {"explicitList": [f"label-{i}", f"open-{i}"]},
+                    "justify": "spaceBetween",
+                    "align": "center",
+                },
+            ),
+            _component(f"label-{i}", "Text", {"text": {"path": f"/sources/{i}/title"}}),
+            _component(
+                f"snip-{i}",
+                "Text",
+                {"text": {"path": f"/sources/{i}/snippet"}, "usageHint": "caption"},
+            ),
+            _component(
+                f"open-{i}",
+                "Button",
+                {
+                    "child": f"open-text-{i}",
+                    "variant": "borderless",
+                    "action": {
+                        "event": {
+                            "name": "open_document",
+                            "context": {"docId": {"path": f"/sources/{i}/docId"}},
+                        }
+                    },
+                },
+            ),
+            _component(f"open-text-{i}", "Text", {"text": {"literalString": "Open"}}),
+        ]
+
+    return _messages(surface_id, components, _source_contents(shown, snippets=True))
+
+
+def followups_surface(surface_id: str, questions: list[str]) -> list[dict[str, Any]]:
+    """Next questions the agent proposes; each asks itself when pressed."""
+    asked = questions[:3]
+    button_ids = [f"q-{i}" for i in range(len(asked))]
+
+    components: list[dict[str, Any]] = [
+        _component("root", "Card", {"child": "body"}),
+        _component(
+            "body",
+            "Column",
+            {"children": {"explicitList": ["title", "rule", *button_ids, "footer"]}},
+        ),
+        _component("title", "Text", {"text": {"literalString": "Ask next"}, "usageHint": "h5"}),
+        _component("rule", "Divider", {"axis": "horizontal"}),
+        _component(
+            "footer",
+            "Text",
+            {
+                "text": {"literalString": "Composed by the agent as an A2UI surface."},
+                "usageHint": "caption",
+            },
+        ),
+    ]
+
+    for i in range(len(asked)):
+        components += [
+            _component(
+                button_ids[i],
+                "Button",
+                {
+                    "child": f"q-text-{i}",
+                    "variant": "borderless",
+                    "action": {
+                        "event": {
+                            "name": "ask_question",
+                            "context": {"question": {"path": f"/questions/{i}/text"}},
+                        }
+                    },
+                },
+            ),
+            _component(f"q-text-{i}", "Text", {"text": {"path": f"/questions/{i}/text"}}),
+        ]
+
+    contents = [
+        {
+            "key": "questions",
+            "valueMap": [
+                {"key": str(i), "valueMap": [_entry("text", q)]} for i, q in enumerate(asked)
+            ],
+        }
+    ]
+    return _messages(surface_id, components, contents)
+
+
+def _source_contents(shown: list[dict[str, Any]], *, snippets: bool = False):
+    def fields(c: dict[str, Any]) -> list[dict[str, str]]:
+        out = [
+            _entry("title", str(c.get("title") or c.get("docId") or "Untitled")),
+            _entry("docId", str(c.get("docId") or "")),
+            _entry("chunkId", str(c.get("chunkId") or "")),
+        ]
+        if snippets:
+            text = str(c.get("snippet") or "").strip().replace("\n", " ")
+            out.append(_entry("snippet", text[:240] + ("…" if len(text) > 240 else "")))
+        return out
+
+    return [
+        {
+            "key": "sources",
+            "valueMap": [
+                {"key": str(i), "valueMap": fields(c)} for i, c in enumerate(shown)
+            ],
+        }
+    ]
+
+
 def sources_surface(surface_id: str, citations: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Build the 'Sources' surface for one answer as a list of A2UI messages."""
     shown = citations[:MAX_SOURCES]
@@ -87,38 +252,4 @@ def sources_surface(surface_id: str, citations: list[dict[str, Any]]) -> list[di
             _component(f"open-text-{i}", "Text", {"text": {"literalString": "Open"}}),
         ]
 
-    contents = [
-        {
-            "key": "sources",
-            "valueMap": [
-                {
-                    "key": str(i),
-                    "valueMap": [
-                        _entry("title", str(c.get("title") or c.get("docId") or "Untitled")),
-                        _entry("docId", str(c.get("docId") or "")),
-                        _entry("chunkId", str(c.get("chunkId") or "")),
-                    ],
-                }
-                for i, c in enumerate(shown)
-            ],
-        }
-    ]
-
-    return [
-        {
-            "version": VERSION,
-            "updateComponents": {"surfaceId": surface_id, "components": components},
-        },
-        {
-            "version": VERSION,
-            "updateDataModel": {"surfaceId": surface_id, "contents": contents},
-        },
-        {
-            "version": VERSION,
-            "createSurface": {
-                "surfaceId": surface_id,
-                "root": "root",
-                "catalogId": CATALOG_ID,
-            },
-        },
-    ]
+    return _messages(surface_id, components, _source_contents(shown))

@@ -132,3 +132,72 @@ class AgentService:
             return
         async for token in self._stream_model(self._messages(question, history, evidence)):
             yield token
+
+    async def plan_surface(
+        self, question: str, answer: str, documents: int
+    ) -> tuple[str, list[str]]:
+        """Let the model choose which panel suits this answer.
+
+        It returns an intent and, for follow-ups, the question text — never
+        component JSON. Studio composes the payload, so the worst a bad
+        completion can do is pick the wrong panel.
+        """
+        if documents == 0:
+            return "sources", []
+        prompt = (
+            "Choose how to present this answer. Reply with ONLY JSON: "
+            '{"surface":"sources|compare|followups","questions":["...","..."]}. '
+            'Use "compare" when the answer draws on several documents that differ. '
+            'Use "followups" when an obvious next question would help; put 2-3 short '
+            'questions in "questions". Otherwise use "sources".'
+        )
+        messages = [
+            {"role": "system", "content": prompt},
+            {
+                "role": "user",
+                "content": f"Question: {question}\nAnswer: {answer[:600]}\nDocuments: {documents}",
+            },
+        ]
+        try:
+            raw = await self._complete(messages)
+        except (httpx.HTTPError, ValueError, KeyError, IndexError):
+            return "sources", []
+
+        start, end = raw.find("{"), raw.rfind("}")
+        if start == -1 or end == -1:
+            return "sources", []
+        try:
+            data = json.loads(raw[start : end + 1])
+        except json.JSONDecodeError:
+            return "sources", []
+
+        surface = str(data.get("surface", "")).strip().lower()
+        if surface not in {"sources", "compare", "followups"}:
+            return "sources", []
+        questions = [
+            str(q).strip()
+            for q in (data.get("questions") or [])
+            if isinstance(q, (str, int, float)) and str(q).strip()
+        ][:3]
+        if surface == "followups" and not questions:
+            return "sources", []
+        return surface, questions
+
+    async def _complete(self, messages: list[dict[str, str]]) -> str:
+        """Single non-streamed completion, reusing the already-warm chat model.
+
+        Constrained JSON decoding is not optional here: a 3B model reliably picks
+        the right surface but will close an array with `}` left to itself.
+        """
+        url = f"{self._settings.model_base_url}/chat/completions"
+        payload = {
+            "model": self._settings.chat_model,
+            "messages": messages,
+            "stream": False,
+            "max_tokens": 160,
+            "response_format": {"type": "json_object"},
+        }
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            response = await client.post(url, json=payload)
+            response.raise_for_status()
+            return response.json()["choices"][0]["message"]["content"]

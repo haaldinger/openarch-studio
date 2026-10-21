@@ -58,3 +58,37 @@ def test_titles_fall_back_to_doc_id() -> None:
     contents = _messages()[1]["updateDataModel"]["contents"]
     second = contents[0]["valueMap"][1]["valueMap"]
     assert {"key": "title", "valueString": "d2"} in second
+
+
+def _types(messages) -> set[str]:
+    return {
+        kind
+        for entry in messages[0]["updateComponents"]["components"]
+        for kind in entry["component"]
+    }
+
+
+def test_comparison_surface_stays_in_catalog_and_truncates_snippets() -> None:
+    messages = a2ui.comparison_surface(
+        "s2", [{"docId": "d1", "title": "A", "snippet": "x" * 400}]
+    )
+    assert _types(messages) <= a2ui.SUPPORTED_COMPONENTS
+    snippet = next(
+        e["valueString"]
+        for e in messages[1]["updateDataModel"]["contents"][0]["valueMap"][0]["valueMap"]
+        if e["key"] == "snippet"
+    )
+    assert len(snippet) <= 241 and snippet.endswith("…")
+
+
+def test_followups_surface_binds_question_text() -> None:
+    messages = a2ui.followups_surface("s3", ["What is the total?", "Who signed it?"])
+    assert _types(messages) <= a2ui.SUPPORTED_COMPONENTS
+    actions = [
+        props["action"]["event"]["name"]
+        for entry in messages[0]["updateComponents"]["components"]
+        for props in entry["component"].values()
+        if "action" in props
+    ]
+    assert actions == ["ask_question", "ask_question"]
+

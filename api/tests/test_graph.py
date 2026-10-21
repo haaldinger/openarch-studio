@@ -7,7 +7,7 @@ import respx
 from fastapi.testclient import TestClient
 
 from app.config import Settings
-from app.graph import GraphService, parse_graph
+from app.graph import DocGraph, GraphService, parse_graph
 from app.models import Credentials
 
 OA = "http://openarch.test"
@@ -52,7 +52,23 @@ def test_parse_graph_recovers_edges_from_name_variants() -> None:
         '"relations":[{"source":"Acme","target":"Berlin","type":"located in"}]}'
     )
     g = parse_graph(raw)
-    assert g.relations == [("acme corporation", "berlin", "located in")]
+    assert g.relations == [("acme", "berlin", "located in")]
+
+
+def test_legal_suffix_and_case_variants_are_one_entity() -> None:
+    raw = (
+        '{"entities":[{"name":"HYLAND SOFTWARE","type":"Organization"},'
+        '{"name":"Hyland Software, Inc.","type":"Organization"}],"relations":[]}'
+    )
+    assert set(parse_graph(raw).entities) == {"hyland software"}
+
+
+def test_distinct_organizations_are_not_merged() -> None:
+    raw = (
+        '{"entities":[{"name":"Hyland Software","type":"Organization"},'
+        '{"name":"International Software","type":"Organization"}],"relations":[]}'
+    )
+    assert len(parse_graph(raw).entities) == 2
 
 
 @respx.mock
@@ -95,8 +111,37 @@ async def test_merged_excludes_unreadable_documents() -> None:
 
     merged = await service.merged(Credentials(username="u", password="p"))
     # The node survives (from 'ok'), but it is not attributed to the forbidden doc.
-    node = next(n for n in merged["nodes"] if n["id"] == "acme")
+    node = next(n for n in merged["nodes"] if n["label"] == "Acme")
     assert node["docIds"] == ["ok"]
+
+
+@respx.mock
+async def test_merged_collapses_name_variants_across_documents() -> None:
+    """Graphs stored before canonicalization existed must still de-duplicate."""
+    service = make_service()
+    service.store.put(
+        "d1",
+        DocGraph(entities={"hyland software": {"label": "HYLAND SOFTWARE", "type": "Organization"}}),
+    )
+    service.store.put(
+        "d2",
+        DocGraph(
+            entities={
+                "hyland software, inc.": {"label": "Hyland Software, Inc.", "type": "Organization"}
+            }
+        ),
+    )
+    for doc_id in ("d1", "d2"):
+        respx.get(f"{OA}/api/documents/{doc_id}").mock(
+            return_value=httpx.Response(200, json={"sys_id": doc_id})
+        )
+
+    merged = await service.merged(Credentials(username="u", password="p"))
+    assert len(merged["nodes"]) == 1
+    node = merged["nodes"][0]
+    # Both documents are credited, and the readable label wins over OCR'd caps.
+    assert sorted(node["docIds"]) == ["d1", "d2"]
+    assert node["label"] == "Hyland Software, Inc."
 
 
 @respx.mock

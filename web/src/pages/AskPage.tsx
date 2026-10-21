@@ -39,7 +39,11 @@ export function AskPage() {
 
   async function ask(event: FormEvent) {
     event.preventDefault();
-    const q = question.trim();
+    await askQuestion(question);
+  }
+
+  async function askQuestion(text: string) {
+    const q = text.trim();
     if (!q || busy) return;
     setQuestion("");
     setBusy(true);
@@ -124,6 +128,8 @@ export function AskPage() {
                   onAction={(name, context) => {
                     if (name === "open_document" && context.docId) {
                       navigate(`/documents/${context.docId}`);
+                    } else if (name === "ask_question" && context.question) {
+                      void askQuestion(context.question);
                     }
                   }}
                 />

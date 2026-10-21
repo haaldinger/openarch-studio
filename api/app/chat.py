@@ -84,8 +84,10 @@ async def chat(
         yield agui.event(
             agui.TEXT_MESSAGE_START, {"messageId": message_id, "role": "assistant"}
         )
+        answer = ""
         try:
             async for token in agent.stream_answer(body.question, history, evidence):
+                answer += token
                 yield agui.event(
                     agui.TEXT_MESSAGE_CONTENT, {"messageId": message_id, "delta": token}
                 )
@@ -111,15 +113,18 @@ async def chat(
             by_document: dict[str, dict[str, Any]] = {}
             for citation in citations:
                 by_document.setdefault(citation["docId"], citation)
-            yield agui.event(
-                agui.CUSTOM,
-                {
-                    "name": "a2ui",
-                    "value": a2ui.sources_surface(
-                        f"sources-{run_id}", list(by_document.values())
-                    ),
-                },
-            )
+            sources = list(by_document.values())
+
+            kind, questions = await agent.plan_surface(body.question, answer, len(sources))
+            surface_id = f"{kind}-{run_id}"
+            if kind == "compare" and len(sources) > 1:
+                surface = a2ui.comparison_surface(surface_id, sources)
+            elif kind == "followups":
+                surface = a2ui.followups_surface(surface_id, questions)
+            else:
+                surface = a2ui.sources_surface(surface_id, sources)
+
+            yield agui.event(agui.CUSTOM, {"name": "a2ui", "value": surface})
 
         yield agui.event(agui.RUN_FINISHED, {"runId": run_id})
 

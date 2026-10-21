@@ -970,6 +970,43 @@ select.modal-input {
   text-align: left;
   cursor: pointer;
 }
+.doc-row-wrap {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--line);
+}
+.doc-row-wrap:hover {
+  background: var(--paper-2);
+}
+.doc-row-wrap .doc-row-folder {
+  border-bottom: none;
+}
+.doc-row-delete {
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  background: none;
+  border: none;
+  color: var(--ink-faint);
+  opacity: 0;
+  cursor: pointer;
+  transition:
+    opacity 0.14s var(--ease),
+    color 0.14s var(--ease);
+}
+.doc-row-wrap:hover .doc-row-delete,
+.doc-row-delete:focus-visible {
+  opacity: 1;
+}
+.doc-row-delete:hover {
+  color: #b4231a;
+}
+/* Hover reveal is unreachable without a pointer. */
+@media (hover: none) {
+  .doc-row-delete {
+    opacity: 1;
+  }
+}
 
 /* ── Scope banner (Search / Ask / Graph) ─────────────────────────── */
 .scope-banner {

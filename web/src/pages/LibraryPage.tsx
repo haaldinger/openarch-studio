@@ -3,7 +3,7 @@ import { UploadCloud, FolderPlus, Target, ChevronRight } from "lucide-react";
 import { PageIntro } from "../components/PageIntro";
 import { DocumentRow } from "../components/DocumentRow";
 import { Modal } from "../components/Modal";
-import { ApiError, createFolder, listDocuments, uploadDocument } from "../api";
+import { ApiError, createFolder, deleteDocument, listDocuments, uploadDocument } from "../api";
 import { useScope } from "../scope";
 import type { DocumentSummary } from "../types";
 
@@ -26,6 +26,8 @@ export function LibraryPage() {
   const [folderOpen, setFolderOpen] = useState(false);
   const [folderName, setFolderName] = useState("");
   const [creating, setCreating] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<DocumentSummary | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
 
@@ -74,6 +76,22 @@ export function LibraryPage() {
       setError(err instanceof ApiError ? err.message : "Could not create folder.");
     } finally {
       setCreating(false);
+    }
+  }
+
+  async function handleDeleteFolder() {
+    if (!pendingDelete) return;
+    setDeleting(true);
+    setError(null);
+    try {
+      await deleteDocument(pendingDelete.id);
+      if (scope?.id === pendingDelete.id) setScope(null);
+      refresh();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Could not delete the folder.");
+    } finally {
+      setPendingDelete(null);
+      setDeleting(false);
     }
   }
 
@@ -180,6 +198,7 @@ export function LibraryPage() {
               onOpenFolder={(f) =>
                 setPath([...path, { id: f.id, name: f.title ?? f.name ?? f.id }])
               }
+              onDeleteFolder={setPendingDelete}
             />
           ))
         )}
@@ -233,6 +252,34 @@ export function LibraryPage() {
         <p className="modal-hint">
           Created in <strong>{current.name}</strong> as a native{" "}
           <span className="tag native">OpenArch</span> <code>SysFolder</code>.
+        </p>
+      </Modal>
+
+      <Modal
+        open={pendingDelete !== null}
+        title="Delete folder"
+        onClose={() => setPendingDelete(null)}
+        footer={
+          <>
+            <button type="button" className="btn-ghost" onClick={() => setPendingDelete(null)}>
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="btn-danger"
+              onClick={() => void handleDeleteFolder()}
+              disabled={deleting}
+            >
+              {deleting ? "Deleting…" : "Delete folder"}
+            </button>
+          </>
+        }
+      >
+        <p className="modal-hint">
+          Delete{" "}
+          <strong>{pendingDelete?.title ?? pendingDelete?.name ?? pendingDelete?.id}</strong> and
+          everything inside it? OpenArch removes the folder's documents and their embeddings, so
+          they also leave search, chat, and the graph. This cannot be undone.
         </p>
       </Modal>
     </>

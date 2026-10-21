@@ -36,6 +36,9 @@ class Settings(BaseSettings):
     # Baseline mode: disable every Studio extension and present only native
     # OpenArch out-of-the-box capabilities. Flip with STUDIO_BASELINE_MODE=true.
     baseline_mode: bool = False
+    # Emit the answer's sources as an A2UI surface the client renders from its
+    # own component catalog, instead of a hardcoded citation list.
+    a2ui_enabled: bool = True
 
 
 @lru_cache

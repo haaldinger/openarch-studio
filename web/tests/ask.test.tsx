@@ -15,11 +15,36 @@ function sseResponse(body: string): Response {
 }
 
 const SSE =
-  'event: retrieval\ndata: {"count": 2}\n\n' +
-  'event: token\ndata: {"token": "Hello "}\n\n' +
-  'event: token\ndata: {"token": "world"}\n\n' +
-  'event: citations\ndata: {"citations": [{"docId": "d1", "chunkId": "c1", "snippet": "a source chunk", "score": 0.9}]}\n\n' +
-  "event: done\ndata: {}\n\n";
+  'event: RUN_STARTED\ndata: {"type": "RUN_STARTED", "runId": "r1", "threadId": "r1"}\n\n' +
+  'event: TOOL_CALL_START\ndata: {"type": "TOOL_CALL_START", "toolCallId": "t1", "toolCallName": "search_documents"}\n\n' +
+  'event: TOOL_CALL_END\ndata: {"type": "TOOL_CALL_END", "toolCallId": "t1", "result": {"retrieved": 2, "readable": 2}}\n\n' +
+  'event: TEXT_MESSAGE_START\ndata: {"type": "TEXT_MESSAGE_START", "messageId": "m1"}\n\n' +
+  'event: TEXT_MESSAGE_CONTENT\ndata: {"type": "TEXT_MESSAGE_CONTENT", "delta": "Hello "}\n\n' +
+  'event: TEXT_MESSAGE_CONTENT\ndata: {"type": "TEXT_MESSAGE_CONTENT", "delta": "world"}\n\n' +
+  'event: TEXT_MESSAGE_END\ndata: {"type": "TEXT_MESSAGE_END", "messageId": "m1"}\n\n' +
+  'event: STATE_SNAPSHOT\ndata: {"type": "STATE_SNAPSHOT", "snapshot": {"citations": [{"docId": "d1", "chunkId": "c1", "snippet": "a source chunk", "score": 0.9}]}}\n\n' +
+  'event: RUN_FINISHED\ndata: {"type": "RUN_FINISHED", "runId": "r1"}\n\n';
+
+/** Same run, but the agent also composes the sources panel as an A2UI surface. */
+const SSE_WITH_SURFACE =
+  SSE.replace(
+    'event: RUN_FINISHED',
+    'event: CUSTOM\ndata: {"type": "CUSTOM", "name": "a2ui", "value": [' +
+      '{"version": "v0.9", "updateComponents": {"surfaceId": "s1", "components": [' +
+      '{"id": "root", "component": {"Card": {"child": "body"}}},' +
+      '{"id": "body", "component": {"Column": {"children": {"explicitList": ["title", "row-0"]}}}},' +
+      '{"id": "title", "component": {"Text": {"text": {"literalString": "Sources"}, "usageHint": "h5"}}},' +
+      '{"id": "row-0", "component": {"Row": {"children": {"explicitList": ["label-0", "open-0"]}}}},' +
+      '{"id": "label-0", "component": {"Text": {"text": {"path": "/sources/0/title"}}}},' +
+      '{"id": "open-0", "component": {"Button": {"child": "open-text-0", "action": {"event": {"name": "open_document", "context": {"docId": {"path": "/sources/0/docId"}}}}}}},' +
+      '{"id": "open-text-0", "component": {"Text": {"text": {"literalString": "Open"}}}},' +
+      '{"id": "evil", "component": {"ScriptTag": {"src": "http://attacker.test/x.js"}}}' +
+      ']}},' +
+      '{"version": "v0.9", "updateDataModel": {"surfaceId": "s1", "contents": [{"key": "sources", "valueMap": [{"key": "0", "valueMap": [{"key": "title", "valueString": "Aurora Standard"}, {"key": "docId", "valueString": "d1"}]}]}]}},' +
+      '{"version": "v0.9", "createSurface": {"surfaceId": "s1", "root": "root"}}' +
+      ']}\n\n' +
+      'event: RUN_FINISHED',
+  );
 
 beforeEach(() => vi.stubGlobal("fetch", vi.fn(async () => sseResponse(SSE))));
 afterEach(() => vi.unstubAllGlobals());
@@ -51,7 +76,9 @@ describe("Ask", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async () =>
-        sseResponse('event: error\ndata: {"message": "model down"}\n\nevent: done\ndata: {}\n\n'),
+        sseResponse(
+          'event: RUN_ERROR\ndata: {"type": "RUN_ERROR", "message": "model down"}\n\n',
+        ),
       ),
     );
     const user = userEvent.setup();
@@ -62,5 +89,21 @@ describe("Ask", () => {
 
     await waitFor(() => expect(screen.getByText("hi")).toBeInTheDocument());
     expect(screen.getByRole("alert")).toHaveTextContent(/model down/i);
+  });
+
+  it("renders an agent-composed A2UI surface and ignores types outside the catalog", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => sseResponse(SSE_WITH_SURFACE)));
+    const user = userEvent.setup();
+    renderAsk();
+
+    await user.type(screen.getByLabelText(/your question/i), "what is the policy?");
+    await user.click(screen.getByRole("button", { name: /^ask$/i }));
+
+    // Bound from the surface data model, not from a hardcoded component.
+    await waitFor(() => expect(screen.getByText("Aurora Standard")).toBeInTheDocument());
+    expect(screen.getByRole("button", { name: /open/i })).toBeInTheDocument();
+    // The payload asked for a ScriptTag; it is not in the catalog, so it is dropped.
+    expect(document.querySelector("script[src*='attacker']")).toBeNull();
+    expect(screen.queryByText(/attacker/)).not.toBeInTheDocument();
   });
 });

@@ -1,8 +1,11 @@
 import { useRef, useState, type FormEvent } from "react";
+import { useNavigate } from "react-router-dom";
 import { PageIntro } from "../components/PageIntro";
 import { ScopeBanner } from "../components/ScopeBanner";
 import { CitationList } from "../components/CitationList";
 import { RetrievalTrace } from "../components/RetrievalTrace";
+import { A2uiSurface } from "../components/a2ui/A2uiSurface";
+import type { A2uiMessage } from "../components/a2ui/types";
 import { streamChat } from "../api";
 import { useScope } from "../scope";
 import type { Citation, ChatMessage } from "../types";
@@ -12,12 +15,15 @@ interface Turn {
   answer: string;
   citations: Citation[];
   retrieved: number | null;
+  searching: boolean;
+  surface: A2uiMessage[] | null;
   error: string | null;
   streaming: boolean;
 }
 
 export function AskPage() {
   const { scope } = useScope();
+  const navigate = useNavigate();
   const [turns, setTurns] = useState<Turn[]>([]);
   const [question, setQuestion] = useState("");
   const [busy, setBusy] = useState(false);
@@ -39,7 +45,16 @@ export function AskPage() {
     setBusy(true);
     setTurns((prev) => [
       ...prev,
-      { question: q, answer: "", citations: [], retrieved: null, error: null, streaming: true },
+      {
+        question: q,
+        answer: "",
+        citations: [],
+        retrieved: null,
+        searching: false,
+        surface: null,
+        error: null,
+        streaming: true,
+      },
     ]);
 
     let answer = "";
@@ -48,13 +63,15 @@ export function AskPage() {
         q,
         historyRef.current,
         {
-          onRetrieval: (count) => patchLast({ retrieved: count }),
+          onRetrievalStart: () => patchLast({ searching: true }),
+          onRetrieval: (count) => patchLast({ retrieved: count, searching: false }),
           onToken: (token) => {
             answer += token;
             patchLast({ answer });
           },
           onCitations: (citations) => patchLast({ citations }),
-          onError: (message) => patchLast({ error: message }),
+          onSurface: (surface) => patchLast({ surface }),
+          onError: (message) => patchLast({ error: message, searching: false }),
           onDone: () => patchLast({ streaming: false }),
         },
         scope?.id,
@@ -67,7 +84,7 @@ export function AskPage() {
     } catch {
       patchLast({ error: "The answer could not be generated. Your question is kept — try again." });
     } finally {
-      patchLast({ streaming: false });
+      patchLast({ streaming: false, searching: false });
       setBusy(false);
     }
   }
@@ -90,13 +107,29 @@ export function AskPage() {
           <div className="turn" key={i}>
             <p className="turn-q">{turn.question}</p>
             <div className="turn-a">
-              {turn.answer || (turn.streaming ? <span className="muted">Thinking…</span> : null)}
+              {turn.searching && (
+                <p className="muted inline-status" role="status">
+                  Searching documents you can read…
+                </p>
+              )}
+              {turn.answer || (turn.streaming && !turn.searching ? <span className="muted">Thinking…</span> : null)}
               {turn.error && (
                 <p className="form-error" role="alert">
                   {turn.error}
                 </p>
               )}
-              <CitationList citations={turn.citations} />
+              {turn.surface ? (
+                <A2uiSurface
+                  messages={turn.surface}
+                  onAction={(name, context) => {
+                    if (name === "open_document" && context.docId) {
+                      navigate(`/documents/${context.docId}`);
+                    }
+                  }}
+                />
+              ) : (
+                <CitationList citations={turn.citations} />
+              )}
               <RetrievalTrace count={turn.retrieved} />
             </div>
           </div>

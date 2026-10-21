@@ -46,6 +46,8 @@ _EXTENSIONS = [
     ("Knowledge graph extraction & visualization", "Studio + model", "Typed entities & relations from enriched text.", "/api/graph"),
     ("Folder-scoped retrieval & graph", "Studio", "Scope search, chat & graph to one folder subtree.", "sys_ancestorIds"),
     ("Citations & retrieval trace", "Studio", "Every answer links to permitted sources.", "web/Ask"),
+    ("AG-UI shaped event stream", "Studio", "Run, tool-call and message lifecycle events over SSE.", "/api/chat"),
+    ("A2UI generative surfaces", "Studio", "Agent-composed UI rendered from the client's own catalog.", "/api/chat CUSTOM a2ui"),
     ("Deletion reflected in Q&A & graph", "Studio", "Removed documents leave retrieval and the graph.", "DELETE /api/documents/{id}"),
     ("Same-origin session gateway", "Studio", "Memory-only Basic-auth session.", "/api/session"),
 ]

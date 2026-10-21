@@ -109,10 +109,37 @@ def test_chat_route_streams_sse_with_citations(client: TestClient) -> None:
     response = client.post("/api/chat", json={"question": "what?"})
     assert response.status_code == 200
     body = response.text
-    assert "event: retrieval" in body
-    assert "event: token" in body
-    assert "event: citations" in body and '"docId": "d1"' in body
-    assert "event: done" in body
+    # AG-UI shaped lifecycle: the run opens before retrieval, so the client can
+    # show the search happening instead of waiting on a blocked stream.
+    assert body.index("event: RUN_STARTED") < body.index("event: TOOL_CALL_START")
+    assert body.index("event: TOOL_CALL_START") < body.index("event: TOOL_CALL_END")
+    assert "event: TEXT_MESSAGE_CONTENT" in body
+    assert "event: STATE_SNAPSHOT" in body and '"docId": "d1"' in body
+    assert "event: RUN_FINISHED" in body
+
+
+@respx.mock
+def test_chat_emits_a2ui_surface_for_citations(client: TestClient) -> None:
+    respx.get(ROOT).mock(return_value=httpx.Response(200, json={"sys_id": "root"}))
+    client.post("/api/session", json={"username": "admin", "password": "p"})
+
+    respx.post(EMBED).mock(return_value=httpx.Response(200, json={"data": [{"embedding": [0.1]}]}))
+    respx.post(f"{OA}/api/query").mock(return_value=httpx.Response(200, json={"documents": [{"sys_id": "d1"}]}))
+    respx.post(VECTOR_QUERY).mock(
+        return_value=httpx.Response(
+            200,
+            json={"embeddings": [{"sysembed_docId": "d1", "sysembed_id": "c1", "sysembed_text": "ctx"}]},
+        )
+    )
+    respx.get(f"{OA}/api/documents/d1").mock(return_value=httpx.Response(200, json={"sys_id": "d1"}))
+    respx.post(CHAT).mock(
+        return_value=httpx.Response(200, text='data: {"choices":[{"delta":{"content":"A"}}]}\n\ndata: [DONE]\n\n')
+    )
+
+    body = client.post("/api/chat", json={"question": "what?"}).text
+    assert "event: CUSTOM" in body and '"name": "a2ui"' in body
+    # v0.9 requires the surface to be created after its components and data.
+    assert body.index("updateComponents") < body.index("createSurface")
 
 
 def test_chat_requires_authentication(client: TestClient) -> None:

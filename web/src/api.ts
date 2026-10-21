@@ -1,3 +1,4 @@
+import type { A2uiMessage } from "./components/a2ui/types";
 import type {
   AppConfig,
   Citation,
@@ -186,9 +187,11 @@ export function search(
 }
 
 export interface ChatHandlers {
+  onRetrievalStart?: (toolName: string) => void;
   onRetrieval?: (count: number) => void;
   onToken: (token: string) => void;
   onCitations: (citations: Citation[]) => void;
+  onSurface?: (messages: A2uiMessage[]) => void;
   onError?: (message: string) => void;
   onDone?: () => void;
 }
@@ -233,11 +236,14 @@ export async function streamChat(
       }
       if (!data) continue;
       const payload = JSON.parse(data);
-      if (event === "retrieval") handlers.onRetrieval?.(payload.count);
-      else if (event === "token") handlers.onToken(payload.token);
-      else if (event === "citations") handlers.onCitations(payload.citations);
-      else if (event === "error") handlers.onError?.(payload.message);
-      else if (event === "done") handlers.onDone?.();
+      const type = payload.type ?? event;
+      if (type === "TOOL_CALL_START") handlers.onRetrievalStart?.(payload.toolCallName);
+      else if (type === "TOOL_CALL_END") handlers.onRetrieval?.(payload.result?.readable ?? 0);
+      else if (type === "TEXT_MESSAGE_CONTENT") handlers.onToken(payload.delta ?? "");
+      else if (type === "STATE_SNAPSHOT") handlers.onCitations(payload.snapshot?.citations ?? []);
+      else if (type === "CUSTOM" && payload.name === "a2ui") handlers.onSurface?.(payload.value);
+      else if (type === "RUN_ERROR") handlers.onError?.(payload.message);
+      else if (type === "RUN_FINISHED") handlers.onDone?.();
     }
   }
 }

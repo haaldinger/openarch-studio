@@ -1008,6 +1008,70 @@ select.modal-input {
   }
 }
 
+/* ── A2UI surfaces ──────────────────────────────────────────────────
+   Agent-composed panels. The agent sends structure only; every visual
+   decision below belongs to the host, which is the point of the format. */
+.a2ui-surface {
+  margin-top: 14px;
+}
+.a2ui-card {
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  background: transparent;
+}
+.a2ui-col {
+  display: flex;
+  flex-direction: column;
+}
+.a2ui-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 5px 0;
+}
+.a2ui-row[data-justify="spaceBetween"] {
+  justify-content: space-between;
+}
+.a2ui-divider {
+  border: none;
+  border-top: 1px solid var(--line);
+  margin: 8px 0;
+  width: 100%;
+}
+.a2ui-heading {
+  font-size: 0.78rem;
+  font-weight: 750;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  margin: 0;
+}
+.a2ui-text {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.a2ui-caption {
+  margin: 6px 0 0;
+  font-size: 0.78rem;
+  color: var(--ink-faint);
+}
+.a2ui-button {
+  background: none;
+  border: none;
+  padding: 4px 6px;
+  font: inherit;
+  font-weight: 600;
+  color: var(--studio);
+  cursor: pointer;
+  border-radius: 6px;
+  flex: none;
+}
+.a2ui-button:hover {
+  background: var(--studio-bg);
+}
+
 /* ── Scope banner (Search / Ask / Graph) ─────────────────────────── */
 .scope-banner {
   display: flex;

@@ -1,6 +1,8 @@
 pyproject.toml
 app/__init__.py
+app/a2ui.py
 app/agent.py
+app/agui.py
 app/auth.py
 app/baseline.py
 app/capabilities.py
@@ -22,6 +24,7 @@ openarch_studio_api.egg-info/SOURCES.txt
 openarch_studio_api.egg-info/dependency_links.txt
 openarch_studio_api.egg-info/requires.txt
 openarch_studio_api.egg-info/top_level.txt
+tests/test_a2ui.py
 tests/test_agent.py
 tests/test_auth.py
 tests/test_baseline.py

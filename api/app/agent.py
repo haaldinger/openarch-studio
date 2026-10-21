@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import Any, AsyncIterator
+from typing import AsyncIterator
 
 import httpx
 
@@ -66,17 +66,28 @@ class AgentService:
         ]
 
     async def verify(
-        self, evidence: list[Evidence], credentials: Credentials
+        self,
+        evidence: list[Evidence],
+        credentials: Credentials,
+        titles: dict[str, str] | None = None,
     ) -> list[Evidence]:
-        """Drop any cited document the caller can no longer read (no cached-text leak)."""
+        """Drop any cited document the caller can no longer read (no cached-text leak).
+
+        Collects titles along the way when asked, since this already fetches each
+        document and a second round trip would buy nothing.
+        """
         client = OpenArchClient(self._settings.openarch_url, credentials)
         allowed: dict[str, bool] = {}
         kept: list[Evidence] = []
         for item in evidence:
             if item.doc_id not in allowed:
                 try:
-                    await client.get_document(item.doc_id)
+                    document = await client.get_document(item.doc_id)
                     allowed[item.doc_id] = True
+                    if titles is not None:
+                        titles[item.doc_id] = (
+                            document.get("sys_title") or document.get("sys_name") or item.doc_id
+                        )
                 except (OpenArchForbidden, OpenArchNotFound):
                     allowed[item.doc_id] = False
             if allowed[item.doc_id]:
@@ -121,7 +132,3 @@ class AgentService:
             return
         async for token in self._stream_model(self._messages(question, history, evidence)):
             yield token
-
-
-def sse(event: str, data: Any) -> str:
-    return f"event: {event}\ndata: {json.dumps(data)}\n\n"

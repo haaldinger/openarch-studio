@@ -12,3 +12,9 @@ docs/pdf/preview/
 docs/pdf/diagrams/cap-*/
 
 docs/pdf/deckpreview/
+
+# macOS
+.DS_Store
+
+# stray npm lockfile at repo root (no package.json here)
+/package-lock.json

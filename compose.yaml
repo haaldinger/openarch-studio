@@ -19,11 +19,13 @@ services:
     environment:
       STUDIO_OPENARCH_URL: http://openarch-app:8080
       STUDIO_TIKA_URL: http://tika:9998
-      STUDIO_MODEL_BASE_URL: http://ollama:11434/v1
+      STUDIO_MODEL_BASE_URL: ${STUDIO_MODEL_BASE_URL:-http://ollama:11434/v1}
       STUDIO_EMBEDDING_MODEL: ${STUDIO_EMBEDDING_MODEL:-nomic-embed-text}
       STUDIO_CHAT_MODEL: ${STUDIO_CHAT_MODEL:-llama3.1}
       STUDIO_GRAPH_MODEL: ${STUDIO_GRAPH_MODEL:-llama3.2:1b}
       STUDIO_GRAPH_STORE_PATH: /data/graph.json
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - studio-data:/data
     depends_on:

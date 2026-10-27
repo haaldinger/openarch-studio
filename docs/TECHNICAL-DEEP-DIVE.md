@@ -245,9 +245,12 @@ embedding model variant produced the stored vectors.
 Hugging Face text-embeddings-inference (`POST {STUDIO_RERANKER_URL}/rerank`).
 Semantic search, keyword search and chat retrieval use it; HXQL does not.
 
-- **Candidates.** Studio asks OpenArch's ACL-filtered kNN for `min(top_k * 2, 12)`
-  hits (never fewer than `top_k`), reranks them, and keeps `top_k`. Reranking only
-  reorders what the caller was already permitted to read.
+- **Candidates.** Semantic search asks OpenArch's ACL-filtered kNN for
+  `max(top_k, min(top_k * 2, 12))` hits, reranks them, and keeps `top_k`. Ask uses
+  the same count only when a reranker is configured; otherwise it uses `top_k`.
+  Keyword search fetches 50 chunk hits, keeps those containing the query terms,
+  and reranks the first `max(limit, 12)` of them. Reranking only reorders what the
+  caller was already permitted to read.
 - **Truncation.** Each text is cut to 512 characters before it is sent.
 - **Fallback.** `STUDIO_RERANKER_URL` empty, a 5 s timeout, a non-2xx response, an
   unreachable service, or a malformed response keeps vector order. The search
@@ -259,8 +262,8 @@ Semantic search, keyword search and chat retrieval use it; HXQL does not.
 - **Why `bge-reranker-base`, and why 12 candidates.** The first choice,
   `BAAI/bge-reranker-v2-m3`, was OOM-killed at TEI's default batch size and took
   56 s for 30 candidates on Docker CPU. `BAAI/bge-reranker-base` with
-  `--max-batch-tokens 4096` and the smaller candidate set are sized to fit the 5 s
-  timeout on CPU. Larger models are a `STUDIO_RERANK_MODEL` change if you have the
+  `--max-batch-tokens 4096` and the smaller candidate set are chosen to stay within
+  the 5 s timeout on Docker CPU (from a local benchmark). Larger models are a `STUDIO_RERANK_MODEL` change if you have the
   hardware.
 
 ---
@@ -420,7 +423,7 @@ All settings are `STUDIO_`-prefixed env vars with Compose-friendly defaults
 | `STUDIO_CHAT_MODEL` | `llama3.2:3b` | RAG answers (chat role) |
 | `STUDIO_EXTRACT_MODEL` | `llama3.2:3b` | graph, document classification + field extraction (extract role); `STUDIO_GRAPH_MODEL` is a deprecated alias, used only when this is unset |
 | `STUDIO_RERANK_MODEL` | `BAAI/bge-reranker-base` | cross-encoder the `reranker` service loads (rerank role) |
-| `STUDIO_RERANKER_URL` | `http://reranker:80` | reranker endpoint; empty disables reranking |
+| `STUDIO_RERANKER_URL` | `http://reranker:80` (Compose default; API default empty = off) | reranker endpoint; empty disables reranking |
 | `STUDIO_RERANKER_IMAGE` | `…text-embeddings-inference:cpu-arm64-1.9` | Compose-only; `…:cpu-1.9` on x86_64 |
 | `enrich_concurrency` | `2` | max concurrent enrichments |
 | `STUDIO_GRAPH_STORE_PATH` | `/data/graph.json` | persisted graph |
@@ -464,10 +467,10 @@ Open `http://localhost:8900`, sign in with OpenArch credentials
 
 ## 13. Testing
 
-- **API:** `cd api && .venv/bin/pytest -q` (117 passing) — covers the Parquet
+- **API:** `cd api && .venv/bin/pytest -q` (256 passing) — covers the Parquet
   schema/normalization, search modes, agent retrieve/verify, capability
   attribution invariants, graph parsing/merge/scope, and deletion.
-- **Web:** `cd web && npx vitest run` (16 passing) and `npx tsc -b --noEmit`.
+- **Web:** `cd web && npx vitest run` (28 passing) and `npx tsc -b --noEmit`.
 
 ---
 

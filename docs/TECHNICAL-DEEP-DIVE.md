@@ -149,8 +149,9 @@ flowchart LR
    or `Tika · n chars`. The Docling timeout is `STUDIO_DOCLING_TIMEOUT_SECONDS`
    (default **300 s**); OCR of large multi-page scans is slow.
 3. **chunked** — `chunk_pages()` works page by page: each page is split on
-   headings and blank lines, so a paragraph, list or table is one block. Tables
-   stay whole; other blocks are hard-wrapped at 1000 chars. The nearest
+   headings and blank lines, so a paragraph, list or table is one block. A table
+   stays whole when it fits, otherwise it is split on row boundaries; other blocks are
+   hard-wrapped at 1000 chars. The nearest
    preceding heading is prefixed to each chunk for context. Chunk ids are
    deterministic (`uuid5`) so the same text always yields the same ids, and the
    real page number is stored in the SysEmbeddings `location.text.page`.
@@ -379,17 +380,17 @@ Open `http://localhost:8900`, sign in with OpenArch credentials
 
 ## 13. Testing
 
-- **API:** `cd api && .venv/bin/pytest -q` (60 passing) — covers the Parquet
+- **API:** `cd api && .venv/bin/pytest -q` (117 passing) — covers the Parquet
   schema/normalization, search modes, agent retrieve/verify, capability
   attribution invariants, graph parsing/merge/scope, and deletion.
-- **Web:** `cd web && npx vitest run` (13 passing) and `npx tsc -b --noEmit`.
+- **Web:** `cd web && npx vitest run` (16 passing) and `npx tsc -b --noEmit`.
 
 ---
 
 ## 14. Known limitations & upstream findings
 
-- **OCR language packs.** Docling's OCR and Tika's default Tesseract data cover Latin scripts
-  well; Greek/Czech/Polish scans need extra `tessdata` for best accuracy.
+- **OCR language coverage** has not been verified for non-Latin or less common scripts; test
+  representative scans before relying on them.
 - **Keyword search** depends on the embedding index rather than server-side
   `sys_fulltext` in this deployment (see §5).
 - **Build-from-source.** The public OpenArch image is gated, so the POC builds

@@ -3,7 +3,7 @@ import type { JobStage } from "../types";
 // Which layer owns each enrichment stage — shown so the pipeline's provenance is explicit.
 const OWNER: Record<string, string> = {
   stored: "OpenArch",
-  extracted: "Studio + Tika",
+  extracted: "Studio + Docling (Tika fallback)",
   chunked: "Studio",
   embedded: "Studio + model",
   indexed: "OpenArch",

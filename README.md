@@ -104,7 +104,7 @@ npm run dev         # http://localhost:5173, proxies /api to localhost:8800
 ## Supported formats
 
 PDF, DOCX, TXT, Markdown, HTML (`.html`, `.htm`), and scanned images (TIFF, PNG, JPEG, GIF, BMP).
-Docling extracts them to Markdown with OCR; if it fails, Tika takes over. Unsupported types are
+Docling extracts them (OCR for scanned images); Tika takes over for anything Docling can't process. Unsupported types are
 rejected at upload. Extraction or embedding failures leave the original document safely stored in
 OpenArch and are retryable from **Activity**.
 
@@ -127,19 +127,27 @@ a document enriched here is queryable by the broader
 
 ## Third-party components
 
-Licenses below were checked against each upstream repository or model card.
+Licenses below were checked against each upstream repository or model card, at the versions the
+Docling image pins (docling-serve `v1.38.2` → Docling `2.142.1`), except where noted.
 
 | Component | Role | License | Link |
 |---|---|---|---|
-| docling-serve | Extraction service (HTTP API around Docling) | MIT | [LICENSE](https://github.com/docling-project/docling-serve/blob/main/LICENSE) |
-| Docling | Document conversion library | MIT | [LICENSE](https://github.com/docling-project/docling/blob/main/LICENSE) |
-| docling-layout-heron | Docling layout-analysis model | Apache-2.0 | [model card](https://huggingface.co/docling-project/docling-layout-heron) |
-| TableFormer (`docling-models`) | Docling table-structure model | CDLA-Permissive-2.0 or Apache-2.0 (dual) | [model card](https://huggingface.co/docling-project/docling-models) |
+| docling-serve | Extraction service (HTTP API around Docling) | MIT | [LICENSE](https://github.com/docling-project/docling-serve/blob/v1.38.2/LICENSE) |
+| Docling | Document conversion library | MIT | [LICENSE](https://github.com/docling-project/docling/blob/v2.142.1/LICENSE) |
+| docling-layout-heron (and its ONNX export) | Docling layout-analysis model | Apache-2.0 | [model card](https://huggingface.co/docling-project/docling-layout-heron), [ONNX card](https://huggingface.co/docling-project/docling-layout-heron-onnx) |
+| TableFormer (`docling-models` v2.3.0) | Docling table-structure model | CDLA-Permissive-2.0 | [model card](https://huggingface.co/docling-project/docling-models/blob/v2.3.0/README.md) |
+| DocumentFigureClassifier v2.5 | Docling picture-classifier model | MIT | [model card](https://huggingface.co/docling-project/DocumentFigureClassifier-v2.5) |
+| RapidOCR | OCR engine in the Docling image | Apache-2.0 | [LICENSE](https://github.com/RapidAI/RapidOCR/blob/main/LICENSE) |
+| PP-OCR models (via RapidOCR) | OCR detection/recognition models, converted from PaddleOCR | Apache-2.0 | [RapidOCR README, Models](https://github.com/RapidAI/RapidOCR/blob/v3.10.0/README.md#-license) |
+| EasyOCR | OCR engine in the Docling image | Apache-2.0 (code) | [LICENSE](https://github.com/JaidedAI/EasyOCR/blob/master/LICENSE) |
 | Apache Tika | Fallback text and metadata extraction | Apache-2.0 | [LICENSE](https://github.com/apache/tika/blob/main/LICENSE.txt) |
 | Ollama | Local model runtime | MIT | [LICENSE](https://github.com/ollama/ollama/blob/main/LICENSE) |
 | nomic-embed-text | Embedding model | Apache-2.0 | [model card](https://huggingface.co/nomic-ai/nomic-embed-text-v1.5) |
 | Llama 3.1 | Chat model | Llama 3.1 Community License | [license](https://github.com/meta-llama/llama-models/blob/main/models/llama3_1/LICENSE) |
 | Llama 3.2 | Knowledge-graph model | Llama 3.2 Community License | [license](https://github.com/meta-llama/llama-models/blob/main/models/llama3_2/LICENSE) |
+
+Bundled in the Docling image, license not yet verified: EasyOCR model weights (`craft_mlt_25k`,
+`english_g2`, `latin_g2`).
 
 **Built with Llama.**
 

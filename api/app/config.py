@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     # Graph extraction is structured and high-volume; keep it on a small fast model
     # so it doesn't bottleneck behind the heavier chat model.
     graph_model: str = "llama3.2:1b"
-    # Max documents enriched at once. OCR (Tika) and embedding (Ollama) are the
+    # Max documents enriched at once. Extraction (Docling, Tika fallback) and embedding (Ollama) are the
     # bottlenecks; a small limit keeps a large upload batch from overloading them.
     enrich_concurrency: int = 2
     # File path for persisting the extracted knowledge graph across restarts.

@@ -1,5 +1,5 @@
 # OpenArch Studio — companion POC stack.
-# Includes the OpenArch base stack and adds Studio API, UI, Tika, and Ollama.
+# Includes the OpenArch base stack and adds Studio API, UI, Docling (Tika fallback), and Ollama.
 # Run from this directory:  docker compose up -d --build
 name: openarch-studio
 

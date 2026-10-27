@@ -123,13 +123,28 @@ def _wrap_table(block: str, limit: int) -> list[str]:
 def chunk_pages(pages: list[str], *, max_chars: int = 1000) -> list[Chunk]:
     """Chunk per-page Markdown into blocks with real page numbers.
 
-    Each paragraph or table is one chunk. The latest heading, which carries across
+    Consecutive paragraphs under one heading on one page are packed into a chunk up
+    to `max_chars`; tables are never packed. The latest heading, which carries across
     pages, prefixes the chunks that follow it; oversized blocks are split to fit.
     """
     chunks: list[Chunk] = []
     heading = ""
     for page_number, page in enumerate(pages, start=1):
         paragraph = 0
+        pack = ""
+
+        def emit(text: str) -> None:
+            nonlocal paragraph
+            paragraph += 1
+            chunk_id = str(uuid.uuid5(_CHUNK_NAMESPACE, f"{len(chunks)}:{text}"))
+            chunks.append(Chunk(id=chunk_id, text=text, page=page_number, paragraph=paragraph))
+
+        def flush_pack() -> None:
+            nonlocal pack
+            if pack:
+                emit(pack)
+                pack = ""
+
         # Blank lines and heading lines both end a block; a heading line starts the next.
         segments: list[tuple[str, str]] = []
         for raw in _BLANK_LINE.split(page.replace("\r\n", "\n")):
@@ -144,6 +159,7 @@ def chunk_pages(pages: list[str], *, max_chars: int = 1000) -> list[Chunk]:
             segments.append(("body", "\n".join(lines)))
         for kind, content in segments:
             if kind == "heading":
+                flush_pack()
                 heading = content
                 continue
             block = content.strip()
@@ -151,12 +167,20 @@ def chunk_pages(pages: list[str], *, max_chars: int = 1000) -> list[Chunk]:
                 continue
             prefix = f"{heading}\n" if heading and len(heading) + 1 < max_chars else ""
             limit = max_chars - len(prefix)
-            is_table = all(line.startswith("|") for line in block.splitlines())
-            for piece in _wrap_table(block, limit) if is_table else _wrap(block, limit):
-                text = prefix + piece
-                paragraph += 1
-                chunk_id = str(uuid.uuid5(_CHUNK_NAMESPACE, f"{len(chunks)}:{text}"))
-                chunks.append(Chunk(id=chunk_id, text=text, page=page_number, paragraph=paragraph))
+            if all(line.startswith("|") for line in block.splitlines()):
+                flush_pack()
+                for piece in _wrap_table(block, limit):
+                    emit(prefix + piece)
+            elif len(block) > limit:
+                flush_pack()
+                for piece in _wrap(block, limit):
+                    emit(prefix + piece)
+            elif pack and len(pack) + 2 + len(block) <= max_chars:
+                pack = f"{pack}\n\n{block}"
+            else:
+                flush_pack()
+                pack = prefix + block
+        flush_pack()
     return chunks
 
 

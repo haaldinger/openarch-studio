@@ -125,10 +125,10 @@ def test_blank_pages_produce_no_chunks() -> None:
 
 
 def test_chunk_pages_ids_are_unique_and_deterministic() -> None:
-    pages = ["Same.\n\nSame.", "Same."]
+    pages = ["Same.\n\n| a |\n\nSame.", "Same."]
     first = chunk_pages(pages)
     assert [c.id for c in first] == [c.id for c in chunk_pages(pages)]
-    assert len({c.id for c in first}) == 3
+    assert len({c.id for c in first}) == 4
 
 
 def test_prefixed_long_paragraph_stays_within_max_chars() -> None:
@@ -143,9 +143,40 @@ def test_heading_line_without_blank_line_is_a_boundary() -> None:
 
 @pytest.mark.parametrize("sep", [" ", "\t"])
 def test_whitespace_only_lines_separate_blocks(sep: str) -> None:
-    assert [c.text for c in chunk_pages([f"a\n{sep}\nb"])] == ["a", "b"]
+    assert [c.text for c in chunk_pages([f"a\n{sep}\nb"])] == ["a\n\nb"]
+
+
+def test_short_blocks_pack_into_one_chunk() -> None:
+    page = "\n\n".join(f"Line {i}" for i in range(30))
+    chunks = chunk_pages([page])
+    assert len(chunks) == 1
+    assert "Line 0" in chunks[0].text and "Line 29" in chunks[0].text
+
+
+def test_packing_respects_max_chars() -> None:
+    blocks = [f"{i:02d}" + "x" * 38 for i in range(50)]
+    chunks = chunk_pages(["\n\n".join(blocks)], max_chars=500)
+    assert len(chunks) > 1
+    assert all(len(c.text) <= 500 for c in chunks)
+    packed = [part for c in chunks for part in c.text.split("\n\n")]
+    assert packed == blocks
+
+
+def test_table_is_not_packed_with_paragraphs() -> None:
+    chunks = chunk_pages(["Intro\n\n| a |\n|---|\n| 1 |\n\nOutro"])
+    assert [c.text for c in chunks] == ["Intro", "| a |\n|---|\n| 1 |", "Outro"]
+
+
+def test_heading_flushes_pack() -> None:
+    chunks = chunk_pages(["a\n\nb\n\n## H\n\nc\n\nd"])
+    assert [c.text for c in chunks] == ["a\n\nb", "## H\nc\n\nd"]
+
+
+def test_page_break_flushes_pack() -> None:
+    chunks = chunk_pages(["a\n\nb", "c"])
+    assert [(c.text, c.page, c.paragraph) for c in chunks] == [("a\n\nb", 1, 1), ("c", 2, 1)]
 
 
 def test_only_atx_headings_are_headings() -> None:
     chunks = chunk_pages(["#1 priority\n#hashtag\n\n####### seven"])
-    assert [c.text for c in chunks] == ["#1 priority\n#hashtag", "####### seven"]
+    assert [c.text for c in chunks] == ["#1 priority\n#hashtag\n\n####### seven"]

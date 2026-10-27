@@ -52,7 +52,7 @@ def _mock_openarch_write() -> None:
 
 @respx.mock
 async def test_happy_path_completes_all_stages() -> None:
-    respx.put(TIKA).mock(return_value=httpx.Response(200, text="Para one.\n\nPara two."))
+    respx.put(TIKA).mock(return_value=httpx.Response(200, text="Para one.\n\n## Next\n\nPara two."))
     respx.post(EMBED).mock(
         return_value=httpx.Response(
             200, json={"data": [{"embedding": [0.1, 0.2]}, {"embedding": [0.3, 0.4]}]}
@@ -156,7 +156,7 @@ async def test_mime_mismatch_preserves_document() -> None:
 
 @respx.mock
 async def test_embedding_count_mismatch_fails_before_write() -> None:
-    respx.put(TIKA).mock(return_value=httpx.Response(200, text="Para one.\n\nPara two."))
+    respx.put(TIKA).mock(return_value=httpx.Response(200, text="Para one.\n\n## Next\n\nPara two."))
     # Two chunks but only one embedding returned.
     respx.post(EMBED).mock(return_value=httpx.Response(200, json={"data": [{"embedding": [0.1]}]}))
     upload = respx.post(f"{OA}/api/upload").mock(return_value=httpx.Response(201, json={"id": "x"}))

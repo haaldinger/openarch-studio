@@ -22,6 +22,10 @@ class Settings(BaseSettings):
     extractor: str = "docling"
     docling_url: str = "http://docling:5001"
     docling_timeout_seconds: int = 300
+    # Cross-encoder reranker (text-embeddings-inference). Empty = not configured.
+    reranker_url: str = ""
+    # Informational: the service's model is set on the reranker container.
+    rerank_model: str = "BAAI/bge-reranker-base"
     # OpenAI-compatible model endpoint; Ollama is the default local runtime.
     model_base_url: str = "http://ollama:11434/v1"
     embedding_model: str = "nomic-embed-text"

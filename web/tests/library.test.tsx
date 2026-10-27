@@ -57,6 +57,27 @@ describe("Library", () => {
     expect(screen.getByText("Enriched")).toBeInTheDocument();
   });
 
+  it("shows a type chip when the summary has a document type", async () => {
+    vi.stubGlobal(
+      "fetch",
+      mockApi([
+        {
+          id: "d1",
+          title: "Invoice.pdf",
+          name: "Invoice.pdf",
+          primaryType: "SysFile",
+          isFolderish: false,
+          mixinTypes: [],
+          documentType: "invoice",
+          parentId: "root",
+        },
+      ]),
+    );
+    renderLibrary();
+    await waitFor(() => screen.getByText("Invoice.pdf"));
+    expect(screen.getByText("invoice")).toBeInTheDocument();
+  });
+
   it("uploads a chosen file and refreshes", async () => {
     const user = userEvent.setup();
     const fetchMock = mockApi([]);

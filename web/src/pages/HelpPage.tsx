@@ -75,7 +75,7 @@ const FEATURES: FeatureHelp[] = [
     icon: Activity,
     title: "Activity",
     to: "/activity",
-    body: "Live enrichment jobs, stage by stage: stored → extracted → chunked → embedded → indexed. Retry a job if a step fails.",
+    body: "Live enrichment jobs, stage by stage: stored → extracted → chunked → embedded → indexed → classified. Retry a job if a step fails.",
   },
   {
     icon: Layers,

@@ -32,7 +32,7 @@ const SYS_LABEL: Record<string, string> = {
   sys_creator: "Creator",
 };
 
-export function DocumentPage() {
+export function DocumentPage({ baselineMode = false }: { baselineMode?: boolean }) {
   const { docId } = useParams<{ docId: string }>();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -237,6 +237,10 @@ export function DocumentPage() {
               )}
             </span>
           </div>
+          <ExtractedFields
+            properties={doc.cinctx_contextProperties as Record<string, unknown> | undefined}
+            baselineMode={baselineMode}
+          />
         </div>
       )}
 
@@ -387,6 +391,32 @@ export function DocumentPage() {
         </p>
       </Modal>
     </>
+  );
+}
+
+function ExtractedFields({
+  properties,
+  baselineMode,
+}: {
+  properties?: Record<string, unknown>;
+  baselineMode: boolean;
+}) {
+  const type = properties?.document_type;
+  if (baselineMode || !properties || !type) return null;
+  const fields = Object.entries(properties).filter(([key]) => key !== "document_type");
+  return (
+    <section className="extracted" aria-label="Extracted fields">
+      <div className="extracted-head">
+        <span className="chip chip-type">{String(type)}</span>
+        <span className="panel-attr">AI-extracted · Studio + model</span>
+      </div>
+      {fields.map(([key, value]) => (
+        <div className="kv-row" key={key}>
+          <span className="kv-key">{key}</span>
+          <span className="kv-val">{formatValue(value)}</span>
+        </div>
+      ))}
+    </section>
   );
 }
 

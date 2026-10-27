@@ -53,6 +53,7 @@ def summarize(doc: dict[str, Any]) -> dict[str, Any]:
         "isFolderish": bool(doc.get("sys_isFolderish")),
         "modified": doc.get("sys_modified"),
         "mixinTypes": doc.get("sys_mixinTypes", []),
+        "documentType": (doc.get("cinctx_contextProperties") or {}).get("document_type"),
         "parentId": doc.get("sys_parentId"),
     }
 

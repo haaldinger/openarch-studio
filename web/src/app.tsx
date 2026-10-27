@@ -91,8 +91,8 @@ export function App() {
             path="/graph"
             element={baselineMode ? <Navigate to="/library" replace /> : <GraphPage />}
           />
-          <Route path="/documents" element={<DocumentPage />} />
-          <Route path="/documents/:docId" element={<DocumentPage />} />
+          <Route path="/documents" element={<DocumentPage baselineMode={baselineMode} />} />
+          <Route path="/documents/:docId" element={<DocumentPage baselineMode={baselineMode} />} />
           <Route
             path="/activity"
             element={baselineMode ? <Navigate to="/library" replace /> : <ActivityPage />}

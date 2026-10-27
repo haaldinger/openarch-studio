@@ -21,6 +21,9 @@ export function DocumentRow({ doc, onOpenFolder, onDeleteFolder }: DocumentRowPr
         <span className="doc-row-title">{label}</span>
         <span className="doc-row-sub">{doc.primaryType}</span>
       </span>
+      {!doc.isFolderish && doc.documentType && (
+        <span className="chip chip-type">{doc.documentType}</span>
+      )}
       {!doc.isFolderish && (
         <span className={enriched ? "chip chip-ready" : "chip chip-stored"}>
           {enriched ? "Enriched" : "Stored"}

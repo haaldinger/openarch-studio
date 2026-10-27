@@ -15,6 +15,7 @@ export interface DocumentSummary {
   isFolderish: boolean;
   modified: string | null;
   mixinTypes: string[];
+  documentType?: string | null;
   parentId: string | null;
 }
 

@@ -35,6 +35,10 @@ const HXQL_SAMPLES: { label: string; query: string }[] = [
     label: "By exact title",
     query: "SELECT * FROM SysFile WHERE sys_title = '21Greek_GR01_InvoiceNo.tif'",
   },
+  {
+    label: "Extracted total over 1000",
+    query: "SELECT * FROM SysContent WHERE cinctx_contextProperties.total > 1000",
+  },
 ];
 
 export function SearchPage() {

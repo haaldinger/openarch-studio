@@ -52,7 +52,7 @@ export function ActivityPage() {
                 <span className={`job-state job-${job.state}`}>{job.state}</span>
               </div>
               <EnrichmentStatus stages={job.stages} />
-              {job.state === "failed" && (
+              {(job.state === "failed" || job.stages.some((s) => s.status === "failed")) && (
                 <div className="job-foot">
                   {job.error && <span className="job-error">{job.error}</span>}
                   <button

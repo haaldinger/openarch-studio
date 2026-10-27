@@ -53,8 +53,18 @@ def test_browse_lists_children_as_summaries(client: TestClient) -> None:
         "isFolderish": False,
         "modified": None,
         "mixinTypes": [],
+        "documentType": None,
         "parentId": ROOT_ID,
     }
+
+
+def test_summarize_exposes_document_type() -> None:
+    from app.library import summarize
+
+    doc = {"sys_id": "d1", "cinctx_contextProperties": {"document_type": "invoice"}}
+
+    assert summarize(doc)["documentType"] == "invoice"
+    assert summarize({"sys_id": "d2"})["documentType"] is None
 
 
 @respx.mock

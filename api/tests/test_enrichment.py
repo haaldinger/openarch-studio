@@ -2,25 +2,32 @@
 
 from __future__ import annotations
 
+import io
+
 import httpx
+import pyarrow.parquet as pq
 import respx
 
 from app.config import Settings
 from app.enrichment import EnrichmentService
+from app.extraction import PAGE_BREAK
 from app.models import Credentials
 
 DOC = "doc1"
 OA = "http://openarch.test"
 TIKA = "http://tika.test/tika"
+DOCLING = "http://docling.test/v1/convert/file"
 EMBED = "http://model.test/v1/embeddings"
 
 
-def make_service() -> EnrichmentService:
+def make_service(extractor: str = "tika") -> EnrichmentService:
     settings = Settings(
         openarch_url=OA,
         tika_url="http://tika.test",
+        docling_url="http://docling.test",
         model_base_url="http://model.test/v1",
         embedding_model="nomic-embed-text",
+        extractor=extractor,
     )
     return EnrichmentService(settings)
 
@@ -60,6 +67,64 @@ async def test_happy_path_completes_all_stages() -> None:
     assert job.state == "complete"
     assert [s.status for s in job.stages] == ["done"] * 5
     assert job.stage("embedded").detail == "2 vectors"
+
+
+@respx.mock
+async def test_docling_pages_reach_parquet_locations() -> None:
+    respx.post(DOCLING).mock(
+        return_value=httpx.Response(
+            200,
+            json={"document": {"md_content": f"Page one.{PAGE_BREAK}Page two."}, "status": "success"},
+        )
+    )
+    respx.post(EMBED).mock(
+        return_value=httpx.Response(
+            200, json={"data": [{"embedding": [0.1, 0.2]}, {"embedding": [0.3, 0.4]}]}
+        )
+    )
+    _mock_openarch_write()
+
+    service = make_service(extractor="docling")
+    job = service.store.create(DOC, "a.pdf")
+    await service.run(job, creds(), content=b"%PDF", mime="application/pdf")
+
+    assert job.state == "complete"
+    assert job.stage("extracted").detail.startswith("Docling · ")
+    upload = next(c for c in respx.calls if c.request.url.path == "/api/upload")
+    table = pq.read_table(io.BytesIO(upload.request.content))
+    pages = [row["text"]["page"] for row in table.column("location").to_pylist()]
+    assert pages == [1, 2]
+
+
+@respx.mock
+async def test_extracted_stage_names_the_engine() -> None:
+    respx.post(DOCLING).mock(return_value=httpx.Response(500))
+    respx.put(TIKA).mock(return_value=httpx.Response(200, text="Para one."))
+    respx.post(EMBED).mock(
+        return_value=httpx.Response(200, json={"data": [{"embedding": [0.1, 0.2]}]})
+    )
+    _mock_openarch_write()
+
+    service = make_service(extractor="docling")
+    job = service.store.create(DOC, "a.pdf")
+    await service.run(job, creds(), content=b"%PDF", mime="application/pdf")
+
+    assert job.stage("extracted").detail.startswith("Tika fallback")
+
+
+@respx.mock
+async def test_tika_only_stage_detail_is_plain() -> None:
+    respx.put(TIKA).mock(return_value=httpx.Response(200, text="Para one."))
+    respx.post(EMBED).mock(
+        return_value=httpx.Response(200, json={"data": [{"embedding": [0.1, 0.2]}]})
+    )
+    _mock_openarch_write()
+
+    service = make_service()
+    job = service.store.create(DOC, "a.txt")
+    await service.run(job, creds(), content=b"x", mime="text/plain")
+
+    assert job.stage("extracted").detail == "Tika · 9 chars"
 
 
 @respx.mock

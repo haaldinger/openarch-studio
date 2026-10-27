@@ -15,6 +15,7 @@ def settings() -> Settings:
         openarch_url="http://openarch.test",
         tika_url="http://tika.test",
         model_base_url="http://model.test/v1",
+        extractor="tika",
     )
 
 

@@ -7,6 +7,7 @@ const OWNER: Record<string, string> = {
   chunked: "Studio",
   embedded: "Studio + model",
   indexed: "OpenArch",
+  classified: "Studio + model",
 };
 
 export function EnrichmentStatus({ stages }: { stages: JobStage[] }) {

@@ -8,6 +8,7 @@ from .auth import SessionStore
 from .baseline import require_extensions
 from .config import Settings, get_settings
 from .enrichment import EnrichmentService
+from .fields import FieldsService
 from .graph import GraphService
 from .jobs import router as jobs_router
 from .library import router as library_router
@@ -26,7 +27,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.baseline_mode = settings.baseline_mode
     app.state.sessions = SessionStore(settings.session_ttl_seconds)
     app.state.graph = GraphService(settings)
-    app.state.enrichment = EnrichmentService(settings, graph=app.state.graph)
+    app.state.enrichment = EnrichmentService(
+        settings, graph=app.state.graph, fields=FieldsService(settings)
+    )
     app.include_router(router)
     app.include_router(library_router)
     app.include_router(capabilities_router)

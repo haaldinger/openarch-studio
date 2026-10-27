@@ -21,13 +21,14 @@ import httpx
 from .config import Settings
 from .extraction import Extracted, build_extractor
 from .models import Credentials
-from .openarch import OpenArchClient
+from .openarch import OpenArchClient, OpenArchForbidden
 from .parquet import EmbeddedChunk, chunk_pages, normalize_vector, write_embeddings
 
 if False:  # typing-only import to avoid a runtime cycle
+    from .fields import FieldsService
     from .graph import GraphService
 
-STAGES = ["stored", "extracted", "chunked", "embedded", "indexed"]
+STAGES = ["stored", "extracted", "chunked", "embedded", "indexed", "classified"]
 _PARQUET_MIME = "application/x-parquet"
 
 
@@ -85,10 +86,12 @@ class EnrichmentService:
         store: JobStore | None = None,
         graph: "GraphService | None" = None,
         extractor: Any = None,
+        fields: "FieldsService | None" = None,
     ) -> None:
         self._settings = settings
         self.store = store or JobStore()
         self._graph = graph
+        self._fields = fields
         self._extractor = extractor or build_extractor(settings)
         # Bounds concurrent OCR/embedding work across a batch upload.
         self._sem = asyncio.Semaphore(max(1, settings.enrich_concurrency))
@@ -204,9 +207,33 @@ class EnrichmentService:
 
         job.state = "complete"
 
+        await self._classify(job, client, extracted.markdown)
+
         # Knowledge graph is additive: extract from the same text, never fail the job on it.
         if self._graph is not None:
             try:
                 await self._graph.extract(job.doc_id, extracted.markdown)
             except Exception:  # noqa: BLE001
                 pass
+
+    async def _classify(self, job: Job, client: OpenArchClient, markdown: str) -> None:
+        """Additive stage: failures are recorded on the stage, never on the job."""
+        stage = job.stage("classified")
+        if self._fields is None:
+            stage.status = "done"
+            stage.detail = "skipped"
+            return
+        stage.status = "running"
+        try:
+            vocabulary = await self._fields.vocabulary(client)
+            result = await self._fields.classify(markdown, vocabulary)
+            await self._fields.store(client, job.doc_id, result)
+        except OpenArchForbidden:
+            stage.status = "failed"
+            stage.detail = "no write permission on this document"
+        except Exception as exc:  # noqa: BLE001 - includes ValueError and httpx errors
+            stage.status = "failed"
+            stage.detail = str(exc) or type(exc).__name__
+        else:
+            stage.status = "done"
+            stage.detail = f"{result.document_type} · {len(result.fields)} fields"

@@ -9,8 +9,9 @@ import pyarrow.parquet as pq
 import respx
 
 from app.config import Settings
-from app.enrichment import EnrichmentService
+from app.enrichment import EnrichmentService, Job
 from app.extraction import PAGE_BREAK
+from app.fields import FieldsService
 from app.models import Credentials
 
 DOC = "doc1"
@@ -18,9 +19,10 @@ OA = "http://openarch.test"
 TIKA = "http://tika.test/tika"
 DOCLING = "http://docling.test/v1/convert/file"
 EMBED = "http://model.test/v1/embeddings"
+CHAT = "http://model.test/v1/chat/completions"
 
 
-def make_service(extractor: str = "tika") -> EnrichmentService:
+def make_service(extractor: str = "tika", with_fields: bool = False) -> EnrichmentService:
     settings = Settings(
         openarch_url=OA,
         tika_url="http://tika.test",
@@ -29,7 +31,9 @@ def make_service(extractor: str = "tika") -> EnrichmentService:
         embedding_model="nomic-embed-text",
         extractor=extractor,
     )
-    return EnrichmentService(settings)
+    return EnrichmentService(
+        settings, fields=FieldsService(settings) if with_fields else None
+    )
 
 
 def creds() -> Credentials:
@@ -65,8 +69,97 @@ async def test_happy_path_completes_all_stages() -> None:
     await service.run(job, creds(), content=b"ignored by tika mock", mime="text/plain")
 
     assert job.state == "complete"
-    assert [s.status for s in job.stages] == ["done"] * 5
+    assert [s.name for s in job.stages][-1] == "classified"
+    assert [s.status for s in job.stages] == ["done"] * 6
     assert job.stage("embedded").detail == "2 vectors"
+
+
+def _mock_pipeline_inputs() -> None:
+    respx.put(TIKA).mock(return_value=httpx.Response(200, text="Invoice from Acme."))
+    respx.post(EMBED).mock(
+        return_value=httpx.Response(200, json={"data": [{"embedding": [0.1, 0.2]}]})
+    )
+    respx.post(f"{OA}/api/query").mock(return_value=httpx.Response(200, json={"documents": []}))
+    _mock_openarch_write()
+
+
+def _model_reply(content: str) -> httpx.Response:
+    return httpx.Response(200, json={"choices": [{"message": {"content": content}}]})
+
+
+async def _run_with_fields() -> Job:
+    service = make_service(with_fields=True)
+    job = service.store.create(DOC, "a.txt")
+    await service.run(job, creds(), content=b"x", mime="text/plain")
+    return job
+
+
+@respx.mock
+async def test_classified_stage_records_type_and_count() -> None:
+    _mock_pipeline_inputs()
+    respx.post(CHAT).mock(
+        return_value=_model_reply('{"type": "invoice", "fields": {"vendor": "Acme", "total": "12.50"}}')
+    )
+
+    job = await _run_with_fields()
+
+    assert job.state == "complete"
+    assert job.stage("classified").status == "done"
+    assert job.stage("classified").detail == "invoice · 2 fields"
+
+
+@respx.mock
+async def test_classification_failure_keeps_job_complete() -> None:
+    _mock_pipeline_inputs()
+    respx.post(CHAT).mock(return_value=httpx.Response(500))
+
+    job = await _run_with_fields()
+
+    assert job.state == "complete"
+    assert job.stage("indexed").status == "done"
+    assert job.stage("classified").status == "failed"
+    assert job.stage("classified").detail
+
+
+@respx.mock
+async def test_invalid_model_json_detail() -> None:
+    _mock_pipeline_inputs()
+    respx.post(CHAT).mock(return_value=_model_reply("not json"))
+
+    job = await _run_with_fields()
+
+    assert job.state == "complete"
+    assert job.stage("classified").status == "failed"
+    assert job.stage("classified").detail == "model returned invalid JSON"
+
+
+@respx.mock
+async def test_no_write_permission_message() -> None:
+    _mock_pipeline_inputs()
+    respx.post(CHAT).mock(return_value=_model_reply('{"type": "invoice", "fields": {"a": "b"}}'))
+    # The first PUT is the embeddings mixin; the classification write is the second.
+    respx.put(f"{OA}/api/documents/{DOC}").mock(
+        side_effect=[httpx.Response(200, json={}), httpx.Response(403)]
+    )
+
+    job = await _run_with_fields()
+
+    assert job.state == "complete"
+    assert job.stage("classified").status == "failed"
+    assert job.stage("classified").detail == "no write permission on this document"
+
+
+@respx.mock
+async def test_without_fields_service_stage_is_skipped() -> None:
+    _mock_pipeline_inputs()
+
+    service = make_service()
+    job = service.store.create(DOC, "a.txt")
+    await service.run(job, creds(), content=b"x", mime="text/plain")
+
+    assert job.state == "complete"
+    assert job.stage("classified").status == "done"
+    assert job.stage("classified").detail == "skipped"
 
 
 @respx.mock

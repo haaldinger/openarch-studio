@@ -18,6 +18,10 @@ class Settings(BaseSettings):
     openarch_url: str = "http://openarch-app:8080"
     # Apache Tika extracts text and metadata from uploaded binaries.
     tika_url: str = "http://tika:9998"
+    # Text extractor: "docling" (layout-aware, Tika fallback) or "tika" only.
+    extractor: str = "docling"
+    docling_url: str = "http://docling:5001"
+    docling_timeout_seconds: int = 300
     # OpenAI-compatible model endpoint; Ollama is the default local runtime.
     model_base_url: str = "http://ollama:11434/v1"
     embedding_model: str = "nomic-embed-text"

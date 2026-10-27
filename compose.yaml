@@ -19,6 +19,8 @@ services:
     environment:
       STUDIO_OPENARCH_URL: http://openarch-app:8080
       STUDIO_TIKA_URL: http://tika:9998
+      STUDIO_EXTRACTOR: ${STUDIO_EXTRACTOR:-docling}
+      STUDIO_DOCLING_URL: http://docling:5001
       STUDIO_MODEL_BASE_URL: ${STUDIO_MODEL_BASE_URL:-http://ollama:11434/v1}
       STUDIO_EMBEDDING_MODEL: ${STUDIO_EMBEDDING_MODEL:-nomic-embed-text}
       STUDIO_CHAT_MODEL: ${STUDIO_CHAT_MODEL:-llama3.1}
@@ -31,6 +33,7 @@ services:
     depends_on:
       - openarch-app
       - tika
+      - docling
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8800/api/health').status==200 else 1)"]
       interval: 15s
@@ -48,6 +51,12 @@ services:
     image: apache/tika:2.9.2.1-full
     expose:
       - "9998"
+
+  # Layout-aware extraction (tables, reading order, OCR) to markdown; Tika is the fallback.
+  docling:
+    image: quay.io/docling-project/docling-serve-cpu:v1.38.2
+    expose:
+      - "5001"
 
   # Local model runtime (OpenAI-compatible). Pull models once after start:
   #   docker compose exec ollama ollama pull nomic-embed-text

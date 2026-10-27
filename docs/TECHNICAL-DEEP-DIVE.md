@@ -24,12 +24,14 @@ flowchart LR
     Docling["Docling :5001\n(layout-aware extraction + OCR)"]
     Tika["Apache Tika :9998\n(fallback text + OCR)"]
     Ollama["Ollama :11434\n(embeddings + chat)"]
+    Reranker["Reranker :80\n(TEI cross-encoder)"]
 
     Browser -->|same-origin /api/*| API
     API -->|HTTP Basic as the user| OA
     API -->|POST /v1/convert/file| Docling
     API -.->|PUT /tika on failure| Tika
     API -->|/v1/embeddings, /v1/chat| Ollama
+    API -.->|POST /rerank, optional| Reranker
     OA --> Mongo
     OA --> OS
 ```
@@ -42,6 +44,7 @@ flowchart LR
 | `docling` | `quay.io/docling-project/docling-serve-cpu:v1.38.2` | Primary extraction: layout-aware Markdown, tables, and OCR. Not published to the host. |
 | `tika` | `apache/tika:2.9.2.1-full` | Fallback extraction and **Tesseract OCR** of scanned images. |
 | `ollama` | `ollama/ollama:latest` | Local OpenAI-compatible embeddings and chat. |
+| `reranker` | `ghcr.io/huggingface/text-embeddings-inference:cpu-arm64-1.9` (`${STUDIO_RERANKER_IMAGE}`) | Cross-encoder reranking (`BAAI/bge-reranker-base`). Optional; weights cached in the `reranker-models` volume. |
 
 The Studio stack `include:`s the OpenArch base compose file, so one
 `docker compose up` brings up the whole thing. See
@@ -236,6 +239,30 @@ naming which layer did what and how long it took.
 `embeddingType` is passed as a wildcard (`<type>*`) so a query matches whatever
 embedding model variant produced the stored vectors.
 
+### Reranking
+
+[`rerank.py`](../api/app/rerank.py) reorders candidates with a cross-encoder served by
+Hugging Face text-embeddings-inference (`POST {STUDIO_RERANKER_URL}/rerank`).
+Semantic search, keyword search and chat retrieval use it; HXQL does not.
+
+- **Candidates.** Studio asks OpenArch's ACL-filtered kNN for `min(top_k * 2, 12)`
+  hits (never fewer than `top_k`), reranks them, and keeps `top_k`. Reranking only
+  reorders what the caller was already permitted to read.
+- **Truncation.** Each text is cut to 512 characters before it is sent.
+- **Fallback.** `STUDIO_RERANKER_URL` empty, a 5 s timeout, a non-2xx response, an
+  unreachable service, or a malformed response keeps vector order. The search
+  provenance and the chat `TOOL_CALL_END` event carry `rerank: reranked` or
+  `rerank: skipped (not configured | timeout | HTTP <code> | unreachable | incomplete response)`,
+  and the UI shows it.
+- **Scores.** Results and citations carry `score` (the rerank score when reranked)
+  and `vectorScore` (OpenArch's kNN score); the UI shows both on citations.
+- **Why `bge-reranker-base`, and why 12 candidates.** The first choice,
+  `BAAI/bge-reranker-v2-m3`, was OOM-killed at TEI's default batch size and took
+  56 s for 30 candidates on Docker CPU. `BAAI/bge-reranker-base` with
+  `--max-batch-tokens 4096` and the smaller candidate set are sized to fit the 5 s
+  timeout on CPU. Larger models are a `STUDIO_RERANK_MODEL` change if you have the
+  hardware.
+
 ---
 
 ## 6. RAG agent and streaming chat
@@ -252,6 +279,7 @@ sequenceDiagram
     participant M as Model
     U->>A: question
     A->>O: semantic_search (as user) → evidence
+    A->>A: rerank candidates (optional, falls back to vector order)
     A->>O: verify: re-GET each cited doc
     O-->>A: drop any now-forbidden doc
     A->>M: system + context + history + question (stream)
@@ -303,8 +331,8 @@ scoped graph showed only that document's entities.
 ## 8. Knowledge graph
 
 [`graph.py`](../api/app/graph.py) extracts a typed entity/relation graph from
-each enriched document using a **small, fast model** (`llama3.2:1b` by default,
-separate from the chat model so structured extraction doesn't block chat).
+each enriched document using the **extract model** (`STUDIO_EXTRACT_MODEL`,
+`llama3.2:3b` by default).
 
 - **Ontology:** `Person, Organization, Location, Policy, Concept, Role, Date`.
   The extractor is constrained to these types and ≤20 entities per doc.
@@ -351,7 +379,7 @@ Studio/Docling/Tika/Ollama and extensions never claim native status.
   indexing.
 - **Extensions (Studio / Studio + Docling (Tika fallback) / Studio+model):** visual workspace, OCR,
   inline viewer, text/metadata extraction, chunking & embedding, embeddings
-  inspection, guided search, RAG + streaming chat, graph extraction &
+  inspection, guided search, reranking, RAG + streaming chat, graph extraction &
   visualization, citations & retrieval trace, deletion reflected in Q&A & graph,
   the session gateway.
 
@@ -389,12 +417,30 @@ All settings are `STUDIO_`-prefixed env vars with Compose-friendly defaults
 | `STUDIO_DOCLING_TIMEOUT_SECONDS` | `300` | per-document Docling timeout |
 | `STUDIO_MODEL_BASE_URL` | `http://ollama:11434/v1` | OpenAI-compatible models |
 | `STUDIO_EMBEDDING_MODEL` | `nomic-embed-text` | chunk + query embeddings |
-| `STUDIO_CHAT_MODEL` | `llama3.1` | RAG answers |
-| `STUDIO_GRAPH_MODEL` | `llama3.2:1b` | graph extraction |
-| `STUDIO_EXTRACT_MODEL` | `llama3.2:3b` | document classification + field extraction |
+| `STUDIO_CHAT_MODEL` | `llama3.2:3b` | RAG answers (chat role) |
+| `STUDIO_EXTRACT_MODEL` | `llama3.2:3b` | graph, document classification + field extraction (extract role); `STUDIO_GRAPH_MODEL` is a deprecated alias, used only when this is unset |
+| `STUDIO_RERANK_MODEL` | `BAAI/bge-reranker-base` | cross-encoder the `reranker` service loads (rerank role) |
+| `STUDIO_RERANKER_URL` | `http://reranker:80` | reranker endpoint; empty disables reranking |
+| `STUDIO_RERANKER_IMAGE` | `…text-embeddings-inference:cpu-arm64-1.9` | Compose-only; `…:cpu-1.9` on x86_64 |
 | `enrich_concurrency` | `2` | max concurrent enrichments |
 | `STUDIO_GRAPH_STORE_PATH` | `/data/graph.json` | persisted graph |
 | `session_ttl_seconds` | `3600` | in-memory session lifetime |
+
+### Model roles and warm-up
+
+Four roles, one setting each: **embed** (`STUDIO_EMBEDDING_MODEL`), **extract**
+(`STUDIO_EXTRACT_MODEL`: graph, classification, fields), **chat**
+(`STUDIO_CHAT_MODEL`) and **rerank** (`STUDIO_RERANK_MODEL`, set on the reranker
+container). The three LLM roles share `STUDIO_MODEL_BASE_URL`. Chat defaults to
+`llama3.2:3b` because `llama3.1` 8B was unusably slow on CPU
+(see [studio-issues/02](../studio-issues/02-default-chat-model-too-heavy.md)); it
+remains a valid `STUDIO_CHAT_MODEL` on GPU hosts.
+
+[`warmup.py`](../api/app/warmup.py) sends one 1-token request to the extract and
+chat models in a background task at startup, so the first graph build or answer
+isn't cold (see
+[studio-issues/01](../studio-issues/01-graph-auto-extraction-reliability.md)).
+Failures are logged and never block startup.
 
 ### Run
 
@@ -405,10 +451,11 @@ export OPENARCH_VERSION=1.0.0
 docker compose up -d --build
 # one-time model pulls:
 docker compose exec ollama ollama pull nomic-embed-text
-docker compose exec ollama ollama pull llama3.1
-docker compose exec ollama ollama pull llama3.2:1b
 docker compose exec ollama ollama pull llama3.2:3b
 ```
+
+On x86_64 hosts set `STUDIO_RERANKER_IMAGE=ghcr.io/huggingface/text-embeddings-inference:cpu-1.9`
+in `.env`. The reranker downloads its model on first start.
 
 Open `http://localhost:8900`, sign in with OpenArch credentials
 (`admin` / `password` on a default repo).

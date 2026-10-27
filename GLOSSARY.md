@@ -88,6 +88,14 @@ The typed name/value pairs a model reads from a document's text, stored in OpenA
 `CinContext` mixin alongside the document type and shown read-only as AI-extracted.
 _Avoid_: metadata (loosely), attributes, tags, key-value pairs
 
+**Rerank**:
+The optional step that reorders ACL-filtered retrieval candidates with a cross-encoder, falling back to vector order (and saying why) when the reranker is unavailable.
+_Avoid_: re-rank (hyphenated), rescoring, boosting
+
+**Model role**:
+One of the four jobs a model does in Studio — embed, extract, chat, rerank — each with its own setting so they can be sized independently.
+_Avoid_: model type, model slot, model tier
+
 **Readiness**:
 Whether a document has been enriched — reconstructed from OpenArch, not from Studio's in-memory job history.
 _Avoid_: status, state, progress

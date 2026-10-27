@@ -1,4 +1,4 @@
-# Issue: default chat model (`llama3.1` 8B) is unusably slow on CPU
+# Issue: default chat model (`llama3.1` 8B) is unusably slow on CPU (resolved)
 
 ## Summary
 The default Studio chat model is `llama3.1` (8B). On a CPU-only host (no GPU),

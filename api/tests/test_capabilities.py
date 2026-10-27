@@ -44,3 +44,12 @@ def test_field_extraction_capability_and_cincontext_native(client: TestClient) -
     assert fields["evidence"] == "fields.py"
     native = {n["name"]: n for n in body["native"]}
     assert "CinContext" in native["Metadata & content models"]["evidence"]
+
+
+def test_reranking_capability_and_runtime(client: TestClient) -> None:
+    body = client.get("/api/capabilities").json()
+    ext = {e["name"]: e for e in body["extensions"]}
+    rerank = ext["Reranking"]
+    assert rerank["owner"] == "Studio + model"
+    assert rerank["evidence"] == "rerank.py"
+    assert {"name": "text-embeddings-inference", "role": "Reranking"} in body["runtimes"]

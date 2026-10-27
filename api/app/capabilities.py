@@ -41,6 +41,7 @@ _EXTENSIONS = [
     ("Text & metadata extraction", "Studio + Docling (Tika fallback)", "Docling turns binaries into page-aware Markdown; Tika is the fallback.", "extraction.py"),
     ("Chunking & embedding", "Studio + model", "Chunks embedded then stored as SysEmbeddings.", "enrichment"),
     ("Document classification & field extraction", "Studio + model", "Typed fields written to OpenArch CinContext.", "fields.py"),
+    ("Reranking", "Studio + model", "Cross-encoder reorders permitted candidates.", "rerank.py"),
     ("Embeddings inspection", "Studio", "Surfaces the stored vectors per chunk.", "/api/documents/{id}/embeddings"),
     ("Guided search interface", "Studio", "Keyword/HXQL/semantic in one surface.", "/api/search"),
     ("RAG orchestration & streaming chat", "Studio + model", "Grounded, cited answers over SSE.", "/api/chat"),
@@ -58,6 +59,7 @@ _RUNTIMES = [
     {"name": "Docling", "role": "Primary extraction: layout-aware text, tables & OCR"},
     {"name": "Apache Tika", "role": "Fallback text & metadata extraction"},
     {"name": "Ollama", "role": "Local embeddings & chat (OpenAI-compatible)"},
+    {"name": "text-embeddings-inference", "role": "Reranking"},
     {"name": "Studio API", "role": "BFF, enrichment, agent orchestration"},
 ]
 

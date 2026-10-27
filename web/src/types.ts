@@ -70,6 +70,7 @@ export interface SearchResult {
   title: string | null;
   snippet: string | null;
   score: number | null;
+  vectorScore?: number | null;
   page?: number;
 }
 
@@ -79,6 +80,7 @@ export interface SearchProvenance {
   requestPath: string;
   embeddingType: string | null;
   tookMs: number;
+  rerank?: string | null;
 }
 
 export interface SearchResponse {

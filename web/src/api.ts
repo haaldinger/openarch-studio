@@ -188,7 +188,7 @@ export function search(
 
 export interface ChatHandlers {
   onRetrievalStart?: (toolName: string) => void;
-  onRetrieval?: (count: number) => void;
+  onRetrieval?: (count: number, rerank: string | null) => void;
   onToken: (token: string) => void;
   onCitations: (citations: Citation[]) => void;
   onSurface?: (messages: A2uiMessage[]) => void;
@@ -238,7 +238,8 @@ export async function streamChat(
       const payload = JSON.parse(data);
       const type = payload.type ?? event;
       if (type === "TOOL_CALL_START") handlers.onRetrievalStart?.(payload.toolCallName);
-      else if (type === "TOOL_CALL_END") handlers.onRetrieval?.(payload.result?.readable ?? 0);
+      else if (type === "TOOL_CALL_END")
+        handlers.onRetrieval?.(payload.result?.readable ?? 0, payload.result?.rerank ?? null);
       else if (type === "TEXT_MESSAGE_CONTENT") handlers.onToken(payload.delta ?? "");
       else if (type === "STATE_SNAPSHOT") handlers.onCitations(payload.snapshot?.citations ?? []);
       else if (type === "CUSTOM" && payload.name === "a2ui") handlers.onSurface?.(payload.value);

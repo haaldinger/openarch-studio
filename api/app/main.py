@@ -12,6 +12,7 @@ from .fields import FieldsService
 from .graph import GraphService
 from .jobs import router as jobs_router
 from .library import router as library_router
+from .rerank import Reranker
 from .routes import router
 from .search import router as search_router
 from .chat import router as chat_router
@@ -30,6 +31,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.enrichment = EnrichmentService(
         settings, graph=app.state.graph, fields=FieldsService(settings)
     )
+    app.state.reranker = Reranker(settings)
     app.include_router(router)
     app.include_router(library_router)
     app.include_router(capabilities_router)

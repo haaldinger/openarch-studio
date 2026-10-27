@@ -180,6 +180,11 @@ export function SearchPage() {
                   Embedding type <code>{response.provenance.embeddingType}</code>
                 </li>
               )}
+              {response.provenance.rerank && (
+                <li>
+                  Rerank <strong>{response.provenance.rerank}</strong>
+                </li>
+              )}
               <li>{response.provenance.tookMs} ms</li>
             </ul>
           </details>

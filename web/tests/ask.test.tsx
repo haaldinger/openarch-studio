@@ -3,7 +3,9 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { AskPage } from "../src/pages/AskPage";
+import { SearchPage } from "../src/pages/SearchPage";
 import { CitationList } from "../src/components/CitationList";
+import { RetrievalTrace } from "../src/components/RetrievalTrace";
 
 function sseResponse(body: string): Response {
   const stream = new ReadableStream({
@@ -107,6 +109,68 @@ describe("Ask", () => {
     expect(screen.getByText(/Sources/i)).toBeInTheDocument();
     expect(screen.getByText(/a source chunk/)).toBeInTheDocument();
     expect(screen.getByText(/Retrieval trace/i)).toBeInTheDocument();
+  });
+
+  it("shows the rerank status from the retrieval result", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        sseResponse(SSE.replace('"readable": 2}', '"readable": 2, "rerank": "reranked"}')),
+      ),
+    );
+    const user = userEvent.setup();
+    renderAsk();
+
+    await user.type(screen.getByLabelText(/your question/i), "what is the policy?");
+    await user.click(screen.getByRole("button", { name: /^ask$/i }));
+
+    await waitFor(() => expect(screen.getByText(/Hello world/)).toBeInTheDocument());
+    expect(screen.getByText(/^Reranked$/)).toBeInTheDocument();
+  });
+
+  it("RetrievalTrace names why reranking was skipped", () => {
+    render(<RetrievalTrace count={2} rerank="skipped (timeout)" />);
+    expect(screen.getByText(/Rerank skipped \(timeout\)/)).toBeInTheDocument();
+  });
+
+  it("RetrievalTrace omits the rerank line when no status is known", () => {
+    render(<RetrievalTrace count={2} rerank={null} />);
+    expect(screen.queryByText(/rerank/i)).not.toBeInTheDocument();
+  });
+
+  it("search trace shows the rerank status", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              mode: "semantic",
+              results: [{ id: "d1", title: null, snippet: "s", score: 0.9, vectorScore: 0.5, page: 1 }],
+              provenance: {
+                providedBy: "OpenArch vector search",
+                extendedBy: "Studio embedding",
+                requestPath: "/api/query/embeddings",
+                embeddingType: "e",
+                tookMs: 5,
+                rerank: "reranked",
+              },
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          ),
+      ),
+    );
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <SearchPage />
+      </MemoryRouter>,
+    );
+    await user.type(screen.getByLabelText(/search query/i), "policy");
+    await user.click(screen.getByRole("button", { name: /^search$/i }));
+
+    await waitFor(() => expect(screen.getByText(/Rerank/)).toBeInTheDocument());
+    expect(screen.getByText(/Rerank/).closest("li")).toHaveTextContent("reranked");
   });
 
   it("keeps the question visible if generation errors", async () => {

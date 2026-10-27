@@ -12,6 +12,7 @@ from app.agent import INSUFFICIENT, AgentService, Evidence, hit_page
 from app.config import Settings
 from app.enrichment import EnrichmentService
 from app.models import Credentials
+from app.rerank import Reranker
 
 OA = "http://openarch.test"
 EMBED = "http://model.test/v1/embeddings"
@@ -48,9 +49,60 @@ async def test_retrieve_runs_as_user_and_maps_hits() -> None:
             },
         )
     )
-    evidence = await make_agent().retrieve("q", creds())
-    assert evidence == [Evidence(doc_id="d1", chunk_id="c1", text="txt", score=0.8, page=1)]
+    evidence, status = await make_agent().retrieve("q", creds())
+    assert evidence == [
+        Evidence(doc_id="d1", chunk_id="c1", text="txt", score=0.8, page=1, vector_score=0.8)
+    ]
+    assert status == "skipped (not configured)"
+    assert json.loads(route.calls.last.request.read())["limit"] == 6
     assert route.calls.last.request.headers["authorization"].startswith("Basic ")
+
+
+@respx.mock
+async def test_retrieve_overfetches_reranks_and_truncates() -> None:
+    settings = Settings(
+        openarch_url=OA,
+        model_base_url="http://model.test/v1",
+        embedding_model="nomic-embed-text",
+        reranker_url="http://reranker.test",
+    )
+    agent = AgentService(settings, EnrichmentService(settings), reranker=Reranker(settings))
+    respx.post(EMBED).mock(return_value=httpx.Response(200, json={"data": [{"embedding": [0.1]}]}))
+    respx.post(f"{OA}/api/query").mock(return_value=httpx.Response(200, json={"documents": [{"sys_id": "d1"}]}))
+    route = respx.post(VECTOR_QUERY).mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "embeddings": [
+                    {"sysembed_docId": f"d{i}", "sysembed_id": f"c{i}", "sysembed_text": f"t{i}", "sysembed_score": 0.9 - i / 10}
+                    for i in range(4)
+                ]
+            },
+        )
+    )
+    respx.post("http://reranker.test/rerank").mock(
+        return_value=httpx.Response(
+            200, json=[{"index": i, "score": i / 10} for i in (3, 2, 1, 0)]
+        )
+    )
+    evidence, status = await agent.retrieve("q", creds(), top_k=2)
+    assert json.loads(route.calls.last.request.read())["limit"] == 4
+    assert status == "reranked"
+    assert [e.chunk_id for e in evidence] == ["c3", "c2"]
+    assert evidence[0].score == 0.3 and evidence[0].vector_score == 0.9 - 0.3
+
+
+@respx.mock
+async def test_retrieve_caps_candidates_at_twelve() -> None:
+    settings = Settings(
+        openarch_url=OA, model_base_url="http://model.test/v1", reranker_url="http://reranker.test"
+    )
+    agent = AgentService(settings, EnrichmentService(settings), reranker=Reranker(settings))
+    respx.post(EMBED).mock(return_value=httpx.Response(200, json={"data": [{"embedding": [0.1]}]}))
+    respx.post(f"{OA}/api/query").mock(return_value=httpx.Response(200, json={"documents": [{"sys_id": "d1"}]}))
+    route = respx.post(VECTOR_QUERY).mock(return_value=httpx.Response(200, json={"embeddings": []}))
+    await agent.retrieve("q", creds(), top_k=10)
+    assert json.loads(route.calls.last.request.read())["limit"] == 12
 
 
 @respx.mock
@@ -169,7 +221,7 @@ async def test_retrieve_carries_page_from_location() -> None:
             },
         )
     )
-    [evidence] = await make_agent().retrieve("q", creds())
+    [evidence], _ = await make_agent().retrieve("q", creds())
     assert evidence.page == 2
 
 
@@ -211,3 +263,26 @@ def test_chat_citation_carries_page(client: TestClient) -> None:
 
 def test_chat_requires_authentication(client: TestClient) -> None:
     assert client.post("/api/chat", json={"question": "x"}).status_code == 401
+
+
+@respx.mock
+def test_chat_tool_call_end_reports_rerank_status(client: TestClient) -> None:
+    respx.get(ROOT).mock(return_value=httpx.Response(200, json={"sys_id": "root"}))
+    client.post("/api/session", json={"username": "admin", "password": "p"})
+    respx.post(EMBED).mock(return_value=httpx.Response(200, json={"data": [{"embedding": [0.1]}]}))
+    respx.post(f"{OA}/api/query").mock(return_value=httpx.Response(200, json={"documents": [{"sys_id": "d1"}]}))
+    respx.post(VECTOR_QUERY).mock(
+        return_value=httpx.Response(
+            200, json={"embeddings": [{"sysembed_docId": "d1", "sysembed_id": "c1", "sysembed_text": "t"}]}
+        )
+    )
+    respx.get(f"{OA}/api/documents/d1").mock(return_value=httpx.Response(200, json={"sys_id": "d1"}))
+    respx.post(CHAT).mock(return_value=httpx.Response(200, text="data: [DONE]\n\n"))
+
+    body = client.post("/api/chat", json={"question": "what?"}).text
+    end = next(
+        json.loads(line[len("data:") :])
+        for line in body.splitlines()
+        if line.startswith("data:") and '"TOOL_CALL_END"' in line
+    )
+    assert end["result"]["rerank"] == "skipped (not configured)"

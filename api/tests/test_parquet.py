@@ -134,3 +134,18 @@ def test_chunk_pages_ids_are_unique_and_deterministic() -> None:
 def test_prefixed_long_paragraph_stays_within_max_chars() -> None:
     chunks = chunk_pages(["## Heading\n\n" + "y" * 2500], max_chars=500)
     assert all(len(c.text) <= 500 and c.text.startswith("## Heading\n") for c in chunks)
+
+
+def test_heading_line_without_blank_line_is_a_boundary() -> None:
+    chunks = chunk_pages(["intro\n## Heading\nbody"])
+    assert [c.text for c in chunks] == ["intro", "## Heading\nbody"]
+
+
+@pytest.mark.parametrize("sep", [" ", "\t"])
+def test_whitespace_only_lines_separate_blocks(sep: str) -> None:
+    assert [c.text for c in chunk_pages([f"a\n{sep}\nb"])] == ["a", "b"]
+
+
+def test_only_atx_headings_are_headings() -> None:
+    chunks = chunk_pages(["#1 priority\n#hashtag\n\n####### seven"])
+    assert [c.text for c in chunks] == ["#1 priority\n#hashtag", "####### seven"]

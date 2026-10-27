@@ -91,6 +91,59 @@ def chunk_text(text: str, *, max_chars: int = 1000) -> list[Chunk]:
     return chunks
 
 
+def _wrap(text: str, limit: int) -> list[str]:
+    return [text[i : i + limit] for i in range(0, len(text), limit)]
+
+
+def _wrap_table(block: str, limit: int) -> list[str]:
+    """Pack whole table rows into pieces of at most `limit` chars."""
+    pieces: list[str] = []
+    current = ""
+    for row in block.splitlines():
+        if len(row) > limit:
+            if current:
+                pieces.append(current)
+                current = ""
+            pieces.extend(_wrap(row, limit))
+        elif current and len(current) + 1 + len(row) > limit:
+            pieces.append(current)
+            current = row
+        else:
+            current = f"{current}\n{row}" if current else row
+    if current:
+        pieces.append(current)
+    return pieces
+
+
+def chunk_pages(pages: list[str], *, max_chars: int = 1000) -> list[Chunk]:
+    """Chunk per-page Markdown into blocks with real page numbers.
+
+    Each paragraph or table is one chunk. The latest heading, which carries across
+    pages, prefixes the chunks that follow it; oversized blocks are split to fit.
+    """
+    chunks: list[Chunk] = []
+    heading = ""
+    for page_number, page in enumerate(pages, start=1):
+        paragraph = 0
+        blocks = [b.strip() for b in page.replace("\r\n", "\n").split("\n\n")]
+        for block in filter(None, blocks):
+            if block.startswith("#"):
+                heading, _, block = block.partition("\n")
+                heading = heading.strip()
+                block = block.strip()
+                if not block:
+                    continue
+            prefix = f"{heading}\n" if heading and len(heading) + 1 < max_chars else ""
+            limit = max_chars - len(prefix)
+            is_table = all(line.startswith("|") for line in block.splitlines())
+            for piece in _wrap_table(block, limit) if is_table else _wrap(block, limit):
+                text = prefix + piece
+                paragraph += 1
+                chunk_id = str(uuid.uuid5(_CHUNK_NAMESPACE, f"{len(chunks)}:{text}"))
+                chunks.append(Chunk(id=chunk_id, text=text, page=page_number, paragraph=paragraph))
+    return chunks
+
+
 def write_embeddings(chunks: list[EmbeddedChunk], embedding_type: str) -> bytes:
     """Serialize embedded chunks to an OpenArch-compatible Parquet blob."""
     if not chunks:

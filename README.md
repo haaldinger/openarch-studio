@@ -101,3 +101,8 @@ failures leave the original document safely stored in OpenArch and are retryable
 Studio writes embeddings in the same `SysEmbeddings` Parquet shape OpenArch's own ingesters use, so
 a document enriched here is queryable by the broader
 [content-lake deployment](https://github.com/aborroy/content-lake-app-deployment) and vice versa.
+
+## License
+
+Copyright 2026 Hyland. OpenArch Studio is released under the [Apache License 2.0](LICENSE), the
+same license as OpenArch.

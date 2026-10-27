@@ -145,6 +145,7 @@ _VOCABULARY_QUERY = (
 )
 _VOCABULARY_LIMIT = 200
 _PROMPT_CHARS = 6000
+_MAX_TYPES = 50
 _TYPE_KEY = "document_type"
 _SYSTEM_PROMPT = (
     "You classify a document and extract its key fields.\n"
@@ -153,6 +154,10 @@ _SYSTEM_PROMPT = (
     "- Only include values that appear in the document text. Never guess.\n"
     'Reply with exactly this JSON: {"type": "...", "fields": {"name": "value"}}'
 )
+
+
+def _is_clean_name(value: object) -> bool:
+    return isinstance(value, str) and bool(value) and normalize_name(value) == value
 
 
 class FieldsService:
@@ -165,11 +170,17 @@ class FieldsService:
         names: dict[str, set[str]] = {}
         for doc in result.get("documents", []):
             doc_type = (doc.get("cinctx_contextProperties") or {}).get(_TYPE_KEY)
-            if not isinstance(doc_type, str) or not doc_type:
+            if not _is_clean_name(doc_type):
                 continue
-            fields = {n for n in doc.get("cinctx_contextPropertyNames") or [] if n != _TYPE_KEY}
+            if doc_type not in names and len(names) >= _MAX_TYPES:
+                continue
+            fields = {
+                n
+                for n in doc.get("cinctx_contextPropertyNames") or []
+                if n != _TYPE_KEY and _is_clean_name(n)
+            }
             names.setdefault(doc_type, set()).update(fields)
-        return {t: sorted(n) for t, n in names.items()}
+        return {t: sorted(n)[:MAX_FIELDS] for t, n in names.items()}
 
     async def classify(self, markdown: str, vocabulary: dict[str, list[str]]) -> ClassifiedFields:
         known = "\n".join(f"{t}: {', '.join(n)}" for t, n in vocabulary.items()) or "none yet"

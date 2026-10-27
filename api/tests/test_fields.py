@@ -1,8 +1,24 @@
 import json
 
+import httpx
 import pytest
+import respx
 
-from app.fields import normalize_name, parse_classification
+from app.config import Settings
+from app.fields import FieldsService, ClassifiedFields, normalize_name, parse_classification
+from app.models import Credentials
+from app.openarch import OpenArchClient
+
+OA = "http://openarch.test"
+MODEL = "http://model.test/v1"
+
+
+def _service() -> FieldsService:
+    return FieldsService(Settings(openarch_url=OA, model_base_url=MODEL))
+
+
+def _client() -> OpenArchClient:
+    return OpenArchClient(OA, Credentials(username="alice", password="pw"))
 
 
 def test_normalize_name():
@@ -194,3 +210,73 @@ def test_deeply_nested_json_raises_invalid_json():
 def test_results_are_json_safe(value_json):
     result = parse_classification('{"type":"a","fields":{"n":' + value_json + "}}")
     json.dumps(result.fields, allow_nan=False)
+
+
+@respx.mock
+async def test_vocabulary_queries_as_caller_and_returns_names_only():
+    route = respx.post(f"{OA}/api/query").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "documents": [
+                    {
+                        "cinctx_contextProperties": {
+                            "document_type": "invoice",
+                            "vendor_name": "SECRET-ACME",
+                            "total": 12.5,
+                        },
+                        "cinctx_contextPropertyNames": ["document_type", "total", "vendor_name"],
+                    },
+                    {
+                        "cinctx_contextProperties": {"document_type": "invoice", "total": 3},
+                        "cinctx_contextPropertyNames": ["document_type", "total"],
+                    },
+                    {"cinctx_contextProperties": {"vendor_name": "x"}},
+                ]
+            },
+        )
+    )
+    vocab = await _service().vocabulary(_client())
+    request = route.calls.last.request
+    assert request.headers["authorization"].startswith("Basic ")
+    assert json.loads(request.content) == {
+        "query": "SELECT * FROM SysContent WHERE sys_mixinTypes = 'CinContext' ORDER BY sys_modified DESC",
+        "limit": 200,
+    }
+    assert vocab == {"invoice": ["total", "vendor_name"]}
+    assert "SECRET-ACME" not in json.dumps(vocab)
+
+
+@respx.mock
+async def test_classify_sends_first_6000_chars_vocab_and_json_mode():
+    route = respx.post(f"{MODEL}/chat/completions").mock(
+        return_value=httpx.Response(
+            200,
+            json={"choices": [{"message": {"content": '{"type":"invoice","fields":{"total":"5"}}'}}]},
+        )
+    )
+    markdown = "A" * 6000 + "B" * 50
+    result = await _service().classify(markdown, {"invoice": ["total", "vendor_name"]})
+    body = json.loads(route.calls.last.request.content)
+    user = body["messages"][-1]["content"]
+    assert body["model"] == "llama3.2:3b"
+    assert body["response_format"] == {"type": "json_object"}
+    assert "A" * 6000 in user and "B" not in user
+    assert "invoice: total, vendor_name" in user
+    assert result == ClassifiedFields("invoice", {"total": 5})
+
+
+@respx.mock
+async def test_store_adds_mixin_once_and_writes_properties():
+    doc = f"{OA}/api/documents/d1"
+    respx.get(doc).mock(return_value=httpx.Response(200, json={"sys_mixinTypes": ["SysHasEmbeddings"]}))
+    put = respx.put(doc).mock(return_value=httpx.Response(200, json={}))
+    await _service().store(_client(), "d1", ClassifiedFields("invoice", {"total": 1.0}))
+    bodies = [json.loads(c.request.content) for c in put.calls]
+    assert bodies == [
+        {"sys_mixinTypes": ["SysHasEmbeddings", "CinContext"]},
+        {
+            "cinctx_contextProperties": {"document_type": "invoice", "total": 1.0},
+            "cinctx_contextPropertyNames": ["document_type", "total"],
+        },
+    ]

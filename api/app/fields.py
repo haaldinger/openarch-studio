@@ -9,6 +9,11 @@ import unicodedata
 from dataclasses import dataclass
 from datetime import datetime
 
+import httpx
+
+from .config import Settings
+from .openarch import OpenArchClient
+
 MAX_FIELDS = 25
 MAX_VALUE_LEN = 500
 MAX_NAME_LEN = 64
@@ -133,3 +138,65 @@ def parse_classification(raw: str) -> ClassifiedFields:
         if len(fields) == MAX_FIELDS:
             break
     return ClassifiedFields(document_type, fields)
+
+
+_VOCABULARY_QUERY = (
+    "SELECT * FROM SysContent WHERE sys_mixinTypes = 'CinContext' ORDER BY sys_modified DESC"
+)
+_VOCABULARY_LIMIT = 200
+_PROMPT_CHARS = 6000
+_TYPE_KEY = "document_type"
+_SYSTEM_PROMPT = (
+    "You classify a document and extract its key fields.\n"
+    "- Choose one of the known document types when it fits; otherwise invent a short new type name.\n"
+    "- Reuse an existing field name when its meaning matches; otherwise use a short snake_case name.\n"
+    "- Only include values that appear in the document text. Never guess.\n"
+    'Reply with exactly this JSON: {"type": "...", "fields": {"name": "value"}}'
+)
+
+
+class FieldsService:
+    def __init__(self, settings: Settings) -> None:
+        self._settings = settings
+
+    async def vocabulary(self, client: OpenArchClient) -> dict[str, list[str]]:
+        """Known document types and their field names (never values), as visible to the caller."""
+        result = await client.query({"query": _VOCABULARY_QUERY, "limit": _VOCABULARY_LIMIT})
+        names: dict[str, set[str]] = {}
+        for doc in result.get("documents", []):
+            doc_type = (doc.get("cinctx_contextProperties") or {}).get(_TYPE_KEY)
+            if not isinstance(doc_type, str) or not doc_type:
+                continue
+            fields = {n for n in doc.get("cinctx_contextPropertyNames") or [] if n != _TYPE_KEY}
+            names.setdefault(doc_type, set()).update(fields)
+        return {t: sorted(n) for t, n in names.items()}
+
+    async def classify(self, markdown: str, vocabulary: dict[str, list[str]]) -> ClassifiedFields:
+        known = "\n".join(f"{t}: {', '.join(n)}" for t, n in vocabulary.items()) or "none yet"
+        user = f"Known document types and fields:\n{known}\n\nDocument:\n{markdown[:_PROMPT_CHARS]}"
+        payload = {
+            "model": self._settings.extract_model,
+            "messages": [
+                {"role": "system", "content": _SYSTEM_PROMPT},
+                {"role": "user", "content": user},
+            ],
+            "stream": False,
+            "response_format": {"type": "json_object"},
+        }
+        url = f"{self._settings.model_base_url}/chat/completions"
+        async with httpx.AsyncClient(timeout=300.0) as client:
+            response = await client.post(url, json=payload)
+            response.raise_for_status()
+            content = response.json()["choices"][0]["message"]["content"]
+        return parse_classification(content)
+
+    async def store(self, client: OpenArchClient, doc_id: str, result: ClassifiedFields) -> None:
+        await client.ensure_mixin(doc_id, "CinContext")
+        properties = {_TYPE_KEY: result.document_type, **result.fields}
+        await client.update_document(
+            doc_id,
+            {
+                "cinctx_contextProperties": properties,
+                "cinctx_contextPropertyNames": sorted(properties),
+            },
+        )

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 import httpx
 import pytest
 import respx
@@ -71,3 +73,19 @@ async def test_query_posts_payload_and_returns_json() -> None:
     result = await make_client().query({"query": "SELECT * FROM SysContent", "limit": 5})
     assert result["totalCount"] == 0
     assert route.calls.last.request.headers["HXCS-Repository"] == "default"
+
+
+@respx.mock
+async def test_ensure_mixin_adds_once_and_skips_when_present() -> None:
+    doc = "http://openarch.test/api/documents/d1"
+    get = respx.get(doc).mock(return_value=httpx.Response(200, json={"sys_mixinTypes": ["SysHasEmbeddings"]}))
+    put = respx.put(doc).mock(return_value=httpx.Response(200, json={}))
+    await make_client().ensure_mixin("d1", "CinContext")
+    assert json.loads(put.calls.last.request.content) == {
+        "sys_mixinTypes": ["SysHasEmbeddings", "CinContext"]
+    }
+
+    get.mock(return_value=httpx.Response(200, json={"sys_mixinTypes": ["CinContext"]}))
+    put.reset()
+    await make_client().ensure_mixin("d1", "CinContext")
+    assert put.call_count == 0

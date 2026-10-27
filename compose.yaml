@@ -26,6 +26,7 @@ services:
       STUDIO_EMBEDDING_MODEL: ${STUDIO_EMBEDDING_MODEL:-nomic-embed-text}
       STUDIO_CHAT_MODEL: ${STUDIO_CHAT_MODEL:-llama3.1}
       STUDIO_GRAPH_MODEL: ${STUDIO_GRAPH_MODEL:-llama3.2:1b}
+      STUDIO_EXTRACT_MODEL: ${STUDIO_EXTRACT_MODEL:-llama3.2:3b}
       STUDIO_GRAPH_STORE_PATH: /data/graph.json
     extra_hosts:
       - "host.docker.internal:host-gateway"

@@ -104,7 +104,8 @@ npm run dev         # http://localhost:5173, proxies /api to localhost:8800
 ## Supported formats
 
 PDF, DOCX, TXT, Markdown, HTML (`.html`, `.htm`), and scanned images (TIFF, PNG, JPEG, GIF, BMP).
-Docling extracts them (OCR for scanned images); Tika takes over for anything Docling can't process. Unsupported types are
+Docling extracts them (OCR for scanned images); Tika takes over for anything Docling can't process
+(Docling's support for GIF and BMP is not verified, so those may be handled by Tika). Unsupported types are
 rejected at upload. Extraction or embedding failures leave the original document safely stored in
 OpenArch and are retryable from **Activity**.
 
@@ -127,19 +128,23 @@ a document enriched here is queryable by the broader
 
 ## Third-party components
 
-Licenses below were checked against each upstream repository or model card, at the versions the
-Docling image pins (docling-serve `v1.38.2` → Docling `2.142.1`), except where noted.
+Licenses below were checked against each upstream repository or model card. Docling image
+components were checked at the versions the image pins (docling-serve `v1.38.2` → Docling
+`2.142.1`, rapidocr `3.10.0`, easyocr `1.7.2`), except the layout-heron models (including the ONNX
+export) and DocumentFigureClassifier v2.5: Docling pins those to the floating revision `main`, so they
+were checked at `main` (pinned revision not confirmed). Tika, Ollama, nomic-embed-text and Llama are
+not in the Docling image and were checked at their default branch or model card.
 
 | Component | Role | License | Link |
 |---|---|---|---|
 | docling-serve | Extraction service (HTTP API around Docling) | MIT | [LICENSE](https://github.com/docling-project/docling-serve/blob/v1.38.2/LICENSE) |
 | Docling | Document conversion library | MIT | [LICENSE](https://github.com/docling-project/docling/blob/v2.142.1/LICENSE) |
-| docling-layout-heron (and its ONNX export) | Docling layout-analysis model | Apache-2.0 | [model card](https://huggingface.co/docling-project/docling-layout-heron), [ONNX card](https://huggingface.co/docling-project/docling-layout-heron-onnx) |
+| docling-layout-heron (and its ONNX export) | Docling layout-analysis model | Apache-2.0 (checked at `main`, pinned revision not confirmed) | [model card](https://huggingface.co/docling-project/docling-layout-heron), [ONNX card](https://huggingface.co/docling-project/docling-layout-heron-onnx) |
 | TableFormer (`docling-models` v2.3.0) | Docling table-structure model | CDLA-Permissive-2.0 | [model card](https://huggingface.co/docling-project/docling-models/blob/v2.3.0/README.md) |
-| DocumentFigureClassifier v2.5 | Docling picture-classifier model | MIT | [model card](https://huggingface.co/docling-project/DocumentFigureClassifier-v2.5) |
-| RapidOCR | OCR engine in the Docling image | Apache-2.0 | [LICENSE](https://github.com/RapidAI/RapidOCR/blob/main/LICENSE) |
+| DocumentFigureClassifier v2.5 | Docling picture-classifier model | MIT (checked at `main`, pinned revision not confirmed) | [model card](https://huggingface.co/docling-project/DocumentFigureClassifier-v2.5) |
+| RapidOCR | OCR engine in the Docling image | Apache-2.0 | [LICENSE](https://github.com/RapidAI/RapidOCR/blob/v3.10.0/LICENSE) |
 | PP-OCR models (via RapidOCR) | OCR detection/recognition models, converted from PaddleOCR | Apache-2.0 | [RapidOCR README, Models](https://github.com/RapidAI/RapidOCR/blob/v3.10.0/README.md#-license) |
-| EasyOCR | OCR engine in the Docling image | Apache-2.0 (code) | [LICENSE](https://github.com/JaidedAI/EasyOCR/blob/master/LICENSE) |
+| EasyOCR | OCR engine in the Docling image | Apache-2.0 (code) | [LICENSE](https://github.com/JaidedAI/EasyOCR/blob/v1.7.2/LICENSE) |
 | Apache Tika | Fallback text and metadata extraction | Apache-2.0 | [LICENSE](https://github.com/apache/tika/blob/main/LICENSE.txt) |
 | Ollama | Local model runtime | MIT | [LICENSE](https://github.com/ollama/ollama/blob/main/LICENSE) |
 | nomic-embed-text | Embedding model | Apache-2.0 | [model card](https://huggingface.co/nomic-ai/nomic-embed-text-v1.5) |

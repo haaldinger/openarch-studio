@@ -111,3 +111,53 @@ async def test_texts_truncated_to_512_chars():
     body = json.loads(route.calls.last.request.content)
     assert body["query"] == "q"
     assert body["texts"] == ["x" * 512]
+
+
+@respx.mock
+async def test_infinite_index_is_incomplete():
+    respx.post(URL).respond(content=b'[{"index": 1e999, "score": 0.9}, {"index": 0, "score": 0.1}]')
+    outcome = await make_reranker().rerank("q", ["a", "b"])
+    assert outcome.status == "skipped (incomplete response)"
+    assert outcome.order == [0, 1]
+    assert outcome.scores == [None, None]
+
+
+@respx.mock
+async def test_bool_index_is_incomplete():
+    respx.post(URL).respond(content=b'[{"index": true, "score": 0.9}, {"index": 0, "score": 0.1}]')
+    outcome = await make_reranker().rerank("q", ["a", "b"])
+    assert outcome.status == "skipped (incomplete response)"
+    assert outcome.order == [0, 1]
+
+
+@respx.mock
+async def test_nan_score_is_incomplete():
+    respx.post(URL).respond(content=b'[{"index": 1, "score": NaN}, {"index": 0, "score": 0.1}]')
+    outcome = await make_reranker().rerank("q", ["a", "b"])
+    assert outcome.status == "skipped (incomplete response)"
+    assert outcome.order == [0, 1]
+    assert outcome.scores == [None, None]
+
+
+@respx.mock
+async def test_huge_int_score_is_incomplete():
+    respx.post(URL).respond(content=b'[{"index": 1, "score": ' + b"1" + b"0" * 400 + b'}, {"index": 0, "score": 0.1}]')
+    outcome = await make_reranker().rerank("q", ["a", "b"])
+    assert outcome.status == "skipped (incomplete response)"
+    assert outcome.scores == [None, None]
+
+
+@respx.mock
+async def test_trailing_slash_url_hits_rerank_once():
+    route = respx.post(URL).respond(json=[{"index": 0, "score": 0.5}])
+    outcome = await make_reranker("http://reranker.test/").rerank("q", ["a"])
+    assert outcome.status == "reranked"
+    assert route.call_count == 1
+
+
+@respx.mock
+async def test_invalid_url_skips_unreachable():
+    respx.post(URL).mock(side_effect=httpx.InvalidURL("bad"))
+    outcome = await make_reranker().rerank("q", ["a", "b"])
+    assert outcome.status == "skipped (unreachable)"
+    assert outcome.order == [0, 1]

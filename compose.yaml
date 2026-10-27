@@ -20,7 +20,8 @@ services:
       STUDIO_OPENARCH_URL: http://openarch-app:8080
       STUDIO_TIKA_URL: http://tika:9998
       STUDIO_EXTRACTOR: ${STUDIO_EXTRACTOR:-docling}
-      STUDIO_DOCLING_URL: http://docling:5001
+      STUDIO_DOCLING_URL: ${STUDIO_DOCLING_URL:-http://docling:5001}
+      STUDIO_DOCLING_TIMEOUT_SECONDS: ${STUDIO_DOCLING_TIMEOUT_SECONDS:-300}
       STUDIO_MODEL_BASE_URL: ${STUDIO_MODEL_BASE_URL:-http://ollama:11434/v1}
       STUDIO_EMBEDDING_MODEL: ${STUDIO_EMBEDDING_MODEL:-nomic-embed-text}
       STUDIO_CHAT_MODEL: ${STUDIO_CHAT_MODEL:-llama3.1}
@@ -55,6 +56,9 @@ services:
   # Layout-aware extraction (tables, reading order, OCR) to markdown; Tika is the fallback.
   docling:
     image: quay.io/docling-project/docling-serve-cpu:v1.38.2
+    environment:
+      # Server-side cap on the sync convert endpoint (default 120s); keep equal to the client timeout.
+      DOCLING_SERVE_MAX_SYNC_WAIT: ${STUDIO_DOCLING_TIMEOUT_SECONDS:-300}
     expose:
       - "5001"
 

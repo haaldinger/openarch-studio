@@ -55,10 +55,15 @@ class DoclingExtractor:
         except (httpx.HTTPError, ValueError) as exc:
             raise ExtractionFailed(f"docling request failed: {exc!r}") from exc
 
+        if not isinstance(body, dict):
+            raise ExtractionFailed("docling returned a non-object body")
         status = body.get("status")
         if status in {"failure", "skipped"}:
             raise ExtractionFailed(f"docling status {status}: {body.get('errors')}")
-        md = (body.get("document") or {}).get("md_content") or ""
+        document = body.get("document") or {}
+        if not isinstance(document, dict):
+            raise ExtractionFailed("docling returned a non-object document")
+        md = document.get("md_content") or ""
         if not md.strip():
             raise ExtractionFailed("docling returned no text")
         pages = [p.strip() for p in md.split(PAGE_BREAK)]

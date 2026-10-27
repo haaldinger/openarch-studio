@@ -73,7 +73,17 @@ services:
     volumes:
       - ollama-data:/root/.ollama
 
+  # Cross-encoder reranker (text-embeddings-inference); see .env.example for image choice.
+  reranker:
+    image: ${STUDIO_RERANKER_IMAGE:-ghcr.io/huggingface/text-embeddings-inference:cpu-arm64-1.9}
+    command: --model-id ${STUDIO_RERANK_MODEL:-BAAI/bge-reranker-v2-m3}
+    expose:
+      - "80"
+    volumes:
+      - reranker-models:/data
+
 volumes:
   ollama-data:
   studio-data:
   opensearch-data:
+  reranker-models:

@@ -118,8 +118,8 @@ document stays searchable.
 | `STUDIO_RERANK_MODEL` | `BAAI/bge-reranker-base` | Model the reranker downloads on first start (cached in the `reranker-models` volume). |
 
 Semantic search and **Ask** fetch `max(top_k, min(top_k * 2, 12))` candidates from OpenArch (as the
-caller, so ACLs apply) and rerank them. Ask uses the same count only when a reranker is configured;
-otherwise it uses `top_k`. Keyword search fetches 50 hits, keeps those containing the query
+caller, so ACLs apply) and rerank them. If the reranker is disabled or fails, results keep their vector
+order and the trace shows `skipped (<reason>)`. Keyword search fetches 50 hits, keeps those containing the query
 terms, and reranks the first `max(limit, 12)` of them. If the reranker is disabled, slow (5 s timeout),
 or unreachable, results keep vector order and the trace says why (`skipped (…)`). HXQL search is not
 reranked. `BAAI/bge-reranker-v2-m3` is more accurate but was OOM-killed or too slow on Docker CPU.

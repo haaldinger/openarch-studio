@@ -152,6 +152,7 @@ _SYSTEM_PROMPT = (
     "- Choose one of the known document types when it fits; otherwise invent a short new type name.\n"
     "- Reuse an existing field name when its meaning matches; otherwise use a short snake_case name.\n"
     "- Only include values that appear in the document text. Never guess.\n"
+    "- Document type and field names must be English snake_case, regardless of the document's language; values stay as written.\n"
     'Reply with exactly this JSON: {"type": "...", "fields": {"name": "value"}}'
 )
 

@@ -330,6 +330,18 @@ async def test_classify_sends_first_6000_chars_vocab_and_json_mode():
 
 
 @respx.mock
+async def test_classify_system_prompt_requires_english_names():
+    route = respx.post(f"{MODEL}/chat/completions").mock(
+        return_value=httpx.Response(
+            200, json={"choices": [{"message": {"content": '{"type":"a","fields":{}}'}}]}
+        )
+    )
+    await _service().classify("Rechnung", {"invoice": ["total"]})
+    system = json.loads(route.calls.last.request.content)["messages"][0]["content"]
+    assert "English" in system
+
+
+@respx.mock
 async def test_store_adds_mixin_once_and_writes_properties():
     doc = f"{OA}/api/documents/d1"
     respx.get(doc).mock(return_value=httpx.Response(200, json={"sys_mixinTypes": ["SysHasEmbeddings"]}))

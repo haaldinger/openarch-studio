@@ -241,6 +241,7 @@ def test_chat_citation_carries_page(client: TestClient) -> None:
                         "sysembed_docId": "d1",
                         "sysembed_id": "c1",
                         "sysembed_text": "ctx",
+                        "sysembed_score": 0.8,
                         "sysembed_location": {"text": {"page": 2, "paragraph": 1}},
                     }
                 ]
@@ -259,6 +260,7 @@ def test_chat_citation_carries_page(client: TestClient) -> None:
         if line.startswith("data:") and '"STATE_SNAPSHOT"' in line
     )
     assert snapshot["snapshot"]["citations"][0]["page"] == 2
+    assert snapshot["snapshot"]["citations"][0]["vectorScore"] == 0.8
 
 
 def test_chat_requires_authentication(client: TestClient) -> None:

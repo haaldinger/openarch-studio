@@ -93,7 +93,7 @@ async def search(
                 if any(t in (hit.get("sysembed_text") or "").lower() for t in terms)
             ]
             results, rerank_status = await _rerank(
-                reranker, body.query, matched[:MAX_RERANK_CANDIDATES], body.limit
+                reranker, body.query, matched[: max(body.limit, MAX_RERANK_CANDIDATES)], body.limit
             )
             provenance = {"providedBy": "OpenArch chunk index", "extendedBy": "Studio full-text filter",
                           "requestPath": "/api/query/embeddings", "embeddingType": embedding_type,

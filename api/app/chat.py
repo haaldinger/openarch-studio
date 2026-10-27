@@ -108,6 +108,7 @@ async def chat(
                 "chunkId": e.chunk_id,
                 "snippet": e.text,
                 "score": e.score,
+                "vectorScore": e.vector_score,
                 "page": e.page,
                 "title": titles.get(e.doc_id, e.doc_id),
             }

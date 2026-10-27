@@ -48,6 +48,17 @@ def test_keyword_search_filters_chunks_by_term(client: TestClient) -> None:
 
 
 @respx.mock
+def test_keyword_search_limit_not_capped_without_reranker(client: TestClient) -> None:
+    _auth(client)
+    respx.post(EMBED).mock(return_value=httpx.Response(200, json={"data": [{"embedding": [0.1]}]}))
+    respx.post(QUERY).mock(return_value=httpx.Response(200, json={"documents": [{"sys_id": "d1"}]}))
+    hits = [{"sysembed_docId": f"d{i}", "sysembed_text": "remote", "sysembed_score": 0.5} for i in range(25)]
+    respx.post(VECTOR_QUERY).mock(return_value=httpx.Response(200, json={"embeddings": hits}))
+    body = client.post("/api/search", json={"mode": "keyword", "query": "remote", "limit": 20}).json()
+    assert len(body["results"]) == 20
+
+
+@respx.mock
 def test_semantic_search_embeds_then_calls_vector_api(client: TestClient) -> None:
     _auth(client)
     respx.post(EMBED).mock(return_value=httpx.Response(200, json={"data": [{"embedding": [0.1, 0.2]}]}))

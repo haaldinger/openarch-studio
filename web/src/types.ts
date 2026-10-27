@@ -94,6 +94,7 @@ export interface Citation {
   chunkId: string;
   snippet: string;
   score: number | null;
+  vectorScore?: number | null;
   page: number;
 }
 

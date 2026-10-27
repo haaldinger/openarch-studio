@@ -105,6 +105,13 @@ async def test_empty_texts_make_no_call():
 
 
 @respx.mock
+async def test_empty_texts_unconfigured_reports_not_configured():
+    outcome = await make_reranker("").rerank("q", [])
+    assert outcome.status == "skipped (not configured)"
+    assert outcome.order == []
+
+
+@respx.mock
 async def test_texts_truncated_to_512_chars():
     route = respx.post(URL).respond(json=[{"index": 0, "score": 0.5}])
     await make_reranker().rerank("q", ["x" * 2000])

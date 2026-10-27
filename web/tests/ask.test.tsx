@@ -69,6 +69,17 @@ describe("Ask", () => {
     expect(screen.getByRole("link")).toHaveAttribute("href", "/documents/d1?chunk=c1&page=4");
   });
 
+  it("shows the rerank and vector scores", () => {
+    render(
+      <CitationList
+        citations={[{ docId: "d1", chunkId: "c1", snippet: "s", score: 0.95, vectorScore: 0.62, page: 1 }]}
+      />,
+      { wrapper: MemoryRouter },
+    );
+    expect(screen.getByText("0.95")).toBeInTheDocument();
+    expect(screen.getByText("vector 0.62")).toBeInTheDocument();
+  });
+
   it("opens a surface source at its page", async () => {
     const withPage = SSE_WITH_SURFACE.replace(
       '"context": {"docId": {"path": "/sources/0/docId"}}',

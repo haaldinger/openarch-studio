@@ -54,11 +54,11 @@ class Reranker:
         self._settings = settings
 
     async def rerank(self, query: str, texts: list[str]) -> RerankOutcome:
-        if not texts:
-            return RerankOutcome([], [], "reranked")
         url = self._settings.reranker_url.rstrip("/")
         if not url:
             return self._skip(len(texts), "not configured")
+        if not texts:
+            return RerankOutcome([], [], "reranked")
 
         payload = {"query": query, "texts": [t[:MAX_TEXT_CHARS] for t in texts]}
         try:

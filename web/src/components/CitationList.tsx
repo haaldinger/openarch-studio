@@ -15,6 +15,9 @@ export function CitationList({ citations }: { citations: Citation[] }) {
               {c.snippet && c.snippet.length > 90 ? "…" : ""}
             </Link>
             {typeof c.score === "number" && <span className="cite-score">{c.score.toFixed(2)}</span>}
+            {typeof c.vectorScore === "number" && c.vectorScore !== c.score && (
+              <span className="cite-score">vector {c.vectorScore.toFixed(2)}</span>
+            )}
           </li>
         ))}
       </ol>

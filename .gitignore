@@ -7,11 +7,15 @@ __pycache__/
 playwright-report/
 test-results/
 
-# PDF build intermediates
-docs/pdf/preview/
-docs/pdf/diagrams/cap-*/
+# internal collateral (kept local only)
+docs/pdf/
+docs/harness/
+docs/landing/
 
-docs/pdf/deckpreview/
+# agent skills (installed per machine)
+.agents/
+.claude/
+skills-lock.json
 
 # macOS
 .DS_Store

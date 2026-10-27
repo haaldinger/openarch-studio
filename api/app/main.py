@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
 from fastapi import Depends, FastAPI
 
 from .auth import SessionStore
@@ -18,11 +22,21 @@ from .search import router as search_router
 from .chat import router as chat_router
 from .capabilities import router as capabilities_router
 from .graphapi import router as graph_router
+from .warmup import warm_up
+
+
+@asynccontextmanager
+async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
+    app.state.warmup_task = asyncio.create_task(warm_up(app.state.settings))
+    try:
+        yield
+    finally:
+        app.state.warmup_task.cancel()
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or get_settings()
-    app = FastAPI(title="OpenArch Studio", version="0.1.0")
+    app = FastAPI(title="OpenArch Studio", version="0.1.0", lifespan=_lifespan)
     app.state.settings = settings
     # Runtime-mutable so the switch can flip live via PUT /api/config (no restart).
     app.state.baseline_mode = settings.baseline_mode

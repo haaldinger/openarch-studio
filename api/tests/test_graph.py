@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 import httpx
 import respx
 from fastapi.testclient import TestClient
@@ -69,6 +71,18 @@ def test_distinct_organizations_are_not_merged() -> None:
         '{"name":"International Software","type":"Organization"}],"relations":[]}'
     )
     assert len(parse_graph(raw).entities) == 2
+
+
+@respx.mock
+async def test_graph_uses_extract_model() -> None:
+    route = respx.post(CHAT).mock(
+        return_value=httpx.Response(200, json={"choices": [{"message": {"content": '{"entities":[],"relations":[]}'}}]})
+    )
+    service = GraphService(
+        Settings(_env_file=None, model_base_url="http://model.test/v1", extract_model="ex-model")
+    )
+    await service.extract("d1", "text")
+    assert json.loads(route.calls[0].request.content)["model"] == "ex-model"
 
 
 @respx.mock

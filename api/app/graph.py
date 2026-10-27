@@ -170,7 +170,7 @@ class GraphService:
     async def _complete(self, text: str) -> str:
         url = f"{self._settings.model_base_url}/chat/completions"
         payload = {
-            "model": self._settings.graph_model,
+            "model": self._settings.extract_model,
             "messages": [
                 {"role": "system", "content": _PROMPT},
                 {"role": "user", "content": text[:3500]},

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import re
 import unicodedata
 from dataclasses import dataclass
@@ -15,6 +16,8 @@ MAX_NAME_LEN = 64
 _DATE_FORMATS = ("%Y-%m-%d", "%d.%m.%Y", "%m/%d/%Y", "%Y/%m/%d")
 _CURRENCY = re.compile(r"[$€£¥]|\b(?:USD|EUR|GBP|CHF|JPY|CAD|AUD)\b", re.IGNORECASE)
 _PLAIN_NUMBER = re.compile(r"-?\d+(\.\d+)?")
+_SPACE_GROUPED = re.compile(r"-?\d{1,3}(?: \d{3})+(?:[.,][^ ]*)?")
+MAX_SIGNIFICANT_DIGITS = 15
 
 
 @dataclass
@@ -38,7 +41,11 @@ def _as_date(text: str) -> str | None:
 
 
 def _as_number(text: str) -> int | float | None:
-    s = re.sub(r"\s+", "", _CURRENCY.sub("", text))
+    s = re.sub(r"\s+", " ", _CURRENCY.sub("", text)).strip()
+    if " " in s:
+        if not _SPACE_GROUPED.fullmatch(s):
+            return None
+        s = s.replace(" ", "")
     if "." in s and "," in s:
         decimal = "." if s.rfind(".") > s.rfind(",") else ","
     elif "," in s:
@@ -54,14 +61,22 @@ def _as_number(text: str) -> int | float | None:
     s = f"{whole}.{frac}" if decimal else whole
     if not _PLAIN_NUMBER.fullmatch(s):
         return None
-    return float(s) if "." in s else int(s)
+    integer_part = s.lstrip("-").partition(".")[0]
+    if len(integer_part) > MAX_SIGNIFICANT_DIGITS or re.match(r"0\d", integer_part):
+        return None
+    value = float(s) if "." in s else int(s)
+    return value if _is_finite(value) else None
+
+
+def _is_finite(value: int | float) -> bool:
+    return isinstance(value, int) or math.isfinite(value)
 
 
 def _scalar_text(value: object) -> str | None:
     if isinstance(value, bool):
         return "true" if value else "false"
     if isinstance(value, (int, float)):
-        return str(value)
+        return str(value) if _is_finite(value) else None
     if isinstance(value, str):
         return value.strip() or None
     return None
@@ -71,7 +86,7 @@ def _clean_value(value: object) -> str | int | float | None:
     if isinstance(value, bool):
         return "true" if value else "false"
     if isinstance(value, (int, float)):
-        return value
+        return value if _is_finite(value) else None
     if isinstance(value, str):
         text = value.strip()
         if not text:
@@ -97,7 +112,7 @@ def parse_classification(raw: str) -> ClassifiedFields:
         if start == -1 or end < start:
             raise ValueError
         data = json.loads(text[start : end + 1])
-    except ValueError:
+    except (ValueError, RecursionError):
         raise ValueError("model returned invalid JSON") from None
     if not isinstance(data, dict):
         raise ValueError("model returned invalid JSON")

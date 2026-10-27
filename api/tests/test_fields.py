@@ -153,3 +153,44 @@ def test_key_collision_first_wins():
 def test_empty_normalizing_key_dropped():
     r = parse_classification('{"type":"a","fields":{"!!!":"x","ok":"y"}}')
     assert r.fields == {"ok": "y"}
+
+
+def _fields(value_json: str) -> dict:
+    return parse_classification('{"type":"a","fields":{"n":' + value_json + "}}").fields
+
+
+@pytest.mark.parametrize("literal", ["NaN", "Infinity", "-Infinity", "1e999"])
+def test_non_finite_numbers_dropped(literal):
+    assert _fields(literal) == {}
+
+
+def test_non_finite_list_items_skipped():
+    assert _fields("[NaN, 1]") == {"n": "1"}
+
+
+@pytest.mark.parametrize("text", ["00501", "0123456", "555 123 4567", "1234 5678 9012 3456", "12345678901234567890", "9" * 5000])
+def test_identifier_strings_stay_strings(text):
+    assert _fields(json.dumps(text)) == {"n": text[:500]}
+
+
+@pytest.mark.parametrize(
+    "text,expected",
+    [("1 234,50", 1234.5), ("1 234", 1234), ("0,50", 0.5), ("0.5", 0.5), ("3.10", 3.1), ("123456789012345", 123456789012345)],
+)
+def test_space_grouping_and_decimals_coerced(text, expected):
+    assert _fields(json.dumps(text)) == {"n": expected}
+
+
+def test_deeply_nested_json_raises_invalid_json():
+    raw = '{"type":"a","fields":{"x":' + "[" * 10000 + "]" * 10000 + "}}"
+    with pytest.raises(ValueError, match="invalid JSON"):
+        parse_classification(raw)
+
+
+@pytest.mark.parametrize(
+    "value_json",
+    ["NaN", "Infinity", "1e999", '"1e999"', '"9e999"', '"$1,234.50"', '"00501"', '"9' + "9" * 5000 + '"', '[1e999, 2]', "2.5"],
+)
+def test_results_are_json_safe(value_json):
+    result = parse_classification('{"type":"a","fields":{"n":' + value_json + "}}")
+    json.dumps(result.fields, allow_nan=False)

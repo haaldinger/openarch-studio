@@ -6,10 +6,16 @@ interface DocumentRowProps {
   doc: DocumentSummary;
   onOpenFolder?: (doc: DocumentSummary) => void;
   onDeleteFolder?: (doc: DocumentSummary) => void;
+  baselineMode?: boolean;
 }
 
 /** One row in the Library list: folders navigate in place, files open the inspector. */
-export function DocumentRow({ doc, onOpenFolder, onDeleteFolder }: DocumentRowProps) {
+export function DocumentRow({
+  doc,
+  onOpenFolder,
+  onDeleteFolder,
+  baselineMode = false,
+}: DocumentRowProps) {
   const Icon = doc.isFolderish ? Folder : FileText;
   const enriched = doc.mixinTypes?.includes("SysHasEmbeddings");
   const label = doc.title ?? doc.name ?? doc.id;
@@ -21,9 +27,12 @@ export function DocumentRow({ doc, onOpenFolder, onDeleteFolder }: DocumentRowPr
         <span className="doc-row-title">{label}</span>
         <span className="doc-row-sub">{doc.primaryType}</span>
       </span>
-      {!doc.isFolderish && doc.documentType && (
-        <span className="chip chip-type">{doc.documentType}</span>
-      )}
+      {!doc.isFolderish &&
+        !baselineMode &&
+        typeof doc.documentType === "string" &&
+        doc.documentType && (
+          <span className="chip chip-type">{doc.documentType}</span>
+        )}
       {!doc.isFolderish && (
         <span className={enriched ? "chip chip-ready" : "chip chip-stored"}>
           {enriched ? "Enriched" : "Stored"}

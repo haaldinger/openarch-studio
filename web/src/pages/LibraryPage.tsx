@@ -15,7 +15,7 @@ interface Crumb {
   name: string;
 }
 
-export function LibraryPage() {
+export function LibraryPage({ baselineMode = false }: { baselineMode?: boolean }) {
   const { scope, setScope } = useScope();
   const [path, setPath] = useState<Crumb[]>([{ id: ROOT_ID, name: "Library" }]);
   const [docs, setDocs] = useState<DocumentSummary[]>([]);
@@ -195,6 +195,7 @@ export function LibraryPage() {
             <DocumentRow
               key={doc.id}
               doc={doc}
+              baselineMode={baselineMode}
               onOpenFolder={(f) =>
                 setPath([...path, { id: f.id, name: f.title ?? f.name ?? f.id }])
               }

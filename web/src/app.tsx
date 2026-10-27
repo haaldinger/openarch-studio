@@ -78,7 +78,7 @@ export function App() {
       >
         <Routes>
           <Route path="/" element={<Navigate to="/library" replace />} />
-          <Route path="/library" element={<LibraryPage />} />
+          <Route path="/library" element={<LibraryPage baselineMode={baselineMode} />} />
           <Route
             path="/search"
             element={baselineMode ? <Navigate to="/library" replace /> : <SearchPage />}

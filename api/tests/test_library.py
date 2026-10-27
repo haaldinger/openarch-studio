@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 
 import httpx
+import pytest
 import respx
 from fastapi.testclient import TestClient
 
@@ -65,6 +66,18 @@ def test_summarize_exposes_document_type() -> None:
 
     assert summarize(doc)["documentType"] == "invoice"
     assert summarize({"sys_id": "d2"})["documentType"] is None
+
+
+@pytest.mark.parametrize(
+    "props",
+    ["oops", ["document_type"], {"document_type": {"a": 1}}, {"document_type": 5}, {"document_type": ""}],
+)
+def test_summarize_ignores_malformed_extracted_fields(props: object) -> None:
+    from app.library import summarize
+
+    doc = {"sys_id": "d1", "cinctx_contextProperties": props}
+
+    assert summarize(doc)["documentType"] is None
 
 
 @respx.mock

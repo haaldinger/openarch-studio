@@ -21,10 +21,10 @@ function mockApi(docs: unknown[]) {
 beforeEach(() => vi.stubGlobal("fetch", mockApi([])));
 afterEach(() => vi.unstubAllGlobals());
 
-function renderLibrary() {
+function renderLibrary(baselineMode = false) {
   return render(
     <MemoryRouter>
-      <LibraryPage />
+      <LibraryPage baselineMode={baselineMode} />
     </MemoryRouter>,
   );
 }
@@ -76,6 +76,48 @@ describe("Library", () => {
     renderLibrary();
     await waitFor(() => screen.getByText("Invoice.pdf"));
     expect(screen.getByText("invoice")).toBeInTheDocument();
+  });
+
+  it("renders without a chip when documentType is not a string", async () => {
+    vi.stubGlobal(
+      "fetch",
+      mockApi([
+        {
+          id: "d1",
+          title: "Odd.pdf",
+          name: "Odd.pdf",
+          primaryType: "SysFile",
+          isFolderish: false,
+          mixinTypes: [],
+          documentType: { a: 1 },
+          parentId: "root",
+        },
+      ]),
+    );
+    const { container } = renderLibrary();
+    await waitFor(() => screen.getByText("Odd.pdf"));
+    expect(container.querySelector(".chip-type")).toBeNull();
+  });
+
+  it("hides the type chip in baseline mode", async () => {
+    vi.stubGlobal(
+      "fetch",
+      mockApi([
+        {
+          id: "d1",
+          title: "Invoice.pdf",
+          name: "Invoice.pdf",
+          primaryType: "SysFile",
+          isFolderish: false,
+          mixinTypes: [],
+          documentType: "invoice",
+          parentId: "root",
+        },
+      ]),
+    );
+    const { container } = renderLibrary(true);
+    await waitFor(() => screen.getByText("Invoice.pdf"));
+    expect(container.querySelector(".chip-type")).toBeNull();
   });
 
   it("uploads a chosen file and refreshes", async () => {

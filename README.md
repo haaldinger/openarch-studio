@@ -104,8 +104,8 @@ npm run dev         # http://localhost:5173, proxies /api to localhost:8800
 ## Supported formats
 
 PDF, DOCX, TXT, Markdown, HTML (`.html`, `.htm`), and scanned images (TIFF, PNG, JPEG, GIF, BMP).
-Docling extracts them (OCR for scanned images); Tika takes over for anything Docling can't process
-(Docling's support for GIF and BMP is not verified, so those may be handled by Tika). Unsupported types are
+Docling extracts PDF, DOCX, HTML, Markdown, TXT, and PNG, JPEG, and TIFF images (OCR for scanned images). GIF and BMP are accepted at upload, but Docling support
+for them is not verified. If Docling can't process a file, Tika takes over. Unsupported types are
 rejected at upload. Extraction or embedding failures leave the original document safely stored in
 OpenArch and are retryable from **Activity**.
 

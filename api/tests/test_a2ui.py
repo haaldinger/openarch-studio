@@ -60,6 +60,35 @@ def test_titles_fall_back_to_doc_id() -> None:
     assert {"key": "title", "valueString": "d2"} in second
 
 
+def _open_contexts(messages) -> list[dict]:
+    return [
+        props["action"]["event"]["context"]
+        for entry in messages[0]["updateComponents"]["components"]
+        for props in entry["component"].values()
+        if props.get("action", {}).get("event", {}).get("name") == "open_document"
+    ]
+
+
+def _entries(messages, index: int) -> list[dict]:
+    return messages[1]["updateDataModel"]["contents"][0]["valueMap"][index]["valueMap"]
+
+
+def test_sources_surface_carries_page_in_data_and_action() -> None:
+    messages = a2ui.sources_surface("s1", [{"docId": "d1", "page": 4}, {"docId": "d2"}])
+    assert {"key": "page", "valueString": "4"} in _entries(messages, 0)
+    assert {"key": "page", "valueString": ""} in _entries(messages, 1)
+    for i, context in enumerate(_open_contexts(messages)):
+        assert context["page"] == {"path": f"/sources/{i}/page"}
+
+
+def test_comparison_surface_carries_page_in_data_and_action() -> None:
+    messages = a2ui.comparison_surface("s2", [{"docId": "d1", "page": 3, "snippet": "x"}])
+    assert {"key": "page", "valueString": "3"} in _entries(messages, 0)
+    assert _open_contexts(messages) == [
+        {"docId": {"path": "/sources/0/docId"}, "page": {"path": "/sources/0/page"}}
+    ]
+
+
 def _types(messages) -> set[str]:
     return {
         kind

@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import type { Citation } from "../types";
 
-/** Citations link to the document inspector at the cited chunk. */
+/** Citations link to the document inspector at the cited chunk and page. */
 export function CitationList({ citations }: { citations: Citation[] }) {
   if (citations.length === 0) return null;
   return (
@@ -10,7 +10,7 @@ export function CitationList({ citations }: { citations: Citation[] }) {
       <ol>
         {citations.map((c, i) => (
           <li key={`${c.chunkId}-${i}`}>
-            <Link to={`/documents/${c.docId}?chunk=${encodeURIComponent(c.chunkId)}`}>
+            <Link to={`/documents/${c.docId}?chunk=${encodeURIComponent(c.chunkId)}&page=${c.page}`}>
               {c.snippet ? c.snippet.slice(0, 90) : c.docId}
               {c.snippet && c.snippet.length > 90 ? "…" : ""}
             </Link>

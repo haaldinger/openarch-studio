@@ -51,7 +51,12 @@ def test_semantic_search_embeds_then_calls_vector_api(client: TestClient) -> Non
             200,
             json={
                 "embeddings": [
-                    {"sysembed_docId": "d1", "sysembed_text": "a chunk", "sysembed_score": 0.9}
+                    {
+                        "sysembed_docId": "d1",
+                        "sysembed_text": "a chunk",
+                        "sysembed_score": 0.9,
+                        "sysembed_location": {"text": {"page": 2, "paragraph": 1}},
+                    }
                 ]
             },
         )
@@ -59,7 +64,7 @@ def test_semantic_search_embeds_then_calls_vector_api(client: TestClient) -> Non
     res = client.post("/api/search", json={"mode": "semantic", "query": "what is the policy"})
     assert res.status_code == 200
     body = res.json()
-    assert body["results"][0] == {"id": "d1", "title": None, "snippet": "a chunk", "score": 0.9}
+    assert body["results"][0] == {"id": "d1", "title": None, "snippet": "a chunk", "score": 0.9, "page": 2}
     assert body["provenance"]["extendedBy"] == "Studio embedding"
     # The query vector is normalized to OpenArch's stored width.
     sent = vector_route.calls.last.request.read()

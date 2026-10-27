@@ -11,6 +11,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 
+from .agent import hit_page
 from .auth import get_openarch_client
 from .enrichment import EnrichmentService
 from .library import summarize
@@ -65,6 +66,7 @@ async def search(
                     "title": None,
                     "snippet": hit.get("sysembed_text"),
                     "score": hit.get("sysembed_score"),
+                    "page": hit_page(hit),
                 }
                 for hit in result.get("embeddings", [])
                 if any(t in (hit.get("sysembed_text") or "").lower() for t in terms)
@@ -93,6 +95,7 @@ async def search(
                     "title": None,
                     "snippet": hit.get("sysembed_text"),
                     "score": hit.get("sysembed_score"),
+                    "page": hit_page(hit),
                 }
                 for hit in result.get("embeddings", [])
             ]

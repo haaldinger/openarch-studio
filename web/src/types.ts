@@ -69,6 +69,7 @@ export interface SearchResult {
   title: string | null;
   snippet: string | null;
   score: number | null;
+  page?: number;
 }
 
 export interface SearchProvenance {
@@ -90,6 +91,7 @@ export interface Citation {
   chunkId: string;
   snippet: string;
   score: number | null;
+  page: number;
 }
 
 export interface ChatMessage {

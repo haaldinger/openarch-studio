@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import { AskPage } from "../src/pages/AskPage";
+import { CitationList } from "../src/components/CitationList";
 
 function sseResponse(body: string): Response {
   const stream = new ReadableStream({
@@ -22,7 +23,7 @@ const SSE =
   'event: TEXT_MESSAGE_CONTENT\ndata: {"type": "TEXT_MESSAGE_CONTENT", "delta": "Hello "}\n\n' +
   'event: TEXT_MESSAGE_CONTENT\ndata: {"type": "TEXT_MESSAGE_CONTENT", "delta": "world"}\n\n' +
   'event: TEXT_MESSAGE_END\ndata: {"type": "TEXT_MESSAGE_END", "messageId": "m1"}\n\n' +
-  'event: STATE_SNAPSHOT\ndata: {"type": "STATE_SNAPSHOT", "snapshot": {"citations": [{"docId": "d1", "chunkId": "c1", "snippet": "a source chunk", "score": 0.9}]}}\n\n' +
+  'event: STATE_SNAPSHOT\ndata: {"type": "STATE_SNAPSHOT", "snapshot": {"citations": [{"docId": "d1", "chunkId": "c1", "snippet": "a source chunk", "score": 0.9, "page": 2}]}}\n\n' +
   'event: RUN_FINISHED\ndata: {"type": "RUN_FINISHED", "runId": "r1"}\n\n';
 
 /** Same run, but the agent also composes the sources panel as an A2UI surface. */
@@ -58,6 +59,42 @@ function renderAsk() {
 }
 
 describe("Ask", () => {
+  it("links a citation to its page", () => {
+    render(
+      <CitationList citations={[{ docId: "d1", chunkId: "c1", snippet: "s", score: 0.5, page: 4 }]} />,
+      { wrapper: MemoryRouter },
+    );
+    expect(screen.getByRole("link")).toHaveAttribute("href", "/documents/d1?chunk=c1&page=4");
+  });
+
+  it("opens a surface source at its page", async () => {
+    const withPage = SSE_WITH_SURFACE.replace(
+      '"context": {"docId": {"path": "/sources/0/docId"}}',
+      '"context": {"docId": {"path": "/sources/0/docId"}, "page": {"path": "/sources/0/page"}}',
+    ).replace(
+      '{"key": "docId", "valueString": "d1"}',
+      '{"key": "docId", "valueString": "d1"}, {"key": "page", "valueString": "5"}',
+    );
+    vi.stubGlobal("fetch", vi.fn(async () => sseResponse(withPage)));
+    function Where() {
+      const loc = useLocation();
+      return <p data-testid="where">{loc.pathname + loc.search}</p>;
+    }
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <AskPage />
+        <Where />
+      </MemoryRouter>,
+    );
+
+    await user.type(screen.getByLabelText(/your question/i), "q");
+    await user.click(screen.getByRole("button", { name: /^ask$/i }));
+    await user.click(await screen.findByRole("button", { name: /open/i }));
+
+    expect(screen.getByTestId("where")).toHaveTextContent("/documents/d1?page=5");
+  });
+
   it("streams an answer with citations and a retrieval trace", async () => {
     const user = userEvent.setup();
     renderAsk();

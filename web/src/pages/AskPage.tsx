@@ -127,7 +127,11 @@ export function AskPage() {
                   messages={turn.surface}
                   onAction={(name, context) => {
                     if (name === "open_document" && context.docId) {
-                      navigate(`/documents/${context.docId}`);
+                      navigate(
+                        context.page
+                          ? `/documents/${context.docId}?page=${encodeURIComponent(context.page)}`
+                          : `/documents/${context.docId}`,
+                      );
                     } else if (name === "ask_question" && context.question) {
                       void askQuestion(context.question);
                     }

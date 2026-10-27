@@ -38,6 +38,13 @@ class Evidence:
     chunk_id: str
     text: str
     score: float | None
+    page: int = 1
+
+
+def hit_page(hit: dict) -> int:
+    """Page of an embedding hit; documents enriched before page tracking have none."""
+    page = ((hit.get("sysembed_location") or {}).get("text") or {}).get("page")
+    return page if isinstance(page, int) and page > 0 else 1
 
 
 class AgentService:
@@ -60,6 +67,7 @@ class AgentService:
                 chunk_id=hit.get("sysembed_id") or hit.get("sysembed_docId"),
                 text=hit.get("sysembed_text") or "",
                 score=hit.get("sysembed_score"),
+                page=hit_page(hit),
             )
             for hit in result.get("embeddings", [])
             if hit.get("sysembed_docId")

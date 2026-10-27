@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import json
+
 import httpx
 import respx
 from fastapi.testclient import TestClient
 
-from app.agent import INSUFFICIENT, AgentService, Evidence
+from app.agent import INSUFFICIENT, AgentService, Evidence, hit_page
 from app.config import Settings
 from app.enrichment import EnrichmentService
 from app.models import Credentials
@@ -47,7 +49,7 @@ async def test_retrieve_runs_as_user_and_maps_hits() -> None:
         )
     )
     evidence = await make_agent().retrieve("q", creds())
-    assert evidence == [Evidence(doc_id="d1", chunk_id="c1", text="txt", score=0.8)]
+    assert evidence == [Evidence(doc_id="d1", chunk_id="c1", text="txt", score=0.8, page=1)]
     assert route.calls.last.request.headers["authorization"].startswith("Basic ")
 
 
@@ -140,6 +142,71 @@ def test_chat_emits_a2ui_surface_for_citations(client: TestClient) -> None:
     assert "event: CUSTOM" in body and '"name": "a2ui"' in body
     # v0.9 requires the surface to be created after its components and data.
     assert body.index("updateComponents") < body.index("createSurface")
+
+
+def test_hit_page_reads_location_and_defaults_to_one() -> None:
+    assert hit_page({"sysembed_location": {"text": {"page": 3}}}) == 3
+    assert hit_page({}) == 1
+    assert hit_page({"sysembed_location": {"text": {}}}) == 1
+
+
+@respx.mock
+async def test_retrieve_carries_page_from_location() -> None:
+    respx.post(EMBED).mock(return_value=httpx.Response(200, json={"data": [{"embedding": [0.1]}]}))
+    respx.post(f"{OA}/api/query").mock(return_value=httpx.Response(200, json={"documents": [{"sys_id": "d1"}]}))
+    respx.post(VECTOR_QUERY).mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "embeddings": [
+                    {
+                        "sysembed_docId": "d1",
+                        "sysembed_id": "c1",
+                        "sysembed_text": "txt",
+                        "sysembed_location": {"text": {"page": 2, "paragraph": 1}},
+                    }
+                ]
+            },
+        )
+    )
+    [evidence] = await make_agent().retrieve("q", creds())
+    assert evidence.page == 2
+
+
+@respx.mock
+def test_chat_citation_carries_page(client: TestClient) -> None:
+    respx.get(ROOT).mock(return_value=httpx.Response(200, json={"sys_id": "root"}))
+    client.post("/api/session", json={"username": "admin", "password": "p"})
+
+    respx.post(EMBED).mock(return_value=httpx.Response(200, json={"data": [{"embedding": [0.1]}]}))
+    respx.post(f"{OA}/api/query").mock(return_value=httpx.Response(200, json={"documents": [{"sys_id": "d1"}]}))
+    respx.post(VECTOR_QUERY).mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "embeddings": [
+                    {
+                        "sysembed_docId": "d1",
+                        "sysembed_id": "c1",
+                        "sysembed_text": "ctx",
+                        "sysembed_location": {"text": {"page": 2, "paragraph": 1}},
+                    }
+                ]
+            },
+        )
+    )
+    respx.get(f"{OA}/api/documents/d1").mock(return_value=httpx.Response(200, json={"sys_id": "d1"}))
+    respx.post(CHAT).mock(
+        return_value=httpx.Response(200, text='data: {"choices":[{"delta":{"content":"A"}}]}\n\ndata: [DONE]\n\n')
+    )
+
+    body = client.post("/api/chat", json={"question": "what?"}).text
+    snapshot = next(
+        json.loads(line[len("data:") :])
+        for line in body.splitlines()
+        if line.startswith("data:") and '"STATE_SNAPSHOT"' in line
+    )
+    assert snapshot["snapshot"]["citations"][0]["page"] == 2
 
 
 def test_chat_requires_authentication(client: TestClient) -> None:

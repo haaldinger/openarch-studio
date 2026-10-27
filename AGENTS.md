@@ -5,7 +5,7 @@ retrieval-augmented AI pipeline on top of [OpenArch](./README.md), the
 open-source, AI-ready content platform. Studio is a *thin extension*: OpenArch
 stays the system of record, and every AI capability runs as the signed-in user.
 
-- `api/` — FastAPI backend-for-frontend (session gateway, enrichment, `extraction.py` Docling/Tika extractors, search, RAG, graph)
+- `api/` — FastAPI backend-for-frontend (session gateway, enrichment, `extraction.py` Docling/Tika extractors, `fields.py` classification + extracted fields, search, RAG, graph)
 - `web/` — React + TypeScript SPA (Vite), served by nginx
 - `docs/` — technical deep dive
 

@@ -34,3 +34,13 @@ def test_extraction_capabilities_name_docling(client: TestClient) -> None:
         assert by_name[name]["owner"] == "Studio + Docling (Tika fallback)"
         assert by_name[name]["evidence"] == "extraction.py"
     assert any(r["name"] == "Docling" for r in body["runtimes"])
+
+
+def test_field_extraction_capability_and_cincontext_native(client: TestClient) -> None:
+    body = client.get("/api/capabilities").json()
+    ext = {e["name"]: e for e in body["extensions"]}
+    fields = ext["Document classification & field extraction"]
+    assert fields["owner"] == "Studio + model"
+    assert fields["evidence"] == "fields.py"
+    native = {n["name"]: n for n in body["native"]}
+    assert "CinContext" in native["Metadata & content models"]["evidence"]

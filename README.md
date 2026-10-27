@@ -13,6 +13,11 @@ chunks and embeds it with a local model, and writes the vectors back as an OpenA
 it three ways and ask an agent questions whose answers are grounded in — and cited from — only the
 content you're allowed to read.
 
+After indexing, a small local model also classifies each document and extracts typed fields
+(vendor, date, total, …). They are written to OpenArch's native `CinContext` mixin, shown in the
+document inspector and as type chips in the Library, and searchable with HXQL, for example
+`SELECT * FROM SysContent WHERE cinctx_contextProperties.total > 1000`.
+
 ## What's OpenArch vs. what Studio adds
 
 | OpenArch native | Studio / open-source extension |
@@ -67,6 +72,7 @@ docker compose up -d --build
 # one-time: pull the local models Ollama will serve
 docker compose exec ollama ollama pull nomic-embed-text
 docker compose exec ollama ollama pull llama3.1
+docker compose exec ollama ollama pull llama3.2:3b   # classification + field extraction
 
 # open the UI
 open http://localhost:8900
@@ -83,6 +89,15 @@ DOCX, TXT, Markdown, HTML, or image file, watch it enrich on the **Activity** pa
 | `STUDIO_EXTRACTOR` | `docling` | `docling` (Tika fallback on failure) or `tika` only. |
 | `STUDIO_DOCLING_URL` | `http://docling:5001` | docling-serve base URL. |
 | `STUDIO_DOCLING_TIMEOUT_SECONDS` | `300` | Per-document Docling timeout; also caps docling-serve's sync wait. |
+
+### Field extraction settings
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `STUDIO_EXTRACT_MODEL` | `llama3.2:3b` | Model that classifies a document and extracts its fields. |
+
+If the model call fails, only the `classified` stage fails (retry from **Activity**); the
+document stays searchable.
 
 To use a hosted OpenAI-compatible provider instead of Ollama, set `STUDIO_MODEL_BASE_URL` (and the
 provider key) on the `studio-api` service and skip the `ollama pull` steps.

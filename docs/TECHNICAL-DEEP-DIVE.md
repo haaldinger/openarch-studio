@@ -95,6 +95,8 @@ database. This is what lets deletion, ACLs, and scoping "just work."
   `_e_<embedding-type>`, carrying a Parquet blob in `sysemb_embeddings`. The
   parent first gains the `SysHasEmbeddings` mixin
   (`ensure_has_embeddings_mixin`).
+- **Extracted fields** — the native `CinContext` mixin on the source file (see §4,
+  step 6).
 - **Folders** — native `SysFolder`; hierarchy via `sys_parentId` and the
   `sys_ancestorIds` array (used for subtree scoping, see §7).
 
@@ -124,7 +126,7 @@ The embeddings blob must match OpenArch's `embedding.avsc`. Studio mirrors it in
 
 [`enrichment.py`](../api/app/enrichment.py) turns an uploaded binary into
 searchable, AI-ready artifacts. It runs as a FastAPI background task and reports
-progress through five stages.
+progress through six stages (`classified` is additive, see step 6).
 
 ```mermaid
 flowchart LR
@@ -132,6 +134,7 @@ flowchart LR
     S2 --> S3["chunked\n(per page, ≤1000 chars)"]
     S3 --> S4["embedded\n(Ollama → 1024-dim)"]
     S4 --> S5["indexed\n(SysEmbeddings child + wait)"]
+    S5 --> S6["classified\n(type + fields → CinContext)"]
     S5 -.->|additive| G["graph extract\n(small model)"]
 ```
 
@@ -160,6 +163,38 @@ flowchart LR
 5. **indexed** — write the Parquet, `ensure_has_embeddings_mixin`, upload the
    blob, create the `SysEmbeddings` child, then
    `waitForFullTextSearchIndexing`.
+
+6. **classified** — [`fields.py`](../api/app/fields.py) makes one JSON-mode call
+   to `STUDIO_EXTRACT_MODEL` (default `llama3.2:3b`) over the first 6,000
+   characters of the Markdown and returns `{type, fields}`.
+   - **Vocabulary.** Before the call, `FieldsService.vocabulary` runs an HXQL
+     query **as the caller** over the 200 most recently modified documents with
+     the `CinContext` mixin and builds `{type: [field names]}`, so the model
+     can reuse existing types and names. Only names are read, never values, and
+     only from documents the caller can read. Names are sanitized before they
+     reach the prompt: only names already in normalized form, at most 25 per
+     type and 50 types.
+   - **Normalization.** Type and field names become ASCII `snake_case` (≤ 64
+     chars); at most 25 fields; strings are cut at 500 chars; dates in
+     `%Y-%m-%d`, `%d.%m.%Y`, `%m/%d/%Y` or `%Y/%m/%d` become ISO 8601; money
+     strings become numbers, but identifier-like strings (leading zeros,
+     non-thousands space groups, more than 15 digits) stay strings; non-finite
+     numbers are dropped.
+   - **Storage.** `store` adds the `CinContext` mixin and writes
+     `cinctx_contextProperties` = `{"document_type": …, …fields}` (a flat map,
+     replaced on each run) and `cinctx_contextPropertyNames` (its keys).
+     Written as the signed-in user.
+   - **HXQL findings** (verified live): REST accepts the free-form map, and
+     HXQL filters on its keys with the dot or slash path form, e.g.
+     `SELECT * FROM SysContent WHERE cinctx_contextProperties.total > 1000`.
+     The `:` path form does not work. String equality on keys and
+     `cinctx_contextPropertyNames = 'total'` also work.
+   - **Failure behavior.** A failure (`no write permission on this document`,
+     `model returned invalid JSON`, a model/HTTP error) marks only the
+     `classified` stage `failed`; the job stays `complete` and the document
+     stays searchable. Activity offers Retry when any stage failed. The stage
+     detail reads `{type} · {n} fields`. Baseline mode hides the Extracted
+     fields panel and the Library type chips.
 
 After indexing succeeds, graph extraction runs **additively** (a failure there
 never fails the enrichment job).
@@ -356,6 +391,7 @@ All settings are `STUDIO_`-prefixed env vars with Compose-friendly defaults
 | `STUDIO_EMBEDDING_MODEL` | `nomic-embed-text` | chunk + query embeddings |
 | `STUDIO_CHAT_MODEL` | `llama3.1` | RAG answers |
 | `STUDIO_GRAPH_MODEL` | `llama3.2:1b` | graph extraction |
+| `STUDIO_EXTRACT_MODEL` | `llama3.2:3b` | document classification + field extraction |
 | `enrich_concurrency` | `2` | max concurrent enrichments |
 | `STUDIO_GRAPH_STORE_PATH` | `/data/graph.json` | persisted graph |
 | `session_ttl_seconds` | `3600` | in-memory session lifetime |
@@ -371,6 +407,7 @@ docker compose up -d --build
 docker compose exec ollama ollama pull nomic-embed-text
 docker compose exec ollama ollama pull llama3.1
 docker compose exec ollama ollama pull llama3.2:1b
+docker compose exec ollama ollama pull llama3.2:3b
 ```
 
 Open `http://localhost:8900`, sign in with OpenArch credentials

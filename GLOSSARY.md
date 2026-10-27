@@ -74,6 +74,10 @@ _Avoid_: vector, encoding, representation
 The pipeline that turns an uploaded file into searchable, AI-ready artifacts, reported through its stages (stored, extracted, chunked, embedded, indexed).
 _Avoid_: ingestion, processing, indexing (for the whole pipeline)
 
+**Extractor**:
+The swappable component of the extracted stage that turns a file's bytes into page-aware Markdown text — Docling first, with Tika as the fallback.
+_Avoid_: parser, converter, OCR engine, text reader
+
 **Readiness**:
 Whether a document has been enriched — reconstructed from OpenArch, not from Studio's in-memory job history.
 _Avoid_: status, state, progress

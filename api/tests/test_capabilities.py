@@ -25,3 +25,12 @@ def test_capability_ownership_is_unambiguous(client: TestClient) -> None:
     for ext in body["extensions"]:
         assert ext["owner"] != NATIVE_OWNER
         assert ext["owner"] in EXTENSION_OWNERS
+
+
+def test_extraction_capabilities_name_docling(client: TestClient) -> None:
+    body = client.get("/api/capabilities").json()
+    by_name = {e["name"]: e for e in body["extensions"]}
+    for name in ("Scanned-image OCR", "Text & metadata extraction"):
+        assert by_name[name]["owner"] == "Studio + Docling (Tika fallback)"
+        assert by_name[name]["evidence"] == "extraction.py"
+    assert any(r["name"] == "Docling" for r in body["runtimes"])

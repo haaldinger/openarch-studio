@@ -21,12 +21,14 @@ flowchart LR
     OA["openarch-app :8080\n(system of record)"]
     Mongo[(MongoDB)]
     OS[(OpenSearch\nfull-text + kNN)]
-    Tika["Apache Tika :9998\n(text + OCR)"]
+    Docling["Docling :5001\n(layout-aware extraction + OCR)"]
+    Tika["Apache Tika :9998\n(fallback text + OCR)"]
     Ollama["Ollama :11434\n(embeddings + chat)"]
 
     Browser -->|same-origin /api/*| API
     API -->|HTTP Basic as the user| OA
-    API -->|PUT /tika| Tika
+    API -->|POST /v1/convert/file| Docling
+    API -.->|PUT /tika on failure| Tika
     API -->|/v1/embeddings, /v1/chat| Ollama
     OA --> Mongo
     OA --> OS
@@ -37,7 +39,8 @@ flowchart LR
 | `studio-web` | `./web` (nginx) | React SPA, served on `${STUDIO_PORT:-8900}` → container `:80`. Proxies `/api/*` to the API. |
 | `studio-api` | `./api` (FastAPI/uvicorn `:8800`) | Backend-for-frontend: session gateway, enrichment, search, RAG, graph. |
 | `openarch-app` | included from [`../../docker-compose.yml`](../../docker-compose.yml) | Documents, ACLs, HXQL + vector query. |
-| `tika` | `apache/tika:2.9.2.1-full` | Text extraction and **Tesseract OCR** of scanned images. |
+| `docling` | `quay.io/docling-project/docling-serve-cpu:v1.38.2` | Primary extraction: layout-aware Markdown, tables, and OCR. Not published to the host. |
+| `tika` | `apache/tika:2.9.2.1-full` | Fallback extraction and **Tesseract OCR** of scanned images. |
 | `ollama` | `ollama/ollama:latest` | Local OpenAI-compatible embeddings and chat. |
 
 The Studio stack `include:`s the OpenArch base compose file, so one
@@ -125,8 +128,8 @@ progress through five stages.
 
 ```mermaid
 flowchart LR
-    S1["stored\n(bytes in OpenArch)"] --> S2["extracted\n(Tika / OCR)"]
-    S2 --> S3["chunked\n(paragraph, ≤1000 chars)"]
+    S1["stored\n(bytes in OpenArch)"] --> S2["extracted\n(Docling, Tika fallback)"]
+    S2 --> S3["chunked\n(per page, ≤1000 chars)"]
     S3 --> S4["embedded\n(Ollama → 1024-dim)"]
     S4 --> S5["indexed\n(SysEmbeddings child + wait)"]
     S5 -.->|additive| G["graph extract\n(small model)"]
@@ -134,12 +137,23 @@ flowchart LR
 
 1. **stored** — the source `SysFile` already holds the bytes; the pipeline
    re-reads them from OpenArch so a retry needs nothing cached in Studio.
-2. **extracted** — `PUT {tika}/tika` with the original MIME type. Tika runs
-   Tesseract for scanned images. Timeout is **300 s** because OCR of large
-   multi-page scans is slow.
-3. **chunked** — `chunk_text()` splits on blank lines, then hard-wraps
-   paragraphs at 1000 chars; chunk ids are deterministic (`uuid5`) so the same
-   text always yields the same ids.
+2. **extracted** — [`extraction.py`](../api/app/extraction.py) defines an
+   `Extractor` seam returning Markdown, one string per page, and the engine
+   name. `DoclingExtractor` posts the original bytes to docling-serve
+   (`POST /v1/convert/file`, Markdown output, OCR on) with a page-break
+   placeholder so pages can be recovered. `TikaExtractor` is the older
+   `PUT {tika}/tika` path and returns a single page. `FallbackExtractor` tries
+   Docling and, on `ExtractionFailed` (HTTP error, `failure`/`skipped` status,
+   empty text), falls back to Tika. `STUDIO_EXTRACTOR=tika` skips Docling.
+   The Activity stage detail reads `Docling · n chars`, `Tika fallback · n chars`
+   or `Tika · n chars`. The Docling timeout is `STUDIO_DOCLING_TIMEOUT_SECONDS`
+   (default **300 s**); OCR of large multi-page scans is slow.
+3. **chunked** — `chunk_pages()` works page by page: each page is split on
+   headings and blank lines, so a paragraph, list or table is one block. Tables
+   stay whole; other blocks are hard-wrapped at 1000 chars. The nearest
+   preceding heading is prefixed to each chunk for context. Chunk ids are
+   deterministic (`uuid5`) so the same text always yields the same ids, and the
+   real page number is stored in the SysEmbeddings `location.text.page`.
 4. **embedded** — one batched call to `/v1/embeddings`; each vector normalized
    to 1024.
 5. **indexed** — write the Parquet, `ensure_has_embeddings_mixin`, upload the
@@ -151,7 +165,7 @@ never fails the enrichment job).
 
 ### Concurrency
 
-OCR (Tika) and embedding (Ollama, CPU) are the bottlenecks. A batch upload of
+OCR (Docling/Tika) and embedding (Ollama, CPU) are the bottlenecks. A batch upload of
 many files would otherwise flood them and produce read timeouts, so the service
 holds an `asyncio.Semaphore(enrich_concurrency)` (default **2**) around the whole
 per-document pipeline.
@@ -220,6 +234,11 @@ Security properties baked in:
 - **No fabricated citations.** Studio only emits citations drawn from the
   evidence it actually retrieved; with no evidence it returns a fixed
   "not enough information" answer instead of hallucinating.
+- **Page-aware citations.** Each chunk's page comes from the stored
+  `location.text.page`, so chat, keyword/semantic search and A2UI sources all
+  carry a `page`. Clicking a citation opens `/documents/{id}?page=N`; PDFs open
+  at `#page=N` in the browser's native viewer. Sources from the Tika path have
+  a single page.
 
 ---
 
@@ -288,13 +307,13 @@ from search 3 → 0, and left 0 references in the graph.
 
 [`capabilities.py`](../api/app/capabilities.py) serves a strict ledger the UI
 renders, and a test proves native capabilities are never attributed to
-Studio/Tika/Ollama and extensions never claim native status.
+Studio/Docling/Tika/Ollama and extensions never claim native status.
 
 - **Native (OpenArch):** storage, folders & hierarchy, deletion, metadata/content
   models, ACLs & effective permissions, HXQL queries, `SysEmbeddings` vector
   search, users/groups/vocabularies, permission-aware retrieval, OpenSearch
   indexing.
-- **Extensions (Studio / Studio+Tika / Studio+model):** visual workspace, OCR,
+- **Extensions (Studio / Studio + Docling (Tika fallback) / Studio+model):** visual workspace, OCR,
   inline viewer, text/metadata extraction, chunking & embedding, embeddings
   inspection, guided search, RAG + streaming chat, graph extraction &
   visualization, citations & retrieval trace, deletion reflected in Q&A & graph,
@@ -328,7 +347,10 @@ All settings are `STUDIO_`-prefixed env vars with Compose-friendly defaults
 | Setting | Default | Purpose |
 |---|---|---|
 | `STUDIO_OPENARCH_URL` | `http://openarch-app:8080` | system of record |
-| `STUDIO_TIKA_URL` | `http://tika:9998` | extraction / OCR |
+| `STUDIO_TIKA_URL` | `http://tika:9998` | fallback extraction / OCR |
+| `STUDIO_EXTRACTOR` | `docling` | `docling` (Tika fallback) or `tika` only |
+| `STUDIO_DOCLING_URL` | `http://docling:5001` | docling-serve |
+| `STUDIO_DOCLING_TIMEOUT_SECONDS` | `300` | per-document Docling timeout |
 | `STUDIO_MODEL_BASE_URL` | `http://ollama:11434/v1` | OpenAI-compatible models |
 | `STUDIO_EMBEDDING_MODEL` | `nomic-embed-text` | chunk + query embeddings |
 | `STUDIO_CHAT_MODEL` | `llama3.1` | RAG answers |
@@ -366,7 +388,7 @@ Open `http://localhost:8900`, sign in with OpenArch credentials
 
 ## 14. Known limitations & upstream findings
 
-- **OCR language packs.** Tika's default Tesseract data covers Latin scripts
+- **OCR language packs.** Docling's OCR and Tika's default Tesseract data cover Latin scripts
   well; Greek/Czech/Polish scans need extra `tessdata` for best accuracy.
 - **Keyword search** depends on the embedding index rather than server-side
   `sys_fulltext` in this deployment (see §5).

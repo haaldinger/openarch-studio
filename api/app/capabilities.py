@@ -18,7 +18,7 @@ from .models import Credentials
 router = APIRouter(prefix="/api")
 
 NATIVE_OWNER = "OpenArch"
-EXTENSION_OWNERS = {"Studio", "Studio + Tika", "Studio + model"}
+EXTENSION_OWNERS = {"Studio", "Studio + Docling (Tika fallback)", "Studio + model"}
 
 _NATIVE = [
     ("Document & binary storage", "SysFile documents hold the original bytes.", "/api/documents"),
@@ -36,9 +36,9 @@ _NATIVE = [
 
 _EXTENSIONS = [
     ("Visual content workspace", "Studio", "Upload, browse, inspect documents.", "web/Library"),
-    ("Scanned-image OCR", "Studio + Tika", "Tika (Tesseract) OCRs scanned images into text.", "tika:/tika"),
+    ("Scanned-image OCR", "Studio + Docling (Tika fallback)", "Docling OCRs scanned images and PDFs into Markdown; Tika (Tesseract) is the fallback.", "extraction.py"),
     ("Inline document viewer", "Studio", "Images/PDFs render in-app; TIFF converted to PNG.", "/api/documents/{id}/preview"),
-    ("Text & metadata extraction", "Studio + Tika", "Tika turns binaries into text.", "tika:/tika"),
+    ("Text & metadata extraction", "Studio + Docling (Tika fallback)", "Docling turns binaries into page-aware Markdown; Tika is the fallback.", "extraction.py"),
     ("Chunking & embedding", "Studio + model", "Chunks embedded then stored as SysEmbeddings.", "enrichment"),
     ("Embeddings inspection", "Studio", "Surfaces the stored vectors per chunk.", "/api/documents/{id}/embeddings"),
     ("Guided search interface", "Studio", "Keyword/HXQL/semantic in one surface.", "/api/search"),
@@ -54,7 +54,8 @@ _EXTENSIONS = [
 
 _RUNTIMES = [
     {"name": "OpenArch", "role": "System of record (documents, ACLs, vectors)"},
-    {"name": "Apache Tika", "role": "Text & metadata extraction"},
+    {"name": "Docling", "role": "Primary extraction: layout-aware text, tables & OCR"},
+    {"name": "Apache Tika", "role": "Fallback text & metadata extraction"},
     {"name": "Ollama", "role": "Local embeddings & chat (OpenAI-compatible)"},
     {"name": "Studio API", "role": "BFF, enrichment, agent orchestration"},
 ]

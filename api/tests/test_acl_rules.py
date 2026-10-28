@@ -38,6 +38,18 @@ def test_end_in_the_past_is_rejected():
     assert _status(lambda: validate_rules([_rule(end=NOW - timedelta(hours=1))], NOW)) == 400
 
 
+def test_subsecond_window_collapsing_to_same_second_is_rejected():
+    begin = datetime(2026, 10, 28, 12, 0, 0, 200000, tzinfo=timezone.utc)
+    end = datetime(2026, 10, 28, 12, 0, 0, 800000, tzinfo=timezone.utc)
+    assert _status(lambda: validate_rules([_rule(begin=begin, end=end)], NOW)) == 400
+
+
+def test_end_in_same_second_as_now_is_rejected():
+    now = datetime(2026, 10, 28, 12, 0, 0, 700000, tzinfo=timezone.utc)
+    end = datetime(2026, 10, 28, 12, 0, 0, 800000, tzinfo=timezone.utc)
+    assert _status(lambda: validate_rules([_rule(end=end)], now)) == 400
+
+
 def test_more_than_fifty_rules_is_rejected():
     rules = [_rule(pid=f"g{i}") for i in range(51)]
     assert _status(lambda: validate_rules(rules, NOW)) == 400

@@ -31,20 +31,25 @@ def _utc(value: datetime) -> datetime:
     return value.astimezone(timezone.utc)
 
 
+def _sent(value: datetime) -> datetime:
+    # Mirrors the whole-second precision of the sent `.000Z` timestamps.
+    return _utc(value).replace(microsecond=0)
+
+
 def _iso(value: datetime) -> str:
-    return _utc(value).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+    return _sent(value).strftime("%Y-%m-%dT%H:%M:%S.000Z")
 
 
 def validate_rules(rules: list[RuleIn], now: datetime) -> None:
     if len(rules) > MAX_RULES:
         raise HTTPException(status_code=400, detail=f"At most {MAX_RULES} rules per folder")
-    current = _utc(now)
+    current = _sent(now)
     for rule in rules:
         if rule.permission not in PERMISSIONS:
             raise HTTPException(status_code=400, detail=f"Unknown permission: {rule.permission}")
-        if rule.begin and rule.end and _utc(rule.begin) >= _utc(rule.end):
+        if rule.begin and rule.end and _sent(rule.begin) >= _sent(rule.end):
             raise HTTPException(status_code=400, detail="Access must begin before it ends")
-        if rule.end and _utc(rule.end) <= current:
+        if rule.end and _sent(rule.end) <= current:
             raise HTTPException(status_code=400, detail="Access end must be in the future")
 
 

@@ -132,8 +132,12 @@ code {
 /* ── Shell layout ───────────────────────────────────────────────── */
 .shell {
   display: grid;
-  grid-template-columns: var(--rail-w) 1fr;
+  grid-template-columns: var(--rail-w) minmax(0, 1fr);
   min-height: 100vh;
+}
+/* A later .stage rule (pipeline step) sets min-width: 130px; keep the page stage shrinkable. */
+.shell > .stage {
+  min-width: 0;
 }
 
 .rail {
@@ -1708,12 +1712,16 @@ select.modal-input {
 }
 .compare-cols {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
   align-items: start;
 }
 .compare-col {
   min-width: 0;
+  padding: 16px;
+  background: #fff;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
 }
 .compare-col .turn-a {
   max-width: none;
@@ -1723,7 +1731,7 @@ select.modal-input {
   justify-content: space-between;
   align-items: center;
   gap: 8px;
-  margin-bottom: 8px;
+  margin-bottom: 12px;
 }
 .compare-persona {
   display: flex;
@@ -1735,6 +1743,25 @@ select.modal-input {
   border-radius: 8px;
   font: inherit;
   cursor: pointer;
+}
+.compare-persona:hover {
+  border-color: var(--studio);
+}
+.compare-persona-prefix {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--ink-faint);
+}
+.compare-persona-caret {
+  color: var(--ink-faint);
+}
+.compare-col-head .btn-ghost:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.compare-col-head .btn-ghost:disabled:hover {
+  border-color: var(--line-strong);
+  color: var(--ink);
 }
 .compare-summary {
   display: grid;
@@ -2174,6 +2201,10 @@ select.modal-input {
   letter-spacing: 0.05em;
   color: var(--ink-faint);
 }
+.perm-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+}
 .perm-table {
   width: 100%;
   border-collapse: collapse;
@@ -2181,10 +2212,26 @@ select.modal-input {
 }
 .perm-table th,
 .perm-table td {
-  padding: 8px 10px;
+  padding: 8px 8px;
   text-align: left;
   vertical-align: middle;
   border-top: 1px solid var(--line);
+}
+.perm-rules td:not(:first-child) {
+  white-space: nowrap;
+}
+.perm-rules td.perm-source-inherited {
+  white-space: normal;
+  min-width: 120px;
+}
+.perm-rules td:first-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.perm-rules .btn-sm {
+  padding: 3px 10px;
+  font-size: 0.8rem;
+  border-radius: 6px;
 }
 .perm-table thead th {
   border-top: none;
@@ -2206,10 +2253,18 @@ select.modal-input {
   font-size: 0.78rem;
   color: var(--ink-faint);
 }
+.perm-grid td.perm-check {
+  line-height: 1;
+}
 .perm-yes {
+  display: block;
+  margin: 0 auto;
   color: var(--native);
 }
 .perm-no {
+  display: block;
+  text-align: center;
+  line-height: 16px;
   color: var(--ink-faint);
 }
 .perm-window {

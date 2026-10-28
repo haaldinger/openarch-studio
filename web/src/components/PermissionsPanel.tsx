@@ -180,6 +180,7 @@ export function PermissionsPanel({ docId }: { docId: string }) {
 
       <section className="perm-section">
         <h3 className="perm-heading">{data.canManage ? "Who can access" : "Your access"}</h3>
+        <div className="perm-scroll">
         <table className="perm-table perm-grid" aria-label="Who can access">
           <thead>
             <tr>
@@ -213,6 +214,7 @@ export function PermissionsPanel({ docId }: { docId: string }) {
             ))}
           </tbody>
         </table>
+        </div>
       </section>
 
       {!data.canManage ? (
@@ -224,7 +226,8 @@ export function PermissionsPanel({ docId }: { docId: string }) {
             {rules.length === 0 ? (
               <p className="muted">No rules set on this item.</p>
             ) : (
-              <table className="perm-table" aria-label="Access rules">
+              <div className="perm-scroll">
+              <table className="perm-table perm-rules" aria-label="Access rules">
                 <thead>
                   <tr>
                     <th scope="col">Who</th>
@@ -268,7 +271,7 @@ export function PermissionsPanel({ docId }: { docId: string }) {
                             "–"
                           )}
                         </td>
-                        <td>
+                        <td className={rule.source.kind === "inherited" ? "perm-source-inherited" : undefined}>
                           {rule.source.kind === "inherited" ? (
                             rule.source.id ? (
                               <Link to={`/documents/${rule.source.id}`}>
@@ -286,7 +289,7 @@ export function PermissionsPanel({ docId }: { docId: string }) {
                           {rule.source.kind === "local" && (
                             <button
                               type="button"
-                              className="btn-danger"
+                              className="btn-danger btn-sm"
                               disabled={busy}
                               aria-label={`Remove ${who} ${PERMISSION_LABEL[rule.permission] ?? rule.permission}`}
                               onClick={() => void save(sendable(rule))}
@@ -300,6 +303,7 @@ export function PermissionsPanel({ docId }: { docId: string }) {
                   })}
                 </tbody>
               </table>
+              </div>
             )}
             {inherited.length > 0 && (
               <p className="muted perm-note">

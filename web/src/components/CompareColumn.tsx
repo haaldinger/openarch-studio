@@ -50,8 +50,10 @@ export function CompareColumn({ persona, personas, result, onPersonaChange, onRe
     <section className="compare-col" aria-label={`Answer as ${personaName(answeredAs)}`}>
       <header className="compare-col-head">
         <button type="button" className="compare-persona" onClick={() => setPicking(true)}>
+          <span className="compare-persona-prefix">Ask as</span>
           <span className="persona-name">{personaName(persona)}</span>
           {label && <span className="persona-label">{label}</span>}
+          <span className="compare-persona-caret" aria-hidden="true">▾</span>
         </button>
         <button
           type="button"

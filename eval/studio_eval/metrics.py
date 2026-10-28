@@ -8,23 +8,40 @@ from .client import ChatResult
 from .golden import GoldenEntry
 
 _FIXED_REPLY = "i don't have enough information in the indexed content to answer that."
-_DECLINE_PHRASES = (
+# Heuristic substring lists: they can over- or under-match.
+_ALWAYS_DECLINE = (
     _FIXED_REPLY,
     "don't have enough information",
     "do not have enough information",
     "not enough information",
+)
+_GUARDED_DECLINE = (
     "cannot find",
     "can't find",
     "no information about",
     "not mentioned in",
     "isn't mentioned in",
     "is not mentioned",
+    "does not mention",
+    "do not mention",
+    "no mention of",
+    "does not contain",
+    "keine informationen",
+    "aucune information",
+    "pas d'information",
+    "no hay información",
+    "no tengo suficiente información",
+    "geen informatie",
 )
+_SHORT_ANSWER_CHARS = 200
 
 
-def declined(answer: str) -> bool:
+def declined(answer: str, has_citations: bool = False) -> bool:
     text = " ".join(answer.replace("\u2019", "'").lower().split())
-    return any(p in text for p in _DECLINE_PHRASES)
+    if any(p in text for p in _ALWAYS_DECLINE):
+        return True
+    guarded = len(text) < _SHORT_ANSWER_CHARS and not has_citations
+    return guarded and any(p in text for p in _GUARDED_DECLINE)
 
 
 def retrieval_scores(entry: GoldenEntry, result: ChatResult) -> dict[str, float | None]:
@@ -42,7 +59,7 @@ def abstention_scores(entry: GoldenEntry, result: ChatResult) -> dict[str, float
     if result.error:
         return scores
     key = "abstain_correct" if entry.kind == "unanswerable" else "false_abstain"
-    scores[key] = 1.0 if declined(result.answer) else 0.0
+    scores[key] = 1.0 if declined(result.answer, has_citations=bool(result.citations)) else 0.0
     return scores
 
 

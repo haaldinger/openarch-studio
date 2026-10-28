@@ -92,6 +92,47 @@ def test_declined_false(answer):
     assert not declined(answer)
 
 
+CAVEAT = "Total is €120.50 [1]. I cannot find a due date."
+
+
+def test_partial_answer_with_citations_is_not_declined():
+    assert not declined(CAVEAT, has_citations=True)
+
+
+def test_partial_answer_without_citations_is_declined():
+    assert declined(CAVEAT, has_citations=False)
+
+
+def test_active_voice_refusal_short_is_declined():
+    assert declined("The documents do not mention a due date.")
+
+
+@pytest.mark.parametrize(
+    "answer",
+    [
+        "Keine Informationen dazu.",
+        "Aucune information sur ce sujet.",
+        "Pas d'information disponible.",
+        "No hay información sobre eso.",
+        "No tengo suficiente información.",
+        "Geen informatie beschikbaar.",
+    ],
+)
+def test_non_english_refusal_short_is_declined(answer):
+    assert declined(answer)
+
+
+def test_long_answer_with_citations_mentioning_no_mention_of_is_not_declined():
+    answer = (
+        "The policy covers water damage in detail across several sections [1][2]. "
+        "Coverage for flood events is described on page four, while there is no mention of "
+        "earthquake damage in the excerpt provided, so that case is not addressed by this document "
+        "and additional sources would be needed to answer it fully."
+    )
+    assert len(answer) >= 200
+    assert not declined(answer, has_citations=True)
+
+
 def test_abstention_unanswerable():
     assert abstention_scores(entry("unanswerable"), result(answer=FIXED)) == {
         "abstain_correct": 1.0,

@@ -16,7 +16,7 @@ from pydantic import BaseModel
 
 from . import a2ui, agui
 from .agent import AgentService
-from .auth import Session, current_session, persona_credentials
+from .auth import Session, current_session, is_demo_admin, persona_credentials
 from .config import Settings
 from .enrichment import EnrichmentService
 from .openarch import OpenArchForbidden
@@ -56,7 +56,7 @@ async def chat(
 ) -> StreamingResponse:
     if body.actAs:
         demo = getattr(request.app.state, "demo", None)
-        if demo is None:
+        if not is_demo_admin(demo, session):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not permitted")
         credentials = persona_credentials(demo, body.actAs, session.origin)
     else:

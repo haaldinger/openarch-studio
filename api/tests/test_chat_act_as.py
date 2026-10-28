@@ -122,3 +122,15 @@ def test_search_scoped_folder_forbidden_message(client: TestClient) -> None:
     assert scoped.json()["detail"] == NO_ACCESS
     assert unscoped.status_code == 403
     assert unscoped.json()["detail"] == "Not permitted"
+
+
+@respx.mock
+def test_chat_act_as_forbidden_for_non_admin(settings: Settings) -> None:
+    client = _demo_client(settings)
+    _sign_in(client, "cory")
+    route = _mock_chat_backend()
+
+    response = client.post("/api/chat", json={"question": "q", "actAs": "erin"})
+
+    assert response.status_code == 403
+    assert not any(call.request.url == VECTOR_QUERY for call in route.calls)

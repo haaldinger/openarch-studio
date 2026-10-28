@@ -56,6 +56,7 @@ def test_browse_lists_children_as_summaries(client: TestClient) -> None:
         "mixinTypes": [],
         "documentType": None,
         "parentId": ROOT_ID,
+        "access": {"mine": None, "sharedWith": None, "expiresAt": None},
     }
 
 
@@ -79,6 +80,60 @@ def test_summarize_ignores_malformed_extracted_fields(props: object) -> None:
 
     assert summarize(doc)["documentType"] is None
 
+
+@pytest.mark.parametrize(
+    ("perms", "mine"),
+    [
+        (["Read", "ReadWrite", "Write", "ManageSecurity"], "manage"),
+        (["Everything"], "manage"),
+        (["Read", "Write"], "edit"),
+        (["Read", "ReadWrite"], "edit"),
+        (["Read"], "read"),
+        ([], None),
+        (None, None),
+    ],
+)
+def test_summarize_reports_own_access(perms: object, mine: str | None) -> None:
+    from app.library import summarize
+
+    assert summarize({"sys_id": "d1", "sys_effectivePermissions": perms})["access"]["mine"] == mine
+
+
+def test_summarize_shared_with_active_rules_only() -> None:
+    from app.library import summarize
+
+    doc = {
+        "sys_id": "d1",
+        "sys_effectivePermissions": ["Read", "ManageSecurity"],
+        "sys_effectiveAcl": [
+            {"permission": "Read", "granted": True, "status": "EFFECTIVE", "group": {"id": "g1", "name": "sales"}},
+            {"permission": "Write", "granted": True, "status": "EFFECTIVE", "group": {"id": "g1", "name": "sales"}},
+            {"permission": "Read", "granted": True, "status": "EFFECTIVE", "end": "2026-10-28T19:00:00Z",
+             "user": {"id": "u1", "username": "cory"}},
+            {"permission": "Read", "granted": True, "status": "EFFECTIVE", "end": "2026-10-28T18:30:00Z",
+             "user": {"id": "u2", "username": "erin"}},
+            {"permission": "Read", "granted": True, "status": "ARCHIVED", "end": "2026-10-28T10:00:00Z",
+             "user": {"id": "u3", "username": "fiona"}},
+            {"permission": "Read", "granted": True, "status": "PENDING", "group": {"id": "g2", "name": "hr"}},
+        ],
+    }
+
+    access = summarize(doc)["access"]
+
+    assert access["sharedWith"] == [
+        {"kind": "group", "name": "sales"},
+        {"kind": "user", "name": "cory"},
+        {"kind": "user", "name": "erin"},
+    ]
+    assert access["expiresAt"] == "2026-10-28T18:30:00Z"
+
+
+def test_summarize_hides_sharing_from_non_managers() -> None:
+    from app.library import summarize
+
+    access = summarize({"sys_id": "d1", "sys_effectivePermissions": ["Read"]})["access"]
+
+    assert access == {"mine": "read", "sharedWith": None, "expiresAt": None}
 
 @respx.mock
 def test_upload_sends_bytes_then_creates_sysfile_with_blob(client: TestClient) -> None:

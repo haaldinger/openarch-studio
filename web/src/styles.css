@@ -1237,6 +1237,32 @@ select.modal-input {
   background: var(--paper-2);
   border: 1px solid var(--line-strong);
 }
+.doc-row-access,
+.doc-row-shared {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.chip-access {
+  color: var(--native);
+  background: var(--native-bg, var(--paper-2));
+}
+.chip-principal {
+  color: var(--ink-soft);
+  background: transparent;
+  border: 1px solid var(--line-strong);
+}
+.chip-group::before {
+  content: "● ";
+  font-size: 0.6rem;
+  vertical-align: 1px;
+}
+.chip-expiry {
+  color: var(--warn, #9a5b00);
+  background: var(--warn-bg, #fff4e0);
+  font-variant-numeric: tabular-nums;
+}
 .extracted {
   margin-top: 18px;
   padding-top: 14px;

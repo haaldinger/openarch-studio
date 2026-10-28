@@ -63,6 +63,42 @@ def _document_type(doc: dict[str, Any]) -> str | None:
     return value if isinstance(value, str) and value else None
 
 
+def _own_access(perms: Any) -> str | None:
+    granted = set(perms) if isinstance(perms, list) else set()
+    if granted & {"ManageSecurity", "Everything"}:
+        return "manage"
+    if granted & {"Write", "ReadWrite"}:
+        return "edit"
+    return "read" if "Read" in granted else None
+
+
+def _access(doc: dict[str, Any]) -> dict[str, Any]:
+    """Access badges from what OpenArch returned; sys_effectiveAcl is only sent to managers."""
+    acl = doc.get("sys_effectiveAcl")
+    if not isinstance(acl, list):
+        return {"mine": _own_access(doc.get("sys_effectivePermissions")), "sharedWith": None, "expiresAt": None}
+    shared: list[dict[str, str]] = []
+    ends: list[str] = []
+    for ace in acl:
+        if not isinstance(ace, dict) or ace.get("status") != "EFFECTIVE":
+            continue
+        if isinstance(ace.get("group"), dict):
+            entry = {"kind": "group", "name": ace["group"].get("name") or ace["group"].get("id")}
+        elif isinstance(ace.get("user"), dict):
+            entry = {"kind": "user", "name": ace["user"].get("username") or ace["user"].get("id")}
+        else:
+            continue
+        if entry["name"] and entry not in shared:
+            shared.append(entry)
+        if isinstance(ace.get("end"), str):
+            ends.append(ace["end"])
+    return {
+        "mine": _own_access(doc.get("sys_effectivePermissions")),
+        "sharedWith": shared,
+        "expiresAt": min(ends, key=lambda e: datetime.fromisoformat(e.replace("Z", "+00:00"))) if ends else None,
+    }
+
+
 def summarize(doc: dict[str, Any]) -> dict[str, Any]:
     """Compact a DocumentDTO for list views; the inspector uses the raw document."""
     return {
@@ -75,6 +111,7 @@ def summarize(doc: dict[str, Any]) -> dict[str, Any]:
         "mixinTypes": doc.get("sys_mixinTypes", []),
         "documentType": _document_type(doc),
         "parentId": doc.get("sys_parentId"),
+        "access": _access(doc),
     }
 
 

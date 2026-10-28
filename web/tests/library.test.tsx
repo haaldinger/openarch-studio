@@ -314,6 +314,50 @@ describe("Library identity switch", () => {
 
     await waitFor(() => expect(within(nav).queryByText("Finance")).not.toBeInTheDocument());
   });
+
+  it("shows the root listing even when the old folder's response arrives last", async () => {
+    const user = userEvent.setup();
+    const folder = { id: "f1", title: "Finance", name: "Finance", primaryType: "SysFolder",
+      isFolderish: true, mixinTypes: [], parentId: "root" };
+    const rootDoc = { id: "r1", title: "root-doc.md", name: "root-doc.md", primaryType: "SysFile",
+      isFolderish: false, mixinTypes: [], parentId: "root" };
+    const staleDoc = { id: "s1", title: "stale-finance.md", name: "stale-finance.md", primaryType: "SysFile",
+      isFolderish: false, mixinTypes: [], parentId: "f1" };
+    let switched = false;
+    let releaseStale: () => void = () => {};
+    const json = (body: unknown) => new Response(JSON.stringify(body), { status: 200 });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        const parent = new URL(url, "http://x").searchParams.get("parentId");
+        if (parent === "f1" && switched) {
+          await new Promise<void>((resolve) => (releaseStale = resolve));
+          return json({ parentId: "f1", documents: [staleDoc] });
+        }
+        if (parent === "f1") return json({ parentId: "f1", documents: [] });
+        return json({ parentId: "root", documents: switched ? [rootDoc] : [folder] });
+      }),
+    );
+    render(
+      <MemoryRouter>
+        <SessionProvider initial={{ username: "admin", actingAs: null, demoAdmin: true }} demoMode>
+          <SwitchButton />
+          <LibraryPage />
+        </SessionProvider>
+      </MemoryRouter>,
+    );
+    await user.click(await screen.findByText("Finance"));
+    await screen.findByText(/No documents|Upload a document/);
+
+    switched = true;
+    await user.click(screen.getByRole("button", { name: "switch" }));
+    await screen.findByText("root-doc.md");
+    releaseStale();
+
+    await new Promise((r) => setTimeout(r, 20));
+    expect(screen.queryByText("stale-finance.md")).not.toBeInTheDocument();
+    expect(screen.getByText("root-doc.md")).toBeInTheDocument();
+  });
 });
 
 function SwitchButton() {

@@ -10,6 +10,7 @@ retry needs nothing kept in Studio.
 from __future__ import annotations
 
 import asyncio
+import logging
 import re
 import time
 import uuid
@@ -30,6 +31,7 @@ if False:  # typing-only import to avoid a runtime cycle
 
 STAGES = ["stored", "extracted", "chunked", "embedded", "indexed", "classified"]
 _PARQUET_MIME = "application/x-parquet"
+log = logging.getLogger(__name__)
 
 
 @dataclass
@@ -188,7 +190,7 @@ class EnrichmentService:
         blob = write_embeddings(embedded, self.embedding_type())
         await client.ensure_has_embeddings_mixin(job.doc_id)
         upload_id = await client.upload_binary(f"{job.filename}.parquet", _PARQUET_MIME, blob)
-        await client.create_document(
+        created = await client.create_document(
             job.doc_id,
             {
                 "sys_primaryType": "SysEmbeddings",
@@ -197,6 +199,7 @@ class EnrichmentService:
                 "sysemb_embeddings": {"uploadId": upload_id},
             },
         )
+        await self._delete_stale_embeddings(client, job.doc_id, created.get("sys_id"))
         embedding.status = "done"
         embedding.detail = f"{len(embedded)} vectors"
 
@@ -215,6 +218,23 @@ class EnrichmentService:
                 await self._graph.extract(job.doc_id, extracted.markdown)
             except Exception:  # noqa: BLE001
                 pass
+
+    async def _delete_stale_embeddings(
+        self, client: OpenArchClient, doc_id: str, keep_id: str | None
+    ) -> None:
+        """Re-enrichment replaces embeddings; a failed cleanup is logged, never fatal."""
+        if not keep_id:
+            return
+        try:
+            stale = [i for i in await client.list_embedding_child_ids(doc_id) if i != keep_id]
+        except Exception:  # noqa: BLE001
+            log.warning("could not list stale embeddings for %s", doc_id, exc_info=True)
+            return
+        for child_id in stale:
+            try:
+                await client.delete_document(child_id)
+            except Exception:  # noqa: BLE001
+                log.warning("could not delete stale embeddings %s", child_id, exc_info=True)
 
     async def _classify(self, job: Job, client: OpenArchClient, markdown: str) -> None:
         """Additive stage: failures are recorded on the stage, never on the job."""

@@ -25,6 +25,18 @@ def make_client() -> OpenArchClient:
 
 
 @respx.mock
+async def test_list_embedding_child_ids_sanitizes_the_document_id() -> None:
+    route = respx.post("http://openarch.test/api/query").mock(
+        return_value=httpx.Response(200, json={"documents": [{"sys_id": "e1"}, {}]})
+    )
+    ids = await make_client().list_embedding_child_ids("abc-123' OR 1=1 --")
+    assert ids == ["e1"]
+    assert json.loads(route.calls.last.request.content)["query"] == (
+        "SELECT * FROM SysEmbeddings WHERE sys_parentId = 'abc-123OR11--'"
+    )
+
+
+@respx.mock
 async def test_authenticate_returns_username_on_200() -> None:
     respx.get(ROOT).mock(return_value=httpx.Response(200, json={"sys_id": "root"}))
     assert await make_client().authenticate() == "admin"

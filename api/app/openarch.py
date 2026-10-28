@@ -190,6 +190,13 @@ class OpenArchClient:
         result = await self.query({"query": query, "limit": limit})
         return [d["sys_id"] for d in result.get("documents", []) if d.get("sys_id")]
 
+    async def list_embedding_child_ids(self, doc_id: str, *, limit: int = 100) -> list[str]:
+        """Ids of the SysEmbeddings children under a document."""
+        safe = re.sub(r"[^A-Za-z0-9-]", "", doc_id)
+        query = f"SELECT * FROM SysEmbeddings WHERE sys_parentId = '{safe}'"
+        result = await self.query({"query": query, "limit": limit})
+        return [d["sys_id"] for d in result.get("documents", []) if d.get("sys_id")]
+
     async def semantic_search(
         self,
         vector: list[float],

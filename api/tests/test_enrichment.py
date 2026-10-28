@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import json
 
 import httpx
 import pyarrow.parquet as pq
@@ -278,6 +279,78 @@ async def test_retry_redownloads_source_from_openarch() -> None:
     await service.run(job, creds())  # no content -> triggers download
 
     assert job.state == "complete"
+
+
+def _mock_pipeline_with_children(existing: list[str]) -> tuple[respx.Route, respx.Route]:
+    respx.put(TIKA).mock(return_value=httpx.Response(200, text="Invoice from Acme."))
+    respx.post(EMBED).mock(
+        return_value=httpx.Response(200, json={"data": [{"embedding": [0.1, 0.2]}]})
+    )
+    _mock_openarch_write()
+    query = respx.post(f"{OA}/api/query").mock(
+        return_value=httpx.Response(
+            200, json={"documents": [{"sys_id": i} for i in [*existing, "child"]]}
+        )
+    )
+    delete = respx.delete(url__regex=rf"{OA}/api/documents/.+").mock(
+        return_value=httpx.Response(204)
+    )
+    return query, delete
+
+
+@respx.mock
+async def test_re_enrichment_deletes_older_embeddings_children_but_not_the_new_one() -> None:
+    query, delete = _mock_pipeline_with_children(["old1", "old2"])
+
+    service = make_service()
+    job = service.store.create(DOC, "a.txt")
+    await service.run(job, creds(), content=b"x", mime="text/plain")
+
+    assert job.state == "complete"
+    assert json.loads(query.calls.last.request.content)["query"] == (
+        f"SELECT * FROM SysEmbeddings WHERE sys_parentId = '{DOC}'"
+    )
+    assert sorted(c.request.url.path for c in delete.calls) == [
+        "/api/documents/old1",
+        "/api/documents/old2",
+    ]
+
+
+@respx.mock
+async def test_first_enrichment_deletes_nothing() -> None:
+    _, delete = _mock_pipeline_with_children([])
+
+    service = make_service()
+    job = service.store.create(DOC, "a.txt")
+    await service.run(job, creds(), content=b"x", mime="text/plain")
+
+    assert job.state == "complete" and not delete.called
+
+
+@respx.mock
+async def test_cleanup_failure_leaves_job_complete() -> None:
+    _, delete = _mock_pipeline_with_children(["old1", "old2"])
+    delete.mock(side_effect=[httpx.Response(500), httpx.Response(204)])
+
+    service = make_service()
+    job = service.store.create(DOC, "a.txt")
+    await service.run(job, creds(), content=b"x", mime="text/plain")
+
+    assert job.state == "complete"
+    assert [s.status for s in job.stages] == ["done"] * 6
+    assert len(delete.calls) == 2  # a failed delete doesn't stop the rest
+
+
+@respx.mock
+async def test_cleanup_query_failure_leaves_job_complete() -> None:
+    query, delete = _mock_pipeline_with_children(["old1"])
+    query.mock(return_value=httpx.Response(500))
+
+    service = make_service()
+    job = service.store.create(DOC, "a.txt")
+    await service.run(job, creds(), content=b"x", mime="text/plain")
+
+    assert job.state == "complete" and not delete.called
 
 
 def test_embedding_type_is_sanitized() -> None:

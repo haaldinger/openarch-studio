@@ -51,11 +51,28 @@ async def test_retrieve_runs_as_user_and_maps_hits() -> None:
     )
     evidence, status = await make_agent().retrieve("q", creds())
     assert evidence == [
-        Evidence(doc_id="d1", chunk_id="c1", text="txt", score=0.8, page=1, vector_score=0.8)
+        Evidence(doc_id="d1", chunk_id="c1", text="txt", score=0.8, page=1, vector_score=None)
     ]
     assert status == "skipped (not configured)"
-    assert json.loads(route.calls.last.request.read())["limit"] == 6
+    sent = json.loads(route.calls.last.request.read())
+    assert sent["limit"] == 6
+    assert sent["chunkFTS"] == "q"
     assert route.calls.last.request.headers["authorization"].startswith("Basic ")
+
+
+@respx.mock
+async def test_retrieve_vector_only_when_hybrid_disabled() -> None:
+    settings = Settings(openarch_url=OA, model_base_url="http://model.test/v1", hybrid_search=False)
+    agent = AgentService(settings, EnrichmentService(settings))
+    respx.post(EMBED).mock(return_value=httpx.Response(200, json={"data": [{"embedding": [0.1]}]}))
+    route = respx.post(VECTOR_QUERY).mock(
+        return_value=httpx.Response(
+            200, json={"embeddings": [{"sysembed_docId": "d1", "sysembed_id": "c1", "sysembed_text": "t", "sysembed_score": 0.7}]}
+        )
+    )
+    evidence, _ = await agent.retrieve("q", creds())
+    assert "chunkFTS" not in json.loads(route.calls.last.request.read())
+    assert evidence[0].vector_score == 0.7
 
 
 @respx.mock
@@ -89,7 +106,7 @@ async def test_retrieve_overfetches_reranks_and_truncates() -> None:
     assert json.loads(route.calls.last.request.read())["limit"] == 4
     assert status == "reranked"
     assert [e.chunk_id for e in evidence] == ["c3", "c2"]
-    assert evidence[0].score == 0.3 and evidence[0].vector_score == 0.9 - 0.3
+    assert evidence[0].score == 0.3 and evidence[0].vector_score is None
 
 
 @respx.mock
@@ -260,7 +277,7 @@ def test_chat_citation_carries_page(client: TestClient) -> None:
         if line.startswith("data:") and '"STATE_SNAPSHOT"' in line
     )
     assert snapshot["snapshot"]["citations"][0]["page"] == 2
-    assert snapshot["snapshot"]["citations"][0]["vectorScore"] == 0.8
+    assert snapshot["snapshot"]["citations"][0]["vectorScore"] is None
 
 
 def test_chat_requires_authentication(client: TestClient) -> None:

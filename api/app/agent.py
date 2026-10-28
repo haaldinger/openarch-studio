@@ -74,8 +74,13 @@ class AgentService:
         vector = await self._enrichment.embed_query(question)
         embedding_type = f"{self._enrichment.embedding_type()}*"
         fetch = candidate_count(top_k) if self._reranker else top_k
+        hybrid = self._settings.hybrid_search
         result = await client.semantic_search(
-            vector, embedding_type=embedding_type, scope=scope, limit=fetch
+            vector,
+            embedding_type=embedding_type,
+            scope=scope,
+            limit=fetch,
+            chunk_fts=question if hybrid else None,
         )
         evidence = [
             Evidence(
@@ -84,7 +89,7 @@ class AgentService:
                 text=hit.get("sysembed_text") or "",
                 score=hit.get("sysembed_score"),
                 page=hit_page(hit),
-                vector_score=hit.get("sysembed_score"),
+                vector_score=None if hybrid else hit.get("sysembed_score"),
             )
             for hit in result.get("embeddings", [])
             if hit.get("sysembed_docId")

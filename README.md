@@ -14,7 +14,7 @@ deployment: clone it into an OpenArch checkout and one `docker compose up` start
 
 Upload a document; Studio stores it in OpenArch, extracts text with Docling (Tika as fallback),
 chunks and embeds it with a local model, and writes the vectors back as an OpenArch `SysEmbeddings` child. Then search
-it three ways and ask an agent questions whose answers are grounded in — and cited from — only the
+it four ways and ask an agent questions whose answers are grounded in — and cited from — only the
 content you're allowed to read.
 
 After indexing, a small local model also classifies each document and extracts typed fields
@@ -36,6 +36,7 @@ Retrying or re-enriching a document replaces its embeddings rather than adding a
 | ACLs & effective permissions | Permission visualization |
 | Keyword & advanced HXQL queries | Guided search interface |
 | `SysEmbeddings` storage & vector search | Docling extraction (Tika fallback), chunking, embedding (Ollama) |
+| Hybrid search (kNN + BM25, RRF via `chunkFTS`) | Hybrid mode in Search; hybrid retrieval for Ask |
 | Permission-aware retrieval (runs as the caller) | RAG orchestration & streaming cited chat |
 | OpenSearch indexing | Citations & retrieval trace |
 | REST / OpenAPI contract | Same-origin, memory-only session gateway |
@@ -142,8 +143,13 @@ document stays searchable.
 | `STUDIO_RERANKER_IMAGE` | `ghcr.io/huggingface/text-embeddings-inference:cpu-arm64-1.9` | Reranker image. Use `…:cpu-1.9` on x86_64 hosts. |
 | `STUDIO_RERANKER_URL` | `http://reranker:80` (Compose default; the API's built-in default is empty, which disables reranking) | Where the API reaches the reranker. Set it empty (`STUDIO_RERANKER_URL=`) to disable reranking. |
 | `STUDIO_RERANK_MODEL` | `BAAI/bge-reranker-base` | Model the reranker downloads on first start (cached in the `reranker-models` volume). |
+| `STUDIO_HYBRID_SEARCH` | `true` | **Ask** retrieves with OpenArch hybrid search (kNN + BM25 over chunk text, merged with RRF). `false` = vector only. |
 
-Semantic search and **Ask** fetch `max(top_k, min(top_k * 2, 12))` candidates from OpenArch (as the
+**Search** has a **Hybrid** mode next to Keyword, Semantic and HXQL. It sends the query to OpenArch's
+`POST /api/query/embeddings` with both the vector and `chunkFTS`, so exact terms such as invoice
+numbers count as well as meaning. Hybrid search needs OpenArch 1.0.60 or later.
+
+Semantic search, hybrid search and **Ask** fetch `max(top_k, min(top_k * 2, 12))` candidates from OpenArch (as the
 caller, so ACLs apply) and rerank them. If the reranker is disabled or fails, results keep their vector
 order and the trace shows `skipped (<reason>)`. Keyword search fetches 50 hits, keeps those containing the query
 terms, and reranks the first `max(limit, 12)` of them. If the reranker is disabled, slow (5 s timeout),
@@ -211,9 +217,27 @@ reranked, 0 errors; judge `qwen3`. The right invoice is retrieved for about 72%
 of answerable questions, but the chunk containing the answer only about 45% of the time. Ask
 (`llama3.2:3b`) declines 68% of answerable questions, so answer generation and chunk-level retrieval
 are the weakest links; the next sub-projects (multilingual embeddings, hybrid search) target
-`evidence_hit`. OpenArch 1.0.60 already supports hybrid search natively: `POST /api/query/embeddings`
-takes an optional `chunkFTS` term list and merges kNN with BM25 using reciprocal rank fusion (RRF);
-Studio doesn't use it yet.
+`evidence_hit`.
+
+### Hybrid search vs. baseline
+
+[`eval/baselines/hybrid-1060.json`](eval/baselines/hybrid-1060.json): OpenArch 1.0.60, Ask with hybrid
+search (`chunkFTS`, kNN + BM25 merged with RRF), otherwise the same models. Compare with
+`studio-eval compare eval/baselines/baseline-nomic.json eval/baselines/hybrid-1060.json`.
+
+| Metric | Baseline | Hybrid | Change |
+|---|---|---|---|
+| hit | 0.720 | 0.840 | +0.120 |
+| evidence_hit | 0.450 | 0.600 | +0.150 |
+| evidence_mrr | 0.278 | 0.349 | +0.071 |
+| false_abstain (lower is better) | 0.680 | 0.600 | −0.080 |
+| faithfulness | 0.396 | 0.457 | +0.061 |
+| answer_relevancy | 0.232 | 0.378 | +0.146 |
+| context_precision | 0.309 | 0.357 | +0.048 |
+| context_recall | 0.480 | 0.600 | +0.120 |
+
+The baseline ran on OpenArch 1.0.0, so the OpenArch version differs as well as retrieval; one rerank
+call timed out in the hybrid run.
 
 ## POC limitations (deferred, by design)
 

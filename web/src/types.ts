@@ -106,6 +106,7 @@ export interface SearchResponse {
 
 export interface Citation {
   docId: string;
+  title?: string;
   chunkId: string;
   snippet: string;
   score: number | null;

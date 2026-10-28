@@ -6,10 +6,11 @@ import { CitationList } from "../components/CitationList";
 import { RetrievalTrace } from "../components/RetrievalTrace";
 import { A2uiSurface } from "../components/a2ui/A2uiSurface";
 import type { A2uiMessage } from "../components/a2ui/types";
-import { streamChat } from "../api";
+import { CompareColumn, CompareSummary, type ColumnResult } from "../components/CompareColumn";
+import { listPersonas, streamChat } from "../api";
 import { useScope } from "../scope";
 import { useSession } from "../session";
-import type { Citation, ChatMessage } from "../types";
+import type { Citation, ChatMessage, Persona } from "../types";
 
 interface Turn {
   question: string;
@@ -25,18 +26,106 @@ interface Turn {
 
 export function AskPage() {
   const { scope } = useScope();
-  const { generation } = useSession();
+  const { session, demoMode, generation } = useSession();
   const navigate = useNavigate();
   const [turns, setTurns] = useState<Turn[]>([]);
   const [question, setQuestion] = useState("");
   const [busy, setBusy] = useState(false);
   const historyRef = useRef<ChatMessage[]>([]);
+  const singleAbort = useRef<AbortController | null>(null);
 
-  // A conversation belongs to the identity that held it.
+  const canCompare = demoMode && session.demoAdmin;
+  const activeName = session.actingAs?.username ?? session.username;
+  const [compare, setCompare] = useState(false);
+  const comparing = canCompare && compare;
+  const [personas, setPersonas] = useState<Persona[]>([]);
+  const [sides, setSides] = useState<[string, string]>([activeName, "erin"]);
+  const [results, setResults] = useState<[ColumnResult | null, ColumnResult | null]>([null, null]);
+  const columnAbort = useRef<[AbortController | null, AbortController | null]>([null, null]);
+
+  // A conversation belongs to the identity that held it; its streams die with it.
   useEffect(() => {
     setTurns([]);
+    setBusy(false);
+    setResults([null, null]);
+    setSides([activeName, "erin"]);
     historyRef.current = [];
+    return () => {
+      singleAbort.current?.abort();
+      columnAbort.current.forEach((c) => c?.abort());
+    };
   }, [generation]);
+
+  useEffect(() => {
+    if (!comparing || personas.length > 0) return;
+    let live = true;
+    listPersonas()
+      .then((list) => live && setPersonas(list))
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [comparing, personas.length]);
+
+  function patchColumn(index: 0 | 1, patch: Partial<ColumnResult>) {
+    setResults((prev) => {
+      const next: [ColumnResult | null, ColumnResult | null] = [...prev];
+      const current = next[index];
+      if (current) next[index] = { ...current, ...patch };
+      return next;
+    });
+  }
+
+  async function askColumn(index: 0 | 1, q: string, persona: string) {
+    columnAbort.current[index]?.abort();
+    const controller = new AbortController();
+    columnAbort.current[index] = controller;
+    const live = (patch: Partial<ColumnResult>) => {
+      if (!controller.signal.aborted) patchColumn(index, patch);
+    };
+    setResults((prev) => {
+      const next: [ColumnResult | null, ColumnResult | null] = [...prev];
+      next[index] = {
+        question: q,
+        answer: "",
+        citations: [],
+        retrieved: null,
+        rerank: null,
+        searching: false,
+        error: null,
+        streaming: true,
+      };
+      return next;
+    });
+
+    let answer = "";
+    try {
+      await streamChat(
+        q,
+        [],
+        {
+          onRetrievalStart: () => live({ searching: true }),
+          onRetrieval: (count, rerank) => live({ retrieved: count, rerank, searching: false }),
+          onToken: (token) => {
+            answer += token;
+            live({ answer });
+          },
+          onCitations: (citations) => live({ citations }),
+          onError: (message) => live({ error: message, searching: false }),
+          onDone: () => live({ streaming: false }),
+        },
+        scope?.id,
+        controller.signal,
+        persona,
+      );
+    } catch {
+      live({ error: "The answer could not be generated. Your question is kept — try again." });
+    } finally {
+      live({ streaming: false, searching: false });
+    }
+  }
+
+  const compareBusy = results.some((r) => r?.streaming);
 
   function patchLast(patch: Partial<Turn>) {
     setTurns((prev) => {
@@ -48,6 +137,13 @@ export function AskPage() {
 
   async function ask(event: FormEvent) {
     event.preventDefault();
+    if (comparing) {
+      const q = question.trim();
+      if (!q || compareBusy) return;
+      setQuestion("");
+      await Promise.all([askColumn(0, q, sides[0]), askColumn(1, q, sides[1])]);
+      return;
+    }
     await askQuestion(question);
   }
 
@@ -71,35 +167,47 @@ export function AskPage() {
       },
     ]);
 
+    singleAbort.current?.abort();
+    const controller = new AbortController();
+    singleAbort.current = controller;
+    const live = (patch: Partial<Turn>) => {
+      if (!controller.signal.aborted) patchLast(patch);
+    };
+
     let answer = "";
     try {
       await streamChat(
         q,
         historyRef.current,
         {
-          onRetrievalStart: () => patchLast({ searching: true }),
-          onRetrieval: (count, rerank) => patchLast({ retrieved: count, rerank, searching: false }),
+          onRetrievalStart: () => live({ searching: true }),
+          onRetrieval: (count, rerank) => live({ retrieved: count, rerank, searching: false }),
           onToken: (token) => {
             answer += token;
-            patchLast({ answer });
+            live({ answer });
           },
-          onCitations: (citations) => patchLast({ citations }),
-          onSurface: (surface) => patchLast({ surface }),
-          onError: (message) => patchLast({ error: message, searching: false }),
-          onDone: () => patchLast({ streaming: false }),
+          onCitations: (citations) => live({ citations }),
+          onSurface: (surface) => live({ surface }),
+          onError: (message) => live({ error: message, searching: false }),
+          onDone: () => live({ streaming: false }),
         },
         scope?.id,
+        controller.signal,
       );
-      historyRef.current = [
-        ...historyRef.current,
-        { role: "user", content: q },
-        { role: "assistant", content: answer },
-      ];
+      if (!controller.signal.aborted) {
+        historyRef.current = [
+          ...historyRef.current,
+          { role: "user", content: q },
+          { role: "assistant", content: answer },
+        ];
+      }
     } catch {
-      patchLast({ error: "The answer could not be generated. Your question is kept — try again." });
+      live({ error: "The answer could not be generated. Your question is kept — try again." });
     } finally {
-      patchLast({ streaming: false, searching: false });
-      setBusy(false);
+      if (!controller.signal.aborted) {
+        patchLast({ streaming: false, searching: false });
+        setBusy(false);
+      }
     }
   }
 
@@ -113,6 +221,48 @@ export function AskPage() {
 
       <ScopeBanner />
 
+      {canCompare && (
+        <div className="compare-toggle">
+          <button
+            type="button"
+            className={compare ? "btn-ghost active" : "btn-ghost"}
+            aria-pressed={compare}
+            onClick={() => setCompare((on) => !on)}
+          >
+            Compare
+          </button>
+        </div>
+      )}
+
+      {comparing ? (
+        <div className="chat-log">
+          <div className="compare-cols">
+            {([0, 1] as const).map((i) => (
+              <CompareColumn
+                key={i}
+                persona={sides[i]}
+                personas={personas}
+                result={results[i]}
+                onPersonaChange={(username) =>
+                  setSides((prev) => (i === 0 ? [username, prev[1]] : [prev[0], username]))
+                }
+                onReask={() => {
+                  const q = results[i]?.question;
+                  if (q) void askColumn(i, q, sides[i]);
+                }}
+              />
+            ))}
+          </div>
+          {results[0] && results[1] && !compareBusy && (
+            <CompareSummary
+              leftName={sides[0]}
+              rightName={sides[1]}
+              left={results[0].citations}
+              right={results[1].citations}
+            />
+          )}
+        </div>
+      ) : (
       <div className="chat-log">
         {turns.length === 0 && (
           <p className="muted">Ask something about the documents you've enriched.</p>
@@ -155,6 +305,7 @@ export function AskPage() {
           </div>
         ))}
       </div>
+      )}
 
       <form className="ask-bar" onSubmit={ask}>
         <textarea
@@ -170,8 +321,8 @@ export function AskPage() {
             }
           }}
         />
-        <button type="submit" className="btn-primary" disabled={busy}>
-          {busy ? "…" : "Ask"}
+        <button type="submit" className="btn-primary" disabled={comparing ? compareBusy : busy}>
+          {(comparing ? compareBusy : busy) ? "…" : "Ask"}
         </button>
       </form>
     </>

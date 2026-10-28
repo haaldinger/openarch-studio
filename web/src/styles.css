@@ -1699,6 +1699,63 @@ select.modal-input {
   gap: 10px;
   align-items: flex-end;
 }
+.compare-toggle {
+  margin-bottom: 12px;
+}
+.compare-toggle .btn-ghost.active {
+  background: var(--ink);
+  color: var(--paper);
+}
+.compare-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  align-items: start;
+}
+.compare-col {
+  min-width: 0;
+}
+.compare-col .turn-a {
+  max-width: none;
+}
+.compare-col-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.compare-persona {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  padding: 6px 10px;
+  background: #fff;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  font: inherit;
+  cursor: pointer;
+}
+.compare-summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  padding: 14px 18px;
+  background: #fff;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+}
+.compare-group ul {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 0.88rem;
+}
+@media (max-width: 720px) {
+  .compare-cols,
+  .compare-summary {
+    grid-template-columns: 1fr;
+  }
+}
 .ask-bar textarea {
   flex: 1;
   padding: 12px 14px;

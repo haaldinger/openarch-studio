@@ -240,12 +240,13 @@ export async function streamChat(
   handlers: ChatHandlers,
   scope?: string,
   signal?: AbortSignal,
+  actAs?: string,
 ): Promise<void> {
   const response = await fetch("/api/chat", {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
-    body: JSON.stringify({ question, history, scope }),
+    body: JSON.stringify({ question, history, scope, ...(actAs ? { actAs } : {}) }),
     signal,
   });
   if (!response.ok || !response.body) {

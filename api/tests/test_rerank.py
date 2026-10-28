@@ -86,6 +86,15 @@ async def test_malformed_json_falls_back():
 
 
 @respx.mock
+async def test_deeply_nested_json_is_incomplete():
+    respx.post(URL).respond(content=b"[" * 100000 + b"]" * 100000)
+    outcome = await make_reranker().rerank("q", ["a", "b"])
+    assert outcome.status == "skipped (incomplete response)"
+    assert outcome.order == [0, 1]
+    assert outcome.scores == [None, None]
+
+
+@respx.mock
 async def test_out_of_range_index_falls_back():
     respx.post(URL).respond(json=[{"index": 5, "score": 0.9}, {"index": 0, "score": 0.1}])
     outcome = await make_reranker().rerank("q", ["a", "b"])

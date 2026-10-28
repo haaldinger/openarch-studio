@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from typing import Any
 
 import httpx
 import respx
@@ -13,7 +14,7 @@ from app.warmup import warm_up
 CHAT = "http://model.test/v1/chat/completions"
 
 
-def make_settings(**kw: str) -> Settings:
+def make_settings(**kw: Any) -> Settings:
     return Settings(_env_file=None, model_base_url="http://model.test/v1", **kw)
 
 
@@ -45,6 +46,19 @@ async def test_warm_up_pings_a_shared_model_once() -> None:
     route = respx.post(CHAT).mock(return_value=httpx.Response(200, json={}))
     await warm_up(make_settings(extract_model="same", chat_model="same"))
     assert models_called(route) == ["same"]
+
+
+@respx.mock
+def test_lifespan_skips_warm_up_in_baseline_mode() -> None:
+    from fastapi.testclient import TestClient
+
+    from app.main import create_app
+
+    route = respx.post(CHAT).mock(return_value=httpx.Response(200, json={}))
+    app = create_app(make_settings(extract_model="ex", chat_model="ch", baseline_mode=True))
+    with TestClient(app):
+        assert app.state.warmup_task is None
+    assert not route.called
 
 
 @respx.mock

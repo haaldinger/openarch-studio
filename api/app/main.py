@@ -27,11 +27,16 @@ from .warmup import warm_up
 
 @asynccontextmanager
 async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
-    app.state.warmup_task = asyncio.create_task(warm_up(app.state.settings))
+    app.state.warmup_task = (
+        None
+        if app.state.settings.baseline_mode
+        else asyncio.create_task(warm_up(app.state.settings))
+    )
     try:
         yield
     finally:
-        app.state.warmup_task.cancel()
+        if app.state.warmup_task is not None:
+            app.state.warmup_task.cancel()
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:

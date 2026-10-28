@@ -72,7 +72,7 @@ class Reranker:
             return self._skip(len(texts), f"HTTP {exc.response.status_code}")
         except (httpx.HTTPError, httpx.InvalidURL):
             return self._skip(len(texts), "unreachable")
-        except ValueError:
+        except (ValueError, RecursionError):
             return self._skip(len(texts), "incomplete response")
 
         parsed = _parse_ranking(ranked, len(texts))

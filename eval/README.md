@@ -25,6 +25,7 @@ Prerequisites:
 
 ```bash
 .venv/bin/studio-eval run --label my-change      # ask, grade, write eval/results/<UTC>-<label>.json
+.venv/bin/studio-eval run --note "studio embed=nomic-embed-text chat=llama3.2:3b"  # free text stored in the result
 .venv/bin/studio-eval run --only <id> <id>       # re-run selected golden ids
 .venv/bin/studio-eval run --concurrency 1        # concurrent judge gradings (default 2)
 .venv/bin/studio-eval run --golden other.yaml    # use another golden set
@@ -33,9 +34,23 @@ Prerequisites:
 ```
 
 `run` signs in, finds or creates the `Eval corpus` folder, uploads only the sample files not already
-in it, waits for enrichment (up to 15 minutes), then asks every question scoped to that folder and
-grades the answers. `fixtures` is for refreshing the extracted text that the tests use to verify the
-golden evidence.
+in it, waits for enrichment (up to 15 minutes), then asks every question scoped to that folder, one
+after another, and only then grades the answers (up to `--concurrency` at a time). Grading starts
+after the last question so the grader model does not compete with Ask for the host. A document that
+is already in the folder but has no extracted text stops the run; delete it and re-run. `fixtures`
+is for refreshing the extracted text that the tests use to verify the golden evidence.
+
+Use `--note` to record what Studio was running (its embedding and chat models, for example); the
+model fields in the result describe the grader, not Studio. The result JSON holds
+`judge_model`, `judge_embed_model` (the grader's embedding model), `note`, `rerank_statuses` and
+`rerank_counts` (rows per rerank status), and `compare` shows the note, `n` per mean, error counts
+and rerank counts for each file. `compare` still reads older files that have `embed_model`.
+
+A chat failure on one question (HTTP 5xx, timeout, connection error) is recorded as that row's
+`error` with null metrics and the run continues. A fatal error (sign-in rejected, HTTP 401/403, Ask
+disabled by baseline mode) or Ctrl-C stops the run: the rows asked so far are written with
+`"partial": true`, the path is printed, and the exit code is 2 (error) or 130 (Ctrl-C). Rows not yet
+graded when it stopped have no Ragas metrics. Nothing is written if no question was asked yet.
 
 Results in `eval/results/` are git-ignored. Committed reference runs go in `eval/baselines/`.
 
@@ -66,13 +81,20 @@ Deterministic, computed from the citations and answer text:
 |---|---|
 | `hit` | 1 if any citation is an expected source (same file and page), else 0. Not scored for `unanswerable`. |
 | `mrr` | 1 / rank of the first expected citation, 0 if none. Not scored for `unanswerable`. |
+| `evidence_hit` | `fact` entries only: 1 if any citation's snippet contains the golden `evidence` string (case and whitespace ignored), else 0. |
+| `evidence_mrr` | 1 / rank of the first citation whose snippet contains the evidence, 0 if none. |
 | `abstain_correct` | For `unanswerable` entries: 1 if Studio declined. |
 | `false_abstain` | For answerable entries: 1 if Studio declined anyway (lower is better). |
 
-A decline is Studio's fixed reply, or one of a few "not enough information" phrases anywhere in the
-answer. Some looser phrases ("cannot find", "no mention of", and their German, French, Spanish and
-Dutch forms) count only for answers under 200 characters without citations. This is a heuristic and
-can over- or under-match.
+`hit` and `mrr` only say that a chunk from the right page was cited; `evidence_hit` and
+`evidence_mrr` say that the chunk actually holds the answer text. Studio lists every retrieved chunk
+as a citation, so "has citations" is nearly always true.
+
+A decline is Studio's fixed reply, or a "not enough information" phrase anywhere in the answer, in
+English, German, French, Spanish, Dutch or Swedish (for example "pas assez d'informations", "niet
+genoeg informatie"). Some looser phrases ("cannot find", "no mention of", and German, French,
+Spanish and Dutch forms such as "keine Informationen" or "geen informatie") count only for answers
+under 200 characters without citations. This is a heuristic and can over- or under-match.
 
 Graded by Ragas with the local grader (thinking disabled):
 
@@ -91,10 +113,11 @@ Context metrics are skipped when an answer has no citations; `unanswerable` entr
 
 - A local 4–8B grader is noisy. Compare runs rather than reading single scores, and expect a few
   skipped metrics.
-- A full run takes tens of minutes, mostly grading. Grading on the same machine can slow Studio's
-  Ask while it runs, so keep other load off the host.
-- If a run aborts, no result file is written. Re-run the entries that did not finish with `--only`.
+- A full run takes tens of minutes, mostly grading. Questions are asked first and graded afterwards,
+  so the grader does not slow Ask, but keep other load off the host.
+- If a run stops early, the partial result (`"partial": true`) holds what was asked; re-run the
+  missing entries with `--only`.
 - Citations are Studio's top chunks after reranking, so `hit` and `mrr` measure what the user sees,
   not raw retrieval. The `rerank_statuses` field in the result records whether reranking ran.
-- Ragas is pinned to `0.4.3` with matching `langchain` pins in `pyproject.toml`; upgrade them
-  together.
+- Ragas is pinned to `0.4.3`; the matching `langchain` packages in `pyproject.toml` are
+  upper-bounded, not pinned. Upgrade them together.

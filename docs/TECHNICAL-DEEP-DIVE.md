@@ -511,9 +511,11 @@ quote) is checked against Studio's own extracted text saved under `eval/fixtures
 **Metrics.**
 
 - *Deterministic:* `hit` and `mrr` match citations to the expected file and page;
+  `evidence_hit` and `evidence_mrr` (`fact` entries) check that a cited snippet contains the golden
+  evidence text, which says the chunk holds the answer rather than just coming from the right page;
   `abstain_correct` (unanswerable entries) and `false_abstain` (answerable entries) detect a decline,
-  meaning Studio's fixed reply or a short list of phrases. Looser phrases count only for short
-  answers without citations.
+  meaning Studio's fixed reply or a "not enough information" phrase in English, German, French,
+  Spanish, Dutch or Swedish. Looser phrases count only for short answers without citations.
 - *Ragas (LLM-graded):* `faithfulness`, `answer_relevancy`, `context_precision` and
   `context_recall`, using the cited snippets as retrieved contexts and the golden answer as the
   reference. The grader is `qwen3` on host Ollama with thinking disabled
@@ -521,14 +523,18 @@ quote) is checked against Studio's own extracted text saved under `eval/fixtures
 
 A failed grader call yields `null`, never `0`. Averages skip nulls and report scored and skipped
 counts, overall and by `kind` and `lang`. Results are written to `eval/results/` (git-ignored) and
-`studio-eval compare` prints per-metric deltas between two runs.
+`studio-eval compare` prints per-metric means with their `n`, deltas, error counts and rerank
+status counts for the two runs. `run` asks every question first and grades afterwards, so the
+grader does not compete with Ask for the host; the result records `judge_embed_model` (the
+grader's embedding model), an optional `--note` describing Studio's own configuration, and rows per
+rerank status. A chat error on one question (5xx, timeout) is recorded on that row and the run
+continues; a fatal error or Ctrl-C writes the rows asked so far with `"partial": true`.
 
 **Caveats.** The citations are Studio's top chunks after reranking, so retrieval metrics describe
 what the user sees. A local 4–8B grader is noisy; use deltas between runs, not absolute scores.
-Grading shares the host with Ollama and can slow Ask during a run. The decline detector is
-substring-based and can over- or under-match. The golden set is small (28 questions), so
-differences of a few points are within noise. Ragas and its langchain dependencies are pinned
-(`ragas==0.4.3`) because the API changes between releases.
+The decline detector is substring-based and can over- or under-match. The golden set is small (28
+questions), so differences of a few points are within noise. Ragas is pinned (`ragas==0.4.3`)
+because the API changes between releases; its langchain dependencies are upper-bounded.
 
 ---
 

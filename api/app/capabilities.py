@@ -68,7 +68,10 @@ _RUNTIMES = [
 @router.get("/config")
 async def config(request: Request) -> dict[str, Any]:
     """Client-readable runtime flags. Never gated, so the shell can adapt on load."""
-    return {"baselineMode": bool(getattr(request.app.state, "baseline_mode", False))}
+    return {
+        "baselineMode": bool(getattr(request.app.state, "baseline_mode", False)),
+        "demoMode": getattr(request.app.state, "demo", None) is not None,
+    }
 
 
 class ConfigUpdate(BaseModel):

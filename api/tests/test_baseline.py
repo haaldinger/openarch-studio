@@ -19,7 +19,7 @@ def _baseline_client() -> TestClient:
 
 
 def test_config_defaults_to_extensions_on(client: TestClient) -> None:
-    assert client.get("/api/config").json() == {"baselineMode": False}
+    assert client.get("/api/config").json() == {"baselineMode": False, "demoMode": False}
 
 
 def test_config_reports_baseline_when_on() -> None:
@@ -56,7 +56,7 @@ def test_baseline_flips_live_without_restart(client: TestClient) -> None:
     # Same app instance: mutating runtime state gates extensions immediately.
     assert client.get("/api/jobs").status_code == 200
     client.app.state.baseline_mode = True
-    assert client.get("/api/config").json() == {"baselineMode": True}
+    assert client.get("/api/config").json() == {"baselineMode": True, "demoMode": False}
     assert client.get("/api/jobs").status_code == 403
     client.app.state.baseline_mode = False
     assert client.get("/api/jobs").status_code == 200

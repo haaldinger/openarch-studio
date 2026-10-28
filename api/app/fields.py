@@ -17,11 +17,17 @@ from .openarch import OpenArchClient
 MAX_FIELDS = 25
 MAX_VALUE_LEN = 500
 MAX_NAME_LEN = 64
+_TYPE_KEY = "document_type"
 
 _DATE_FORMATS = ("%Y-%m-%d", "%d.%m.%Y", "%m/%d/%Y", "%Y/%m/%d")
 _CURRENCY = re.compile(r"[$€£¥]|\b(?:USD|EUR|GBP|CHF|JPY|CAD|AUD)\b", re.IGNORECASE)
 _PLAIN_NUMBER = re.compile(r"-?\d+(\.\d+)?")
 _SPACE_GROUPED = re.compile(r"-?\d{1,3}(?: \d{3})+(?:[.,][^ ]*)?")
+_GERMAN_THOUSANDS = re.compile(r"-?[1-9]\d{0,2}\.\d{3}")
+# OpenSearch maps a key from its first value, so the JSON type is fixed per field name.
+_NUMERIC_NAME = re.compile(
+    r"(^|_)(total|subtotal|amount|tax|vat|price|cost|quantity|qty|balance|discount|fee|charge|sum)(_|$)"
+)
 MAX_SIGNIFICANT_DIGITS = 15
 
 
@@ -47,6 +53,8 @@ def _as_date(text: str) -> str | None:
 
 def _as_number(text: str) -> int | float | None:
     s = re.sub(r"\s+", " ", _CURRENCY.sub("", text)).strip()
+    if _GERMAN_THOUSANDS.fullmatch(s):
+        return None  # "1.234" is 1234 in German, 1.234 in English
     if " " in s:
         if not _SPACE_GROUPED.fullmatch(s):
             return None
@@ -87,20 +95,29 @@ def _scalar_text(value: object) -> str | None:
     return None
 
 
-def _clean_value(value: object) -> str | int | float | None:
+def _numeric_value(value: object) -> int | float | None:
     if isinstance(value, bool):
-        return "true" if value else "false"
-    if isinstance(value, (int, float)):
-        return value if _is_finite(value) else None
+        return None
+    if isinstance(value, int):
+        return value if len(str(abs(value))) <= MAX_SIGNIFICANT_DIGITS else None
+    if isinstance(value, float):
+        return value if math.isfinite(value) else None
+    if isinstance(value, str):
+        return _as_number(value)
+    return None
+
+
+def _clean_value(name: str, value: object) -> str | int | float | None:
+    if _NUMERIC_NAME.search(name):
+        return _numeric_value(value)
+    if isinstance(value, (bool, int, float)):
+        text = _scalar_text(value)
+        return text[:MAX_VALUE_LEN] if text else None
     if isinstance(value, str):
         text = value.strip()
         if not text:
             return None
-        as_date = _as_date(text)
-        if as_date:
-            return as_date
-        as_number = _as_number(text)
-        return as_number if as_number is not None else text[:MAX_VALUE_LEN]
+        return _as_date(text) or text[:MAX_VALUE_LEN]
     if isinstance(value, list):
         if any(isinstance(item, (dict, list)) for item in value):
             return None
@@ -129,9 +146,9 @@ def parse_classification(raw: str) -> ClassifiedFields:
     raw_fields = data.get("fields")
     for key, value in (raw_fields.items() if isinstance(raw_fields, dict) else ()):
         name = normalize_name(key)
-        if not name or name in fields:
+        if not name or name == _TYPE_KEY or name in fields:
             continue
-        cleaned = _clean_value(value)
+        cleaned = _clean_value(name, value)
         if cleaned is None:
             continue
         fields[name] = cleaned
@@ -146,7 +163,6 @@ _VOCABULARY_QUERY = (
 _VOCABULARY_LIMIT = 200
 _PROMPT_CHARS = 6000
 _MAX_TYPES = 50
-_TYPE_KEY = "document_type"
 _SYSTEM_PROMPT = (
     "You classify a document and extract its key fields.\n"
     "- Choose one of the known document types when it fits; otherwise invent a short new type name.\n"
@@ -204,7 +220,7 @@ class FieldsService:
 
     async def store(self, client: OpenArchClient, doc_id: str, result: ClassifiedFields) -> None:
         await client.ensure_mixin(doc_id, "CinContext")
-        properties = {_TYPE_KEY: result.document_type, **result.fields}
+        properties = {**result.fields, _TYPE_KEY: result.document_type}
         await client.update_document(
             doc_id,
             {

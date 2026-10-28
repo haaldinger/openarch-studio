@@ -136,7 +136,7 @@ def test_list_with_containers_dropped():
     ],
 )
 def test_number_coercion(text, expected):
-    value = parse_classification(json.dumps({"type": "a", "fields": {"n": text}})).fields["n"]
+    value = parse_classification(json.dumps({"type": "a", "fields": {"total": text}})).fields["total"]
     assert value == expected
     assert isinstance(value, int) == isinstance(expected, int)
 
@@ -145,6 +145,11 @@ def test_number_coercion(text, expected):
 def test_non_numbers_left_alone(text):
     r = parse_classification(json.dumps({"type": "a", "fields": {"n": text}}))
     assert r.fields == {"n": text}
+
+
+@pytest.mark.parametrize("text", ["INV-2024-001", "n/a", "TBD", "1.2.3", "12abc"])
+def test_numeric_name_drops_non_numeric_strings(text):
+    assert _named("total", json.dumps(text)) == {}
 
 
 @pytest.mark.parametrize(
@@ -171,8 +176,14 @@ def test_empty_normalizing_key_dropped():
     assert r.fields == {"ok": "y"}
 
 
+def _named(name: str, value_json: str) -> dict:
+    return parse_classification(
+        '{"type":"a","fields":{' + json.dumps(name) + ":" + value_json + "}}"
+    ).fields
+
+
 def _fields(value_json: str) -> dict:
-    return parse_classification('{"type":"a","fields":{"n":' + value_json + "}}").fields
+    return _named("n", value_json)
 
 
 @pytest.mark.parametrize("literal", ["NaN", "Infinity", "-Infinity", "1e999"])
@@ -194,7 +205,108 @@ def test_identifier_strings_stay_strings(text):
     [("1 234,50", 1234.5), ("1 234", 1234), ("0,50", 0.5), ("0.5", 0.5), ("3.10", 3.1), ("123456789012345", 123456789012345)],
 )
 def test_space_grouping_and_decimals_coerced(text, expected):
-    assert _fields(json.dumps(text)) == {"n": expected}
+    assert _named("total", json.dumps(text)) == {"total": expected}
+
+
+@pytest.mark.parametrize("text", ["1.234", "-1.234", "999.999", "€ 1.234"])
+def test_german_thousands_without_comma_is_ambiguous_under_numeric_name(text):
+    assert _named("total", json.dumps(text)) == {}
+
+
+def test_german_thousands_lookalike_is_a_string_under_other_names():
+    assert _named("version", '"1.234"') == {"version": "1.234"}
+
+
+@pytest.mark.parametrize(
+    "name", ["total", "tax_amount", "unit_price", "total_due", "vat_amount", "quantity", "qty", "fee"]
+)
+def test_numeric_names(name):
+    assert _named(name, '"$1,234.50"') == {name: 1234.5}
+
+
+@pytest.mark.parametrize(
+    "name", ["invoice_number", "zip", "phone", "totality", "subtotals", "taxonomy", "feed", "summary"]
+)
+def test_other_names_are_never_numbers(name):
+    assert _named(name, '"12345"') == {name: "12345"}
+
+
+def test_tax_amount_native_int_kept():
+    value = _named("tax_amount", "12")["tax_amount"]
+    assert value == 12 and isinstance(value, int)
+
+
+def test_quantity_string_becomes_int():
+    value = _named("quantity", '"3"')["quantity"]
+    assert value == 3 and isinstance(value, int)
+
+
+def test_identifier_names_keep_numeric_looking_strings():
+    r = parse_classification(
+        '{"type":"a","fields":{"invoice_number":"12345","ref":"INV-1","zip":"10115",'
+        '"phone":"5551234567","code":"00501"}}'
+    )
+    assert r.fields == {
+        "invoice_number": "12345",
+        "ref": "INV-1",
+        "zip": "10115",
+        "phone": "5551234567",
+        "code": "00501",
+    }
+    assert all(isinstance(v, str) for v in r.fields.values())
+
+
+@pytest.mark.parametrize("literal,expected", [("10115", "10115"), ("1.5", "1.5"), ("-3", "-3")])
+def test_native_numbers_under_other_names_become_strings(literal, expected):
+    assert _named("zip", literal) == {"zip": expected}
+
+
+@pytest.mark.parametrize("literal", ["NaN", "Infinity", "1e999"])
+def test_non_finite_dropped_under_every_name(literal):
+    assert _named("zip", literal) == {} and _named("total", literal) == {}
+
+
+def test_bools_under_numeric_names_dropped_and_strings_elsewhere():
+    assert _named("total", "true") == {}
+    assert _named("paid", "true") == {"paid": "true"}
+
+
+def test_huge_native_int_dropped_under_numeric_name():
+    assert _named("total", "1" + "0" * 15) == {}
+    assert _named("total", "9" * 15) == {"total": int("9" * 15)}
+
+
+def test_list_under_numeric_name_dropped():
+    assert _named("total", "[1, 2]") == {}
+
+
+def test_dates_still_coerced_under_other_names():
+    assert _named("invoice_date", '"01.03.2026"') == {"invoice_date": "2026-03-01"}
+
+
+_MIXED_INPUTS = [
+    '"$1,234.50"', '"12345"', '"10115"', '"00501"', '"INV-1"', '"n/a"', "12345", "1.5", "-3",
+    "true", "false", '"1.234"', '"2026-03-01"', '["a", 1]', "NaN", "null", '""',
+]
+
+
+@pytest.mark.parametrize("name", ["total", "tax_amount", "quantity", "zip", "invoice_number", "vendor"])
+def test_output_type_is_stable_per_name(name):
+    numeric = name in {"total", "tax_amount", "quantity"}
+    for value_json in _MIXED_INPUTS:
+        out = _named(name, value_json)
+        if not out:
+            continue
+        value = out[name]
+        if numeric:
+            assert isinstance(value, (int, float)) and not isinstance(value, bool), value_json
+        else:
+            assert isinstance(value, str), value_json
+
+
+def test_document_type_field_cannot_override_classification():
+    r = parse_classification('{"type":"invoice","fields":{"document_type":"memo","Document Type":"x","a":"b"}}')
+    assert r.document_type == "invoice" and r.fields == {"a": "b"}
 
 
 def test_deeply_nested_json_raises_invalid_json():
@@ -339,6 +451,18 @@ async def test_classify_system_prompt_requires_english_names():
     await _service().classify("Rechnung", {"invoice": ["total"]})
     system = json.loads(route.calls.last.request.content)["messages"][0]["content"]
     assert "English" in system
+
+
+@respx.mock
+async def test_store_writes_classification_type_last_so_it_wins():
+    doc = f"{OA}/api/documents/d1"
+    respx.get(doc).mock(return_value=httpx.Response(200, json={"sys_mixinTypes": ["CinContext"]}))
+    put = respx.put(doc).mock(return_value=httpx.Response(200, json={}))
+    result = ClassifiedFields("invoice", {"document_type": "memo", "a": "b"})
+    await _service().store(_client(), "d1", result)
+    body = json.loads(put.calls.last.request.content)
+    assert body["cinctx_contextProperties"]["document_type"] == "invoice"
+    assert body["cinctx_contextPropertyNames"] == ["a", "document_type"]
 
 
 @respx.mock

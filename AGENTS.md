@@ -7,6 +7,7 @@ stays the system of record, and every AI capability runs as the signed-in user.
 
 - `api/` — FastAPI backend-for-frontend (session gateway, enrichment, `extraction.py` Docling/Tika extractors, `fields.py` classification + extracted fields, `rerank.py` cross-encoder reranking, search, RAG, graph)
 - `web/` — React + TypeScript SPA (Vite), served by nginx
+- `eval/` — `studio-eval` evaluation harness (golden set, retrieval/abstention metrics, Ragas grading)
 - `docs/` — technical deep dive
 
 See [`docs/TECHNICAL-DEEP-DIVE.md`](./docs/TECHNICAL-DEEP-DIVE.md) for the full

@@ -16,7 +16,10 @@ not in the Docling image (Tika, Ollama, nomic-embed-text, Llama) were checked at
 branch or model card. text-embeddings-inference was checked at tag v1.9.0; the cpu-1.9 and
 cpu-arm64-1.9 image tags float across 1.9.x patch releases, so the exact patch is not pinned.
 BAAI/bge-reranker-base was checked at revision 2cfc18c, but the reranker downloads the model's
-default branch.
+default branch. The evaluation harness (eval/) installs Ragas at the pinned version 0.4.3, checked
+at tag v0.4.3. Its grader model qwen3 is pulled by the user through Ollama, whose `qwen3` tag
+floats (currently the 8B variant); the license was checked on the Hugging Face model card for
+Qwen/Qwen3-8B at revision b968826, so the exact weights Ollama serves are not pinned.
 
 docling-serve        MIT                                  https://github.com/docling-project/docling-serve/blob/v1.38.2/LICENSE
 Docling              MIT                                  https://github.com/docling-project/docling/blob/v2.142.1/LICENSE
@@ -33,6 +36,8 @@ Llama 3.1            Llama 3.1 Community License          https://github.com/met
 Llama 3.2            Llama 3.2 Community License          https://github.com/meta-llama/llama-models/blob/main/models/llama3_2/LICENSE
 text-embeddings-inference  Apache-2.0 (v1.9.0; image tag floats across 1.9.x)  https://github.com/huggingface/text-embeddings-inference/blob/v1.9.0/LICENSE
 BAAI/bge-reranker-base  MIT (revision 2cfc18c)           https://huggingface.co/BAAI/bge-reranker-base/tree/2cfc18c9415c912f9d8155881c133215df768a70
+Ragas                Apache-2.0 (v0.4.3)                  https://github.com/explodinggradients/ragas/blob/v0.4.3/LICENSE
+Qwen3 (qwen3)        Apache-2.0 (Qwen/Qwen3-8B revision b968826; Ollama tag floats, not pinned)  https://huggingface.co/Qwen/Qwen3-8B/tree/b968826d9c46dd6066d109eabc6255188de91218
 
 Bundled in the Docling image, license not yet verified: EasyOCR model weights (craft_mlt_25k, english_g2, latin_g2).
 

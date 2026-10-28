@@ -120,6 +120,14 @@ _Avoid_: source, reference (used loosely)
 The Studio surface for grounded, streaming question-and-answer over the corpus.
 _Avoid_: chat, RAG (when naming the surface), assistant
 
+**Golden set**:
+The fixed list of questions in `eval/golden.yaml`, each with a reference answer and its source file and page (or marked unanswerable), against which Ask is evaluated.
+_Avoid_: test set, benchmark, question bank
+
+**Eval run**:
+One execution of the evaluation harness that asks the golden set and writes scored results to a timestamped file for comparison with other runs.
+_Avoid_: test run, benchmark run, evaluation (for the single run)
+
 ### Knowledge graph
 
 **Knowledge graph**:

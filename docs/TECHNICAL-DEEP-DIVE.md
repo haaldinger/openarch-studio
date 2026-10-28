@@ -491,10 +491,48 @@ Open `http://localhost:8900`, sign in with OpenArch credentials
   schema/normalization, search modes, agent retrieve/verify, capability
   attribution invariants, graph parsing/merge/scope, and deletion.
 - **Web:** `cd web && npx vitest run` (28 passing) and `npx tsc -b --noEmit`.
+- **Eval harness:** `cd eval && .venv/bin/pytest -q` (see §14).
 
 ---
 
-## 14. Known limitations & upstream findings
+## 14. Evaluation harness
+
+[`eval/`](../eval/) is a separate Python package (`studio-eval`) that measures Ask quality
+through Studio's public API, so it works against any deployment. [`eval/README.md`](../eval/README.md)
+covers setup and usage.
+
+**Method.** `studio-eval run` signs in as a user, ensures an `Eval corpus` folder holding the sample
+documents (uploading only missing ones and waiting for enrichment), then sends each golden question
+to `/api/chat` scoped to that folder and parses the AG-UI stream into an answer, citations and the
+rerank status. The golden set (`eval/golden.yaml`) has 28 entries: 20 `fact`, 5 `cross_doc` and 3
+`unanswerable`, with one question each in German, French, Spanish and Dutch. Evidence (file, page,
+quote) is checked against Studio's own extracted text saved under `eval/fixtures/extracted`.
+
+**Metrics.**
+
+- *Deterministic:* `hit` and `mrr` match citations to the expected file and page;
+  `abstain_correct` (unanswerable entries) and `false_abstain` (answerable entries) detect a decline,
+  meaning Studio's fixed reply or a short list of phrases. Looser phrases count only for short
+  answers without citations.
+- *Ragas (LLM-graded):* `faithfulness`, `answer_relevancy`, `context_precision` and
+  `context_recall`, using the cited snippets as retrieved contexts and the golden answer as the
+  reference. The grader is `qwen3` on host Ollama with thinking disabled
+  (`reasoning_effort="none"`), because `<think>` blocks break Ragas's structured output.
+
+A failed grader call yields `null`, never `0`. Averages skip nulls and report scored and skipped
+counts, overall and by `kind` and `lang`. Results are written to `eval/results/` (git-ignored) and
+`studio-eval compare` prints per-metric deltas between two runs.
+
+**Caveats.** The citations are Studio's top chunks after reranking, so retrieval metrics describe
+what the user sees. A local 4–8B grader is noisy; use deltas between runs, not absolute scores.
+Grading shares the host with Ollama and can slow Ask during a run. The decline detector is
+substring-based and can over- or under-match. The golden set is small (28 questions), so
+differences of a few points are within noise. Ragas and its langchain dependencies are pinned
+(`ragas==0.4.3`) because the API changes between releases.
+
+---
+
+## 15. Known limitations & upstream findings
 
 - **OCR language coverage** has not been verified for non-Latin or less common scripts; test
   representative scans before relying on them.

@@ -25,13 +25,13 @@
 - id: es-invoice-number
   question: "What is the invoice number of the Spanish invoice issued to Hyland Software in Madrid?"
   answer: "The invoice number is B/90014."
-  evidence: "B/90014"
+  evidence: "Nº Factura B/90014"
   sources: [{file: 04Spanish_ES01_STP.tif, page: 1}]
   lang: en
   kind: fact
 
 - id: es-total
-  question: "¿Cuál es el total de la factura española de Ken el perro?"
+  question: "¿Cuál es el TOTAL FACTURA de la factura española de Ken el perro?"
   answer: "El total de la factura es 9.733,33 EUR."
   evidence: "TOTAL FACTURA 9.733,33"
   sources: [{file: 04Spanish_ES01_STP.tif, page: 1}]
@@ -49,7 +49,7 @@
 - id: fr-total
   question: "What is the total amount including VAT on the French-language Swiss invoice?"
   answer: "The total including VAT is CHF 21 950,40."
-  evidence: "21 950,40"
+  evidence: "Montant Total TTC CHF | 21 950,40"
   sources: [{file: 05French_CH01_MissingVend.tif, page: 1}]
   lang: en
   kind: fact
@@ -103,9 +103,9 @@
   kind: fact
 
 - id: cz-invoice-number
-  question: "What is the invoice number of the barcode printer repair invoice from Czestochowa (VAT invoice FA/...)?"
+  question: "What is the invoice number of the barcode printer repair invoice from Czestochowa?"
   answer: "The invoice number is FA/62/2010/SER."
-  evidence: "FA/62/2010/SER"
+  evidence: "Faktura VAT nr FA/62/2010/SER"
   sources: [{file: 27Czech_PL01_STP.tif, page: 1}]
   lang: en
   kind: fact
@@ -129,8 +129,24 @@
 - id: pl-po
   question: "What order number is referenced on the Polish invoice for vacuum cleaner bags?"
   answer: "The order number is 4500614381."
-  evidence: "4500614381"
+  evidence: "ZAMÓWIENIE NR.4500614381"
   sources: [{file: 28Polish_PL01_STP.tif, page: 1}]
+  lang: en
+  kind: fact
+
+- id: en-invoice-date
+  question: "What is the invoice date on invoice 15404052 from Tail Ltd?"
+  answer: "The invoice date is 20200107 (7 January 2020)."
+  evidence: "Invoice date 20200107"
+  sources: [{file: 03English_DE01_STP.tif, page: 1}]
+  lang: en
+  kind: fact
+
+- id: cz-invoice-date
+  question: "On what date was the barcode printer repair invoice from Czestochowa issued?"
+  answer: "The invoice was issued on 2020-01-19."
+  evidence: "Data wystawienia: 2020-01-19"
+  sources: [{file: 27Czech_PL01_STP.tif, page: 1}]
   lang: en
   kind: fact
 
@@ -143,11 +159,10 @@
   kind: fact
 
 - id: x-eur-invoices
-  question: "Which invoices are in euros?"
-  answer: "The Spanish (Ken el perro), Greek and Dutch invoices are in EUR."
+  question: "Which invoices state the currency code EUR explicitly in their text?"
+  answer: "The Spanish invoice from Ken el perro (IMPORTE EUR) and the Dutch car rental invoice (Factuurtotaal in EUR)."
   sources:
     - {file: 04Spanish_ES01_STP.tif, page: 1}
-    - {file: 21Greek_GR01_InvoiceNo.tif, page: 1}
     - {file: 22Dutch_NL01_NonVATComp1.tif, page: 1}
   lang: en
   kind: cross_doc
@@ -189,23 +204,23 @@
   lang: en
   kind: cross_doc
 
-- id: na-greek-swift
-  question: "What is the SWIFT code of the supplier on the Greek invoice?"
-  answer: "The documents do not contain this information."
+- id: na-shipment-weight
+  question: "What is the total shipment weight stated on the English invoice from Tail Ltd?"
+  answer: "I don't have enough information in the indexed content to answer that."
   sources: []
   lang: en
   kind: unanswerable
 
 - id: na-french-warranty
   question: "What warranty period is stated on the French-language Swiss invoice?"
-  answer: "The documents do not contain this information."
+  answer: "I don't have enough information in the indexed content to answer that."
   sources: []
   lang: en
   kind: unanswerable
 
-- id: na-dutch-penalty
-  question: "What late payment interest rate applies on the Dutch car rental invoice?"
-  answer: "The documents do not contain this information."
+- id: na-tracking-number
+  question: "What is the delivery tracking number on the Swedish invoice for the cooling plant repair?"
+  answer: "I don't have enough information in the indexed content to answer that."
   sources: []
   lang: en
   kind: unanswerable

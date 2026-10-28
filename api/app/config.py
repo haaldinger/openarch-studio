@@ -57,6 +57,8 @@ class Settings(BaseSettings):
     # ACL showcase: demo personas parsed from an OpenArch users file. Only on when STUDIO_DEMO_MODE=true.
     demo_mode: bool = False
     demo_users_file: str = ""
+    # Sample documents uploaded by the demo setup (one subfolder per demo folder).
+    demo_samples_dir: str = ""
 
 
 @lru_cache

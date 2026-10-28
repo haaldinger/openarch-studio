@@ -26,6 +26,7 @@ from pydantic import BaseModel
 
 from .acl import RuleIn, parse_access_field, to_sys_acl, validate_rules
 from .auth import current_credentials, get_openarch_client
+from .enrichment import EnrichmentService
 from .models import Credentials
 from .openarch import (
     ROOT_DOCUMENT_ID,
@@ -283,28 +284,54 @@ async def upload_document(
     if not content:
         raise HTTPException(status_code=400, detail="Empty file")
 
-    mime = SUPPORTED_TYPES[extension]
+    # Auto-start enrichment: a successful upload begins extraction/embedding in the background.
+    # Baseline mode keeps the app to native OpenArch only: store the SysFile, skip enrichment.
+    baseline = getattr(request.app.state, "baseline_mode", False)
+    try:
+        return await store_and_enrich(
+            client,
+            parentId,
+            filename,
+            content,
+            credentials,
+            background,
+            rules,
+            service=None if baseline else request.app.state.enrichment,
+        )
+    except Exception as exc:  # noqa: BLE001
+        raise _create_error(exc, rules is not None) from exc
+
+
+async def store_and_enrich(
+    client: OpenArchClient,
+    parent_id: str,
+    filename: str,
+    content: bytes,
+    owner: Credentials,
+    background: BackgroundTasks,
+    access: list[RuleIn] | None = None,
+    *,
+    service: EnrichmentService | None,
+) -> dict[str, Any]:
+    """Create a SysFile from `content`; with a service, start enrichment in the background.
+
+    OpenArch errors propagate unchanged; callers translate them.
+    """
+    mime = SUPPORTED_TYPES[os.path.splitext(filename)[1].lower()]
     payload: dict[str, Any] = {
         "sys_primaryType": "SysFile",
         "sys_title": filename,
         "sys_name": filename,
     }
-    if rules is not None:
-        payload["sys_acl"] = to_sys_acl(rules)
-    try:
-        payload["sysfile_blob"] = {"uploadId": await client.upload_binary(filename, mime, content)}
-        created = await client.create_document(parentId, payload)
-        doc_id = created["sys_id"]
-        document = await client.get_document(doc_id)
-    except Exception as exc:  # noqa: BLE001
-        raise _create_error(exc, rules is not None) from exc
-
-    # Auto-start enrichment: a successful upload begins extraction/embedding in the background.
-    # Baseline mode keeps the app to native OpenArch only: store the SysFile, skip enrichment.
-    if getattr(request.app.state, "baseline_mode", False):
+    if access is not None:
+        payload["sys_acl"] = to_sys_acl(access)
+    payload["sysfile_blob"] = {"uploadId": await client.upload_binary(filename, mime, content)}
+    created = await client.create_document(parent_id, payload)
+    doc_id = created["sys_id"]
+    document = await client.get_document(doc_id)
+    if service is None:
         return document
-    service = request.app.state.enrichment
-    job = service.store.create(doc_id, filename, credentials.username)
-    background.add_task(service.run, job, credentials, content=content, mime=mime)
+    job = service.store.create(doc_id, filename, owner.username)
+    background.add_task(service.run, job, owner, content=content, mime=mime)
     document["_studioJobId"] = job.id
     return document

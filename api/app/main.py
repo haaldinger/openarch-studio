@@ -13,6 +13,7 @@ from .auth import SessionStore
 from .baseline import require_extensions
 from .config import Settings, get_settings
 from .demo import load_demo_users
+from .demo_setup import router as demo_setup_router
 from .enrichment import EnrichmentService
 from .fields import FieldsService
 from .graph import GraphService
@@ -57,6 +58,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(router)
     app.include_router(library_router)
     app.include_router(access_router)
+    app.include_router(demo_setup_router)
     app.include_router(capabilities_router)
     # Extension surfaces — disabled wholesale when baseline mode is on.
     extension_only = [Depends(require_extensions)]

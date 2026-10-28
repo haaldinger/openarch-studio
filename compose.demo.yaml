@@ -11,5 +11,7 @@ services:
     environment:
       STUDIO_DEMO_MODE: "true"
       STUDIO_DEMO_USERS_FILE: /etc/studio/demo-users.yml
+      STUDIO_DEMO_SAMPLES_DIR: /etc/studio/demo-samples
     volumes:
       - ./demo/openarch-users.yml:/etc/studio/demo-users.yml:ro
+      - ./demo/samples:/etc/studio/demo-samples:ro

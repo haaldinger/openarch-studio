@@ -232,7 +232,6 @@ export function PermissionsPanel({ docId }: { docId: string }) {
                   <tr>
                     <th scope="col">Who</th>
                     <th scope="col">Permission</th>
-                    <th scope="col">Granted</th>
                     <th scope="col">Window</th>
                     <th scope="col">Status</th>
                     <th scope="col">Source</th>
@@ -254,7 +253,6 @@ export function PermissionsPanel({ docId }: { docId: string }) {
                           {rule.principal.kind === "group" && <span className="perm-sub">group</span>}
                         </td>
                         <td>{PERMISSION_LABEL[rule.permission] ?? rule.permission}</td>
-                        <td>{rule.granted ? "Granted" : "Denied"}</td>
                         <td>
                           {windowParts(rule, now).map((part) => (
                             <span key={part} className="perm-window">

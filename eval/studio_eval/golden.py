@@ -45,9 +45,9 @@ def _parse(raw: object, index: int, samples_dir: Path) -> GoldenEntry:
         if not isinstance(raw.get(key), str) or not raw[key].strip():
             raise fail(f"{key} must be a non-empty string")
     kind, lang = raw.get("kind"), raw.get("lang")
-    if kind not in KINDS:
+    if not isinstance(kind, str) or kind not in KINDS:
         raise fail(f"kind {kind!r} not in {sorted(KINDS)}")
-    if lang not in LANGS:
+    if not isinstance(lang, str) or lang not in LANGS:
         raise fail(f"lang {lang!r} not in {sorted(LANGS)}")
 
     evidence = raw.get("evidence")
@@ -56,7 +56,9 @@ def _parse(raw: object, index: int, samples_dir: Path) -> GoldenEntry:
     if kind == "fact" and not evidence:
         raise fail("evidence is required for kind fact")
 
-    raw_sources = raw.get("sources") or []
+    raw_sources = raw.get("sources")
+    if raw_sources is None:
+        raw_sources = []
     if not isinstance(raw_sources, list):
         raise fail("sources must be a list")
     sources: list[Source] = []
@@ -78,7 +80,12 @@ def _parse(raw: object, index: int, samples_dir: Path) -> GoldenEntry:
 
 
 def load_golden(path: Path, samples_dir: Path) -> list[GoldenEntry]:
-    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    try:
+        data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except OSError as exc:
+        raise GoldenError(f"cannot read golden file {path}: {exc.strerror or exc}") from exc
+    except yaml.YAMLError as exc:
+        raise GoldenError(f"invalid YAML in golden file {path}: {exc}") from exc
     if not isinstance(data, list):
         raise GoldenError("golden file must be a YAML list of entries")
     entries: list[GoldenEntry] = []

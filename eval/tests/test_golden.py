@@ -92,6 +92,42 @@ def test_unanswerable_must_have_no_sources(tmp_path, samples):
         load_golden(write(tmp_path, [entry(kind="unanswerable", evidence=_DROP)]), samples)
 
 
+@pytest.mark.parametrize("over", [{"kind": ["fact"]}, {"kind": {"a": "b"}}])
+def test_unhashable_kind_raises_golden_error(tmp_path, samples, over):
+    with pytest.raises(GoldenError, match="pl-total"):
+        load_golden(write(tmp_path, [entry(**over)]), samples)
+
+
+@pytest.mark.parametrize("lang", [["en"], {"a": "b"}])
+def test_unhashable_lang_raises_golden_error(tmp_path, samples, lang):
+    with pytest.raises(GoldenError, match="pl-total"):
+        load_golden(write(tmp_path, [entry(lang=lang)]), samples)
+
+
+@pytest.mark.parametrize("sources", ["", 0, False, {}, "a.tif"])
+def test_non_list_sources_rejected(tmp_path, samples, sources):
+    with pytest.raises(GoldenError, match="pl-total.*sources must be a list"):
+        load_golden(write(tmp_path, [entry(sources=sources)]), samples)
+
+
+def test_missing_sources_on_unanswerable_is_empty(tmp_path, samples):
+    got = load_golden(write(tmp_path, [entry(kind="unanswerable", evidence=_DROP, sources=None)]), samples)
+    assert got[0].sources == []
+
+
+def test_missing_golden_file_raises_golden_error(tmp_path, samples):
+    missing = tmp_path / "nope.yaml"
+    with pytest.raises(GoldenError, match=str(missing)):
+        load_golden(missing, samples)
+
+
+def test_invalid_yaml_raises_golden_error(tmp_path, samples):
+    p = tmp_path / "golden.yaml"
+    p.write_text("- id: [unclosed\n", encoding="utf-8")
+    with pytest.raises(GoldenError, match=str(p)):
+        load_golden(p, samples)
+
+
 def test_check_evidence(tmp_path):
     fx = tmp_path / "fx"
     fx.mkdir()

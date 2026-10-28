@@ -53,6 +53,17 @@ an OnBase document query). Nothing was created, changed or deleted.
    needs a mock of its API and an end-to-end test that a restricted document is not returned to the
    wrong user, plus validation by someone with administrative access to a real instance before it is
    called stable.
+8. **Searching needs more than the connector jar.** In content-lake-app the plugin jars are loaded only
+   by the ingesters. At query time the rag-service signs callers in and resolves their groups with
+   per-source `CallerAuthenticator` and `SourceGroupResolver` implementations that are built into it
+   (Alfresco, Nuxeo, CMIS, Entra today). Perceptive and OnBase callers therefore need small rag-service
+   additions, off by default like the CMIS one; without them the mapped group principals match nobody.
+9. **OnBase caller groups depend on the identity service client.** The IdentityService advertises a
+   `group` claim (scopes `group`, `profile.group`), but the demo client is not allowed to request those
+   scopes (`invalid_scope`), and its tokens carry no group claim. Group-based OnBase mappings work only
+   when an administrator allows the `group` scope for the client the rag-service uses; until then only
+   user-level (or everyone) mappings can match OnBase callers. Perceptive caller groups can be read from
+   `/v1/userGroup` membership.
 
 ## Option set aside for now
 

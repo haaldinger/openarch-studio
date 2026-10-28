@@ -110,65 +110,6 @@ Sign in with an OpenArch user (the default dev store includes `admin` / `passwor
 DOCX, TXT, Markdown, HTML, or image file, watch it enrich on the **Activity** page, then try
 **Search** and **Ask**. The first Docling conversion is slow while it loads its models.
 
-## Demo mode (ACL showcase)
-
-Demo mode shows OpenArch's permission model live: the same question gets different, correctly cited
-answers depending on who asks, and access can be granted, revoked and time-limited while you watch.
-Studio never decides access; it displays what OpenArch reports (`sys_acl`, `fulleffectiveacl`,
-`fulleffectivepermissions`) and what each identity actually retrieved.
-
-```bash
-# from pocs/openarch-studio, with OPENARCH_VERSION=1.0.60 in .env
-docker compose -f compose.yaml -f compose.demo.yaml up -d --build
-```
-
-The overlay mounts `demo/openarch-users.yml` into OpenArch and Studio and sets `STUDIO_DEMO_MODE=true`.
-Sign in as `admin` / `password`, open the header **Demo** menu and choose **Set up demo**. This creates a
-`Studio Demo` folder with `Company`, `Finance`, `HR` and `Sales` subfolders and uploads the fictional
-"Northwind Labs" sample documents from `demo/samples/`. Watch enrichment on **Activity**; **Reset demo**
-deletes the folder again.
-
-Personas (all with password `password`):
-
-| User | Groups | Label | Sees |
-|---|---|---|---|
-| `fiona` | finance, members | Finance analyst | Company, Finance |
-| `henry` | hr, members | HR partner | Company, HR |
-| `sam` | sales, members | Sales rep | Company, Sales |
-| `erin` | finance, hr, sales, members | Executive | Everything |
-| `cory` | members | Contractor | Company; plus `q4-pricing.md` (granted on that document) |
-
-Use **Acting as** in the header to browse as a persona (a banner shows who you are). On **Ask**, turn
-on **Compare** to put two personas side by side with one question. A summary strip lists the documents
-cited only on the left, only on the right, and by both.
-
-Demo questions:
-
-- "What's the 2027 bonus pool?" (Finance and HR documents, so Fiona, Henry and Erin get different answers than Sam)
-- "What discount can I give on the Enterprise plan?" (Sales documents)
-- "What are the salary bands for engineers?" (HR documents)
-
-Live revoke:
-
-1. Compare Sam vs Erin on "What discount can I give on the Enterprise plan?". Both cite Sales documents.
-2. Open the `Sales` folder's **Permissions** tab and remove the `sales` rule.
-3. **Re-ask** in Sam's column. The Sales citation is gone; revoke takes effect immediately.
-
-Time-limited access:
-
-1. Open `q4-pricing.md` and, on **Permissions**, add `cory` with **Read** for **2 min**.
-2. Compare Cory vs Erin on the same pricing question. Cory cites the document.
-3. After the window ends (OpenArch stops granting within about 15 seconds of expiry) the rule shows
-   `ARCHIVED`. **Re-ask**; Cory can no longer cite it.
-
-The **Permissions** tab shows who can access a document and every rule (local or inherited from a
-folder, with its time window and OpenArch status). Users with Manage security can add and remove local
-rules; uploads and new folders can be shared with someone in the same call. OpenArch has no deny rules,
-so to restrict one document inside a shared folder, move it.
-
-**Demo mode is for local demos only; never point it at real users.** It keeps the personas' passwords in
-the API process and lets a demo admin act as them.
-
 ### Extraction settings
 
 | Variable | Default | Purpose |
@@ -217,6 +158,66 @@ reranked. `BAAI/bge-reranker-v2-m3` is more accurate but was OOM-killed or too s
 
 To use a hosted OpenAI-compatible provider instead of Ollama, set `STUDIO_MODEL_BASE_URL` (and the
 provider key) on the `studio-api` service and skip the `ollama pull` steps.
+
+## Demo mode (ACL showcase)
+
+Demo mode shows OpenArch's permission model live: the same question gets different, correctly cited
+answers depending on who asks, and access can be granted, revoked and time-limited while you watch.
+Studio never decides access; it displays what OpenArch reports (`sys_acl`, `fulleffectiveacl`,
+`fulleffectivepermissions`) and what each identity actually retrieved.
+
+```bash
+# from pocs/openarch-studio, with OPENARCH_VERSION=1.0.60 in .env
+docker compose -f compose.yaml -f compose.demo.yaml up -d --build
+```
+
+The overlay mounts `demo/openarch-users.yml` into OpenArch and Studio and sets `STUDIO_DEMO_MODE=true`.
+Sign in as `admin` / `password`, open the header **Demo** menu and choose **Set up demo**. This creates a
+`Studio Demo` folder with `Company`, `Finance`, `HR` and `Sales` subfolders and uploads the fictional
+"Northwind Labs" sample documents from `demo/samples/`. Watch enrichment on **Activity**; **Reset demo**
+deletes the folder again.
+
+Personas (all with password `password`):
+
+| User | Groups | Label | Sees |
+|---|---|---|---|
+| `fiona` | finance, members | Finance analyst | Company, Finance |
+| `henry` | hr, members | HR partner | Company, HR |
+| `sam` | sales, members | Sales rep | Company, Sales |
+| `erin` | finance, hr, sales, members | Executive | Everything |
+| `cory` | members | Contractor | Company; plus `q4-pricing.md` (document-level Read, no end date) |
+
+Use **Acting as** in the header to browse as a persona (a banner shows who you are). On **Ask**, turn
+on **Compare** to put two personas side by side with one question. A summary strip lists the documents
+cited only on the left, only on the right, and by both.
+
+Demo questions:
+
+- "What's the 2027 bonus pool?" (Finance and HR documents, so Fiona, Henry and Erin get different answers than Sam)
+- "What discount can I give on the Enterprise plan?" (Sales documents)
+- "What are the salary bands for engineers?" (HR documents)
+
+Live revoke:
+
+1. Compare Sam vs Erin on "What discount can I give on the Enterprise plan?". Both cite Sales documents.
+2. Open the `Sales` folder's **Permissions** tab and remove the `sales` rule.
+3. **Re-ask** in Sam's column. The Sales citation is gone; revoke takes effect immediately.
+
+Time-limited access:
+
+1. Open `q4-pricing.md` and, on **Permissions**, remove Cory's **Set here** rule (Cory's document-level Read has no end date).
+2. Add `cory` with **Read** for **2 min**.
+3. Compare Cory vs Erin on the same pricing question. Cory cites the document.
+4. After the window ends (OpenArch stops granting within about 15 seconds of expiry) the rule shows
+   `ARCHIVED`. **Re-ask**; Cory can no longer cite it.
+
+The **Permissions** tab shows who can access a document and every rule (local or inherited from a
+folder, with its time window and OpenArch status). Users with Manage security can add and remove local
+rules; uploads and new folders can be shared with someone in the same call. OpenArch has no deny rules,
+so to restrict one document inside a shared folder, move it.
+
+**Demo mode is for local demos only; never point it at real users.** It keeps the personas' passwords in
+the API process and lets a demo admin act as them.
 
 ## Develop
 

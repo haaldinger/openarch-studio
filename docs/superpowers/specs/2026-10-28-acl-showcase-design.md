@@ -219,8 +219,8 @@ Personas carry their `studioPersona` label. Minimum query length 1, at most 20 r
 
 - *Live revoke*: Compare Sam vs Erin on "What discount can I give on the Enterprise plan?" → open the
   Sales folder's permissions → remove `sales` → Re-ask in Sam's column → the citation is gone.
-- *Time-limited*: on `q4-pricing.md` add `cory` Read for 2 min → Compare Cory vs Erin, Cory cites it →
-  after expiry the rule shows `ARCHIVED` → Re-ask, Cory can't.
+- *Time-limited*: on `q4-pricing.md` remove Cory's document-level Read (no end date) → add `cory` Read for 2 min →
+  Compare Cory vs Erin, Cory cites it → after expiry the rule shows `ARCHIVED` → Re-ask, Cory can't.
 
 ## 4. Access on upload and new folders
 

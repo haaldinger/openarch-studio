@@ -141,7 +141,7 @@ behavior is unchanged.
 | An ACE with `end` stops granting within ~15 s of expiry; its status becomes `ARCHIVED` | Time-limited demo with a 2-minute window works. |
 | Negative ACEs are rejected (`Negative ACL not allowed`); REST has no block-inheritance | No "deny here". Restrict by editing the folder rule or moving the document. |
 | Any `permission` string is accepted (even `Bogus`) | Studio whitelists permission names. |
-| `fulleffectivepermissions` / `fulleffectiveacl` take **user ids** in `usernames` | The earlier client sent `users` and got nothing back; fixed. |
+| `fulleffectivepermissions` / `fulleffectiveacl` take **user ids** in `usernames` | Sending `users` returns no results. |
 | `fulleffectiveacl` returns local and inherited ACEs per user; `fulleffectivepermissions` returns the expanded set (ReadWrite → Read, Write, Delete, …) | Panel data comes straight from these. |
 | `sys_acl` is only returned to callers with `ManageSecurity`; the effective-permissions endpoint answers 401 to non-managers | Non-managers see their own effective permissions only. |
 | A query scoped by `sys_ancestorIds` to an unreadable folder returns 403, not an empty list | Studio maps it to "You no longer have access to this folder". |

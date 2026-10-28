@@ -149,9 +149,15 @@ class StudioClient:
         if not samples_dir.is_dir():
             raise StudioError(f"samples directory not found: {samples_dir}")
         present = {d.get("name") or d.get("title"): d["id"] for d in self._children(folder_id)}
+        files = sorted(p for p in samples_dir.iterdir() if p.is_file())
+        for path in files:
+            if path.name in present and not any(
+                t.strip() for t in self.extracted_text(present[path.name]).values()
+            ):
+                raise StudioError(f"{path.name} has no extracted text. {_RERUN_HINT}")
         corpus: dict[str, str] = {}
         pending: dict[str, str] = {}  # job id -> file name
-        for path in sorted(p for p in samples_dir.iterdir() if p.is_file()):
+        for path in files:
             if path.name in present:
                 corpus[path.name] = present[path.name]
                 continue

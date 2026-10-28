@@ -264,6 +264,13 @@ def samples(tmp_path: Path) -> Path:
     return d
 
 
+@pytest.fixture(autouse=True)
+def _reused_docs_have_text(request, monkeypatch):
+    # ensure_corpus verifies reused docs; default to "enriched" for tests that use `samples`
+    if "samples" in request.fixturenames:
+        monkeypatch.setattr(StudioClient, "extracted_text", lambda self, doc_id: {1: "text"})
+
+
 def folder_listing(*names):
     return httpx.Response(
         200,
@@ -438,3 +445,44 @@ def test_ensure_corpus_failure_and_timeout_suggest_cleanup(samples):
         state["v"] = "running"
         with pytest.raises(StudioError, match=r"timed out.*[Dd]elete it from the Eval corpus folder and re-run"):
             c.ensure_corpus("F", samples, timeout_s=10, poll_s=5)
+
+
+@pytest.mark.parametrize("pages", [{}, {1: ""}, {1: "  \n", 2: ""}])
+@respx.mock
+def test_ensure_corpus_reused_doc_without_extracted_text_is_error(samples, monkeypatch, pages):
+    seen = []
+    monkeypatch.setattr(
+        StudioClient, "extracted_text", lambda self, doc_id: seen.append(doc_id) or (pages if doc_id == "id-b.tif" else {1: "t"})
+    )
+    respx.get(f"{BASE}/api/documents", params={"parentId": "F"}).mock(
+        return_value=folder_listing("a.tif", "b.tif", "c.tif")
+    )
+    with StudioClient(BASE, "u", "p") as c:
+        with pytest.raises(StudioError) as exc:
+            c.ensure_corpus("F", samples)
+    msg = str(exc.value)
+    assert "b.tif" in msg and "no extracted text" in msg
+    assert "Delete it from the Eval corpus folder and re-run" in msg
+    assert "id-b.tif" in seen
+
+
+@respx.mock
+def test_ensure_corpus_checks_only_reused_docs(samples, monkeypatch):
+    seen = []
+    monkeypatch.setattr(
+        StudioClient, "extracted_text", lambda self, doc_id: seen.append(doc_id) or {1: "t"}
+    )
+    respx.get(f"{BASE}/api/documents", params={"parentId": "F"}).mock(
+        return_value=folder_listing("c.tif")
+    )
+    respx.post(f"{BASE}/api/documents").mock(
+        side_effect=lambda r: httpx.Response(
+            201, json={"sys_id": "new", "_studioJobId": "j"}
+        )
+    )
+    respx.get(f"{BASE}/api/jobs").mock(
+        return_value=httpx.Response(200, json={"jobs": [job("j", "new", "x", "complete")]})
+    )
+    with StudioClient(BASE, "u", "p") as c:
+        c.ensure_corpus("F", samples)
+    assert seen == ["id-c.tif"]

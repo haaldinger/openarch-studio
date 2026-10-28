@@ -81,15 +81,13 @@ def test_summarize_ignores_malformed_extracted_fields(props: object) -> None:
 
 
 @respx.mock
-def test_upload_creates_sysfile_and_attaches_blob(client: TestClient) -> None:
+def test_upload_sends_bytes_then_creates_sysfile_with_blob(client: TestClient) -> None:
     _authenticate(client)
-    create = respx.post(ROOT).mock(return_value=httpx.Response(200, json={"sys_id": "doc1"}))
     upload = respx.post("http://openarch.test/api/upload").mock(
         return_value=httpx.Response(201, json={"id": "upl1"})
     )
-    attach = respx.put("http://openarch.test/api/documents/doc1").mock(
-        return_value=httpx.Response(200, json={"sys_id": "doc1"})
-    )
+    create = respx.post(ROOT).mock(return_value=httpx.Response(200, json={"sys_id": "doc1"}))
+    attach = respx.put("http://openarch.test/api/documents/doc1")
     fetch = respx.get("http://openarch.test/api/documents/doc1").mock(
         return_value=httpx.Response(200, json={"sys_id": "doc1", "sys_title": "a.pdf"})
     )
@@ -101,9 +99,31 @@ def test_upload_creates_sysfile_and_attaches_blob(client: TestClient) -> None:
 
     assert response.status_code == 201
     assert response.json()["sys_id"] == "doc1"
-    assert create.called and upload.called and attach.called and fetch.called
-    # The blob is attached by upload id, matching OpenArch's two-step upload contract.
-    assert json.loads(attach.calls.last.request.read()) == {"sysfile_blob": {"uploadId": "upl1"}}
+    assert upload.called and create.called and fetch.called
+    assert not attach.called
+    posts = [c.request.url.path for c in respx.calls if c.request.method == "POST"]
+    assert posts == ["/api/upload", f"/api/documents/{ROOT_ID}"]
+    assert json.loads(create.calls.last.request.read()) == {
+        "sys_primaryType": "SysFile",
+        "sys_title": "a.pdf",
+        "sys_name": "a.pdf",
+        "sysfile_blob": {"uploadId": "upl1"},
+    }
+
+
+@respx.mock
+def test_failed_upload_creates_no_document(client: TestClient) -> None:
+    _authenticate(client)
+    respx.post("http://openarch.test/api/upload").mock(return_value=httpx.Response(500))
+    create = respx.post(ROOT)
+
+    response = client.post(
+        "/api/documents",
+        files={"file": ("a.pdf", b"%PDF-1.4 data", "application/pdf")},
+    )
+
+    assert response.status_code >= 400
+    assert not create.called
 
 
 @respx.mock

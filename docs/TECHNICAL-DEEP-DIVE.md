@@ -141,8 +141,10 @@ flowchart LR
     S5 -.->|additive| G["graph extract\n(small model)"]
 ```
 
-1. **stored** — the source `SysFile` already holds the bytes; the pipeline
-   re-reads them from OpenArch so a retry needs nothing cached in Studio.
+1. **stored** — the upload route sends the bytes to `POST /api/upload`, then
+   creates the `SysFile` with `POST /api/documents/{parentId}` carrying
+   `sysfile_blob: {uploadId}`, so a failed upload leaves no empty document. A
+   retry re-reads the bytes from OpenArch, so nothing is cached in Studio.
 2. **extracted** — [`extraction.py`](../api/app/extraction.py) defines an
    `Extractor` seam returning Markdown, one string per page, and the engine
    name. `DoclingExtractor` posts the original bytes to docling-serve
@@ -468,9 +470,10 @@ Failures are logged and never block startup.
 ### Run
 
 ```shell
+git clone https://github.com/Hyland/OpenArch && cd OpenArch
+git clone https://github.com/haaldinger/openarch-studio pocs/openarch-studio
 cd pocs/openarch-studio
-cp .env.example .env
-export OPENARCH_VERSION=1.0.0
+cp .env.example .env   # OPENARCH_VERSION=1.0.60, the public ghcr.io/hyland/openarch-app-jvm tag
 docker compose up -d --build
 # one-time model pulls:
 docker compose exec ollama ollama pull nomic-embed-text

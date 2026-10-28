@@ -253,13 +253,17 @@ async def upload_document(
 
     mime = SUPPORTED_TYPES[extension]
     try:
+        upload_id = await client.upload_binary(filename, mime, content)
         created = await client.create_document(
             parentId,
-            {"sys_primaryType": "SysFile", "sys_title": filename, "sys_name": filename},
+            {
+                "sys_primaryType": "SysFile",
+                "sys_title": filename,
+                "sys_name": filename,
+                "sysfile_blob": {"uploadId": upload_id},
+            },
         )
         doc_id = created["sys_id"]
-        upload_id = await client.upload_binary(filename, mime, content)
-        await client.attach_blob(doc_id, upload_id)
         document = await client.get_document(doc_id)
     except Exception as exc:  # noqa: BLE001
         raise _translate(exc) from exc

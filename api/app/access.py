@@ -70,24 +70,32 @@ async def _inherited_rules(client: OpenArchClient, doc: dict[str, Any]) -> list[
 
 
 async def _effective(
-    client: OpenArchClient, doc_id: str, session: Session, demo: DemoUsers | None
+    client: OpenArchClient,
+    doc_id: str,
+    doc: dict[str, Any],
+    session: Session,
+    demo: DemoUsers | None,
+    can_manage: bool,
 ) -> list[dict[str, Any]]:
-    if demo is not None:
-        subjects = {p.user_id: p for p in demo.personas.values()}
-        names = {uid: p.username for uid, p in subjects.items()}
-        labels = {uid: p.label for uid, p in subjects.items()}
-    else:
+    if demo is None or not can_manage:
+        # fulleffectivepermissions needs ManageSecurity, so everyone else sees their own row.
         username = session.active.username
-        matches = [u for u in await client.find_users(username) if u.get("username") == username]
-        if not matches:
-            return []
-        names = {matches[0]["id"]: username}
-        labels = {}
+        row: dict[str, Any] = {
+            "userId": None,
+            "username": username,
+            "permissions": doc.get("sys_effectivePermissions") or [],
+        }
+        persona = demo.personas.get(username) if demo is not None else None
+        if persona is not None:
+            row["label"] = persona.label
+        return [row]
+    names = {p.user_id: p.username for p in demo.personas.values()}
+    labels = {p.user_id: p.label for p in demo.personas.values()}
     result = await client.get_effective_permissions(doc_id, list(names))
     effective = []
     for entry in result.get("fullEffectivePermissions") or []:
         user_id = entry.get("userId")
-        row: dict[str, Any] = {
+        row = {
             "userId": user_id,
             "username": names.get(user_id, user_id),
             "permissions": entry.get("userPermissions") or [],
@@ -112,7 +120,7 @@ async def get_access(
         rules: list[dict[str, Any]] = []
         if can_manage:
             rules = _rules(doc, "local") + await _inherited_rules(client, doc)
-        effective = await _effective(client, doc_id, session, demo)
+        effective = await _effective(client, doc_id, doc, session, demo, can_manage)
     except OpenArchError as exc:
         raise _translate(exc) from exc
     return {"canManage": can_manage, "rules": rules, "effective": effective}

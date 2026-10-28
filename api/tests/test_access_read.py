@@ -87,10 +87,6 @@ def test_access_splits_local_and_inherited(client: TestClient) -> None:
             ],
         ),
     )
-    _mock_effective("d1")
-    respx.get(f"{OA}/api/user", params={"name": "admin"}).mock(
-        return_value=httpx.Response(200, json=[])
-    )
 
     response = client.get("/api/documents/d1/access")
 
@@ -122,8 +118,6 @@ def test_access_skips_unreadable_ancestor(client: TestClient) -> None:
         _doc("d1", "P1", "Doc", [{"permission": "Read", "granted": True, "status": "EFFECTIVE", "user": U1}]),
     )
     _mock_doc("P1", httpx.Response(403))
-    _mock_effective("d1")
-    respx.get(f"{OA}/api/user").mock(return_value=httpx.Response(200, json=[]))
 
     response = client.get("/api/documents/d1/access")
 
@@ -135,8 +129,6 @@ def test_access_skips_unreadable_ancestor(client: TestClient) -> None:
 def test_access_without_manage_security(client: TestClient) -> None:
     _sign_in(client)
     _mock_doc("d1", _doc("d1", ROOT_ID, "Doc"))
-    _mock_effective("d1")
-    respx.get(f"{OA}/api/user").mock(return_value=httpx.Response(200, json=[]))
 
     body = client.get("/api/documents/d1/access").json()
 
@@ -156,7 +148,7 @@ def test_access_document_not_found(client: TestClient) -> None:
 def test_effective_uses_usernames_param_with_ids_in_demo(settings: Settings) -> None:
     client = _demo_client(settings)
     _sign_in(client)
-    _mock_doc("d1", _doc("d1", ROOT_ID, "Doc"))
+    _mock_doc("d1", _doc("d1", ROOT_ID, "Doc", []))
     route = _mock_effective(
         "d1",
         [
@@ -179,31 +171,52 @@ def test_effective_uses_usernames_param_with_ids_in_demo(settings: Settings) -> 
 
 
 @respx.mock
-def test_effective_non_demo_looks_up_active_user(client: TestClient) -> None:
+def test_manager_outside_demo_gets_own_permissions_from_document(client: TestClient) -> None:
     _sign_in(client)
-    _mock_doc("d1", _doc("d1", ROOT_ID, "Doc"))
-    users = respx.get(f"{OA}/api/user", params={"name": "admin"}).mock(
-        return_value=httpx.Response(
-            200,
-            json=[
-                {"id": "x1", "username": "administrator2"},
-                {"id": "a1", "username": "admin"},
-            ],
-        )
-    )
-    route = _mock_effective("d1", [{"userId": "a1", "userPermissions": ["Everything"]}])
+    body = {
+        "sys_id": "d1",
+        "sys_parentId": ROOT_ID,
+        "sys_acl": [],
+        "sys_effectivePermissions": ["Read", "ManageSecurity"],
+    }
+    _mock_doc("d1", httpx.Response(200, json=body))
+    route = _mock_effective("d1")
 
-    effective = client.get("/api/documents/d1/access").json()["effective"]
+    response = client.get("/api/documents/d1/access")
 
-    assert users.called
-    assert route.calls.last.request.url.params["usernames"] == "a1"
-    assert effective == [
-        {"userId": "a1", "username": "admin", "permissions": ["Everything"]}
+    assert response.status_code == 200
+    assert response.json()["canManage"] is True
+    assert response.json()["effective"] == [
+        {"userId": None, "username": "admin", "permissions": ["Read", "ManageSecurity"]}
     ]
+    assert not route.called
 
 
 @respx.mock
+def test_non_manager_gets_own_permissions_without_effective_call(settings: Settings) -> None:
+    client = _demo_client(settings)
+    _sign_in(client, "sam")
+    body = {"sys_id": "d1", "sys_parentId": ROOT_ID, "sys_effectivePermissions": ["Read"]}
+    _mock_doc("d1", httpx.Response(200, json=body))
+    route = respx.get(f"{OA}/api/documents/d1/fulleffectivepermissions").mock(
+        return_value=httpx.Response(401)
+    )
+
+    response = client.get("/api/documents/d1/access")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "canManage": False,
+        "rules": [],
+        "effective": [
+            {"userId": None, "username": "sam", "label": "Sales rep", "permissions": ["Read"]}
+        ],
+    }
+    assert not route.called
+@respx.mock
 def test_principals_merges_users_and_groups(settings: Settings) -> None:
+
+
     client = _demo_client(settings)
     _sign_in(client)
     respx.get(f"{OA}/api/user", params={"name": "sa"}).mock(

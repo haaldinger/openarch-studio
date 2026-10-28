@@ -63,7 +63,7 @@ export interface Job {
   stages: JobStage[];
 }
 
-export type SearchMode = "keyword" | "hxql" | "semantic";
+export type SearchMode = "keyword" | "hxql" | "semantic" | "hybrid";
 
 export interface SearchResult {
   id: string | null;

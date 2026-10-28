@@ -9,12 +9,14 @@ import type { SearchMode, SearchResponse } from "../types";
 const MODES: { id: SearchMode; label: string; hint: string }[] = [
   { id: "keyword", label: "Keyword", hint: "Title match via OpenArch query" },
   { id: "semantic", label: "Semantic", hint: "Studio embedding + vector search" },
+  { id: "hybrid", label: "Hybrid", hint: "OpenArch vector + BM25 keyword search, merged with RRF" },
   { id: "hxql", label: "HXQL", hint: "Advanced query, passed through" },
 ];
 
 const PLACEHOLDER: Record<SearchMode, string> = {
   keyword: "e.g. policy",
   semantic: "Ask in natural language…",
+  hybrid: "Meaning plus exact terms, e.g. invoice INV-2209",
   hxql: "SELECT * FROM SysContent WHERE …",
 };
 
@@ -73,7 +75,7 @@ export function SearchPage() {
       <PageIntro
         eyebrow="OpenArch retrieval"
         title="Search"
-        lede="Three ways to find the same corpus — all scoped to what you're allowed to read."
+        lede="Four ways to find the same corpus — all scoped to what you're allowed to read."
       />
 
       <ScopeBanner />

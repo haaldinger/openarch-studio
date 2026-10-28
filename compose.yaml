@@ -28,6 +28,7 @@ services:
       STUDIO_EXTRACT_MODEL: ${STUDIO_EXTRACT_MODEL:-${STUDIO_GRAPH_MODEL:-llama3.2:3b}}
       STUDIO_RERANKER_URL: ${STUDIO_RERANKER_URL-http://reranker:80}
       STUDIO_RERANK_MODEL: ${STUDIO_RERANK_MODEL:-BAAI/bge-reranker-base}
+      STUDIO_HYBRID_SEARCH: ${STUDIO_HYBRID_SEARCH:-true}
       STUDIO_GRAPH_STORE_PATH: /data/graph.json
     extra_hosts:
       - "host.docker.internal:host-gateway"

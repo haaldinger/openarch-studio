@@ -240,10 +240,10 @@ record.
 
 ---
 
-## 5. Search — three modes, one surface
+## 5. Search — four modes, one surface
 
 [`search.py`](../api/app/search.py) exposes `POST /api/search` with
-`mode ∈ {keyword, hxql, semantic}`. Every response carries a `provenance` block
+`mode ∈ {keyword, hxql, semantic, hybrid}`. Every response carries a `provenance` block
 naming which layer did what and how long it took.
 
 | Mode | Path | Who does what |
@@ -251,6 +251,13 @@ naming which layer did what and how long it took.
 | `keyword` | `/api/query/embeddings` | Studio embeds the query, OpenArch kNN retrieves, then Studio keeps only chunks whose text actually contains the term(s). |
 | `hxql` | `/api/query` | Raw HXQL straight to OpenArch — no Studio layer. |
 | `semantic` | `/api/query/embeddings` | Studio embeds the query; OpenArch vector search ranks. |
+| `hybrid` | `/api/query/embeddings` + `chunkFTS` | Studio embeds the query; OpenArch runs kNN and BM25 over the chunk text and merges them with reciprocal rank fusion (RRF). |
+
+Semantic and hybrid search are one OpenArch call, filtered by
+`sys_mixinTypes = 'SysHasEmbeddings'` (plus `sys_ancestorIds` when scoped), run as the caller.
+**Ask** retrieves with hybrid search unless `STUDIO_HYBRID_SEARCH=false`. Hybrid needs
+OpenArch 1.0.60 or later. RRF scores are rank-based, so hybrid hits carry no
+`vectorScore`.
 
 > **Why keyword rides the embedding index.** In this deployment OpenArch's
 > server-side `sys_fulltext` isn't populated, but Studio's chunk text *is* in the
@@ -280,7 +287,7 @@ Semantic search, keyword search and chat retrieval use it; HXQL does not.
   `rerank: skipped (not configured | timeout | HTTP <code> | unreachable | incomplete response)`,
   and the UI shows it.
 - **Scores.** Results and citations carry `score` (the rerank score when reranked)
-  and `vectorScore` (OpenArch's kNN score); the UI shows both on citations.
+  and `vectorScore` (OpenArch's kNN score; empty for hybrid hits); the UI shows both on citations.
 - **Why `bge-reranker-base`, and why 12 candidates.** The first choice,
   `BAAI/bge-reranker-v2-m3`, was OOM-killed at TEI's default batch size and took
   56 s for 30 candidates on Docker CPU. `BAAI/bge-reranker-base` with

@@ -26,7 +26,7 @@ router = APIRouter(prefix="/api")
 
 
 class SearchRequest(BaseModel):
-    mode: str  # keyword | hxql | semantic
+    mode: str  # keyword | hxql | semantic | hybrid
     query: str
     limit: int = 10
     scope: str | None = None  # folder id; restricts results to that subtree
@@ -44,13 +44,13 @@ def get_reranker(request: Request) -> Reranker:
     return request.app.state.reranker
 
 
-def _result(hit: dict[str, Any]) -> dict[str, Any]:
+def _result(hit: dict[str, Any], *, hybrid: bool = False) -> dict[str, Any]:
     return {
         "id": hit.get("sysembed_docId"),
         "title": None,
         "snippet": hit.get("sysembed_text"),
         "score": hit.get("sysembed_score"),
-        "vectorScore": hit.get("sysembed_score"),
+        "vectorScore": None if hybrid else hit.get("sysembed_score"),
         "page": hit_page(hit),
     }
 
@@ -108,7 +108,8 @@ async def search(
             provenance = {"providedBy": "OpenArch", "extendedBy": None,
                           "requestPath": "/api/query", "embeddingType": None, "rerank": None}
 
-        elif body.mode == "semantic":
+        elif body.mode in ("semantic", "hybrid"):
+            hybrid = body.mode == "hybrid"
             vector = await service.embed_query(body.query)
             embedding_type = f"{service.embedding_type()}*"
             result = await client.semantic_search(
@@ -116,14 +117,16 @@ async def search(
                 embedding_type=embedding_type,
                 scope=body.scope,
                 limit=candidate_count(body.limit),
+                chunk_fts=body.query if hybrid else None,
             )
             results, rerank_status = await _rerank(
                 reranker,
                 body.query,
-                [_result(hit) for hit in result.get("embeddings", [])],
+                [_result(hit, hybrid=hybrid) for hit in result.get("embeddings", [])],
                 body.limit,
             )
-            provenance = {"providedBy": "OpenArch vector search", "extendedBy": "Studio embedding",
+            provided_by = "OpenArch hybrid search (kNN + BM25, RRF)" if hybrid else "OpenArch vector search"
+            provenance = {"providedBy": provided_by, "extendedBy": "Studio embedding",
                           "requestPath": "/api/query/embeddings", "embeddingType": embedding_type,
                           "rerank": rerank_status}
         else:

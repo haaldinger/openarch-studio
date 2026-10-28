@@ -169,15 +169,6 @@ class OpenArchClient:
             return False
         return response.json().get("indexing") == "done"
 
-    async def _embeddings_query(
-        self, vector: list[float], query: str, *, embedding_type: str | None = None, limit: int = 10
-    ) -> list[dict[str, Any]]:
-        payload: dict[str, Any] = {"vector": vector, "query": query, "limit": limit}
-        if embedding_type:
-            payload["embeddingType"] = embedding_type
-        response = await self._request("POST", "/api/query/embeddings", json=payload)
-        return response.json().get("embeddings", [])
-
     async def list_embedded_doc_ids(self, scope: str | None = None, *, limit: int = 500) -> list[str]:
         """Ids of documents that hold embeddings — ACL-filtered, optionally within a subtree."""
         query = "SELECT * FROM SysContent WHERE sys_mixinTypes = 'SysHasEmbeddings'"
@@ -201,26 +192,24 @@ class OpenArchClient:
         embedding_type: str | None = None,
         scope: str | None = None,
         limit: int = 10,
+        chunk_fts: str | None = None,
     ) -> dict[str, Any]:
-        """Vector kNN across the caller's embedded documents.
+        """One kNN query over the caller's embedded chunks; OpenArch applies ACLs.
 
-        OpenArch's /api/query/embeddings rejects an unfiltered query, so instead of one
-        repository-wide call we enumerate the documents that hold embeddings (honouring
-        ACLs), rank each against the query vector, then merge the hits by score.
+        With ``chunk_fts`` OpenArch runs hybrid search instead: kNN and BM25 over the
+        chunk text, merged with reciprocal rank fusion (so scores are rank-based).
         """
-        doc_ids = await self.list_embedded_doc_ids(scope)
-        hits: list[dict[str, Any]] = []
-        for doc_id in doc_ids:
-            hits.extend(
-                await self._embeddings_query(
-                    vector,
-                    f"SELECT * FROM SysContent WHERE sys_id = '{doc_id}'",
-                    embedding_type=embedding_type,
-                    limit=limit,
-                )
-            )
-        hits.sort(key=lambda h: h.get("sysembed_score") or 0.0, reverse=True)
-        return {"embeddings": hits[:limit]}
+        query = "SELECT * FROM SysContent WHERE sys_mixinTypes = 'SysHasEmbeddings'"
+        if scope:
+            safe = re.sub(r"[^A-Za-z0-9-]", "", scope)
+            query += f" AND sys_ancestorIds = '{safe}'"
+        payload: dict[str, Any] = {"vector": vector, "query": query, "limit": limit}
+        if embedding_type:
+            payload["embeddingType"] = embedding_type
+        if chunk_fts:
+            payload["chunkFTS"] = chunk_fts
+        response = await self._request("POST", "/api/query/embeddings", json=payload)
+        return {"embeddings": response.json().get("embeddings", [])}
 
     async def fetch_chunk_texts(self, doc_id: str, *, limit: int = 100) -> list[str]:
         """All stored chunk texts for a document, read back from the embeddings index."""

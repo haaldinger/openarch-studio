@@ -51,7 +51,7 @@ const FEATURES: FeatureHelp[] = [
     icon: Search,
     title: "Search",
     to: "/search",
-    body: "Three modes in one place: keyword (literal terms), semantic (meaning / vector), and raw HXQL for advanced queries. Each result shows which layer produced it.",
+    body: "Four modes in one place: keyword (literal terms), semantic (meaning / vector), hybrid (OpenArch's vector + BM25 keyword search merged with RRF), and raw HXQL for advanced queries. Each result shows which layer produced it.",
   },
   {
     icon: MessagesSquare,

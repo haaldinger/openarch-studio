@@ -37,6 +37,9 @@ class Settings(BaseSettings):
         "llama3.2:3b",
         validation_alias=AliasChoices("STUDIO_EXTRACT_MODEL", "STUDIO_GRAPH_MODEL", "extract_model"),
     )
+    # Ask retrieves with OpenArch hybrid search (kNN + BM25 over chunk text, RRF);
+    # false = vector-only kNN.
+    hybrid_search: bool = True
     # Max documents enriched at once. Extraction (Docling, Tika fallback) and embedding (Ollama) are the
     # bottlenecks; a small limit keeps a large upload batch from overloading them.
     enrich_concurrency: int = 2

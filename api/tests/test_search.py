@@ -91,6 +91,42 @@ def test_semantic_search_embeds_then_calls_vector_api(client: TestClient) -> Non
     assert len(json.loads(sent)["vector"]) == 1024
 
 
+@respx.mock
+def test_semantic_search_is_one_repository_wide_vector_query(client: TestClient) -> None:
+    _auth(client)
+    respx.post(EMBED).mock(return_value=httpx.Response(200, json={"data": [{"embedding": [0.1]}]}))
+    enumerate_docs = respx.post(QUERY)
+    vector_route = respx.post(VECTOR_QUERY).mock(return_value=httpx.Response(200, json={"embeddings": []}))
+
+    client.post("/api/search", json={"mode": "semantic", "query": "q", "scope": "f1'; DROP"})
+
+    assert vector_route.call_count == 1 and not enumerate_docs.called
+    sent = json.loads(vector_route.calls.last.request.read())
+    assert sent["query"] == (
+        "SELECT * FROM SysContent WHERE sys_mixinTypes = 'SysHasEmbeddings' AND sys_ancestorIds = 'f1DROP'"
+    )
+    assert "chunkFTS" not in sent
+
+
+@respx.mock
+def test_hybrid_search_sends_query_text_as_chunk_fts(client: TestClient) -> None:
+    _auth(client)
+    respx.post(EMBED).mock(return_value=httpx.Response(200, json={"data": [{"embedding": [0.1]}]}))
+    vector_route = respx.post(VECTOR_QUERY).mock(
+        return_value=httpx.Response(
+            200, json={"embeddings": [{"sysembed_docId": "d1", "sysembed_text": "INV-2209", "sysembed_score": 0.0328}]}
+        )
+    )
+
+    body = client.post("/api/search", json={"mode": "hybrid", "query": "invoice INV-2209"}).json()
+
+    assert json.loads(vector_route.calls.last.request.read())["chunkFTS"] == "invoice INV-2209"
+    [hit] = body["results"]
+    # RRF scores are rank-based, so there is no cosine score to show.
+    assert (hit["id"], hit["score"], hit["vectorScore"]) == ("d1", 0.0328, None)
+    assert body["provenance"]["providedBy"] == "OpenArch hybrid search (kNN + BM25, RRF)"
+
+
 def _rerank_client() -> TestClient:
     return TestClient(
         create_app(

@@ -2225,8 +2225,8 @@ select.modal-input {
   min-width: 120px;
 }
 .perm-rules td:first-child {
-  min-width: 0;
-  overflow-wrap: anywhere;
+  min-width: 7rem;
+  overflow-wrap: break-word;
 }
 .perm-rules .btn-sm {
   padding: 3px 10px;
@@ -2249,9 +2249,11 @@ select.modal-input {
   font-weight: 650;
 }
 .perm-sub {
+  display: inline-block;
   margin-left: 8px;
   font-size: 0.78rem;
   color: var(--ink-faint);
+  white-space: nowrap;
 }
 .perm-grid td.perm-check {
   line-height: 1;

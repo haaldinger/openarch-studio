@@ -48,6 +48,9 @@ def env(tmp_path, monkeypatch):
     return tmp_path, golden
 
 
+EVENTS: list[tuple[str, str]] = []
+
+
 class FakeClient:
     instances: list = []
 
@@ -55,6 +58,7 @@ class FakeClient:
         self.args = (base_url, user, password)
         self.asked: list[str] = []
         self.fail_on: str | None = None
+        self.errors: dict[str, BaseException] = {}
         FakeClient.instances.append(self)
 
     def __enter__(self):
@@ -77,8 +81,11 @@ class FakeClient:
     def ask(self, question, scope):
         assert scope == "folder-1"
         self.asked.append(question)
+        EVENTS.append(("ask", question))
+        if question in self.errors:
+            raise self.errors[question]
         if question == self.fail_on:
-            raise StudioError("Ask is disabled — is Studio in baseline mode?")
+            raise StudioError("Ask is disabled — is Studio in baseline mode?", fatal=True)
         if question == "Total?":
             cites = [Citation("doc-a", "a.tif", 1, "total 10", 0.9, 0.8)]
             return ChatResult("10 EUR", cites, rerank="ok")
@@ -97,6 +104,7 @@ class FakeJudge:
         self.peak = 0
 
     async def score(self, entry, result):
+        EVENTS.append(("grade", entry.id))
         self.running += 1
         self.peak = max(self.peak, self.running)
         await asyncio.sleep(0.01)
@@ -106,6 +114,7 @@ class FakeJudge:
 
 def run(args, **kw):
     FakeClient.instances = []
+    EVENTS.clear()
     return cli.main(args, client_factory=FakeClient, judge_factory=FakeJudge, **kw)
 
 
@@ -122,21 +131,29 @@ def test_run_end_to_end(env, capsys):
     assert path.name.endswith("-t1.json")
     assert res["studio_url"] == "http://localhost:8900"
     assert res["judge_model"] == "qwen3"
-    assert res["embed_model"] == "nomic-embed-text"
+    assert res["judge_embed_model"] == "nomic-embed-text"
+    assert res["note"] is None and res["partial"] is False
     assert res["rerank_statuses"] == ["ok"]
+    assert res["rerank_counts"] == {"none": 1, "ok": 1}
     rows = {r["id"]: r for r in res["rows"]}
     assert list(rows) == ["fact-one", "fact-two", "nope"]
     one = rows["fact-one"]
     assert one["metrics"]["hit"] == 1.0 and one["metrics"]["mrr"] == 1.0
     assert one["metrics"]["false_abstain"] == 0.0
     assert one["metrics"]["faithfulness"] == 0.75
+    assert one["metrics"]["evidence_hit"] == 1.0 and one["metrics"]["evidence_mrr"] == 1.0
+    assert rows["fact-two"]["metrics"]["evidence_hit"] is None
+    assert "evidence_hit" not in rows["nope"]["metrics"] or rows["nope"]["metrics"]["evidence_hit"] is None
     assert one["citations"][0]["title"] == "a.tif"
     assert one["answer"] == "10 EUR" and one["question"] == "Total?" and one["rerank"] == "ok"
     assert rows["fact-two"]["error"] == "run error"
     assert rows["nope"]["metrics"]["abstain_correct"] == 1.0
     out = capsys.readouterr().out
-    assert "[1/3] fact-one: hit=1.000 mrr=1.000 graded" in out
-    assert "[2/3] fact-two:" in out and "error" in out.lower()
+    assert "[ask 1/3] fact-one: ok" in out
+    assert "[ask 2/3] fact-two: ERROR run error" in out
+    assert "[grade 1/2]" in out and "[grade 2/2]" in out
+    assert "fact-one: hit=1.000 mrr=1.000 graded" in out
+    assert "rerank: none=1, ok=1" in out
     assert "[overall]" in out and "errors: 1" in out
     assert FakeClient.instances[0].args == ("http://localhost:8900", "admin", "password")
 
@@ -189,7 +206,121 @@ def test_studio_error_exits_2_without_traceback(env, capsys):
     assert code == 2
     assert "baseline mode" in err
     assert "Traceback" not in err
+    assert not (tmp_path / "results").exists()  # nothing completed yet
+
+
+def last_result(tmp_path):
+    return only_result(tmp_path)[1]
+
+
+def test_non_fatal_chat_error_is_recorded_and_run_continues(env, capsys):
+    tmp_path, golden = env
+
+    class Flaky(FakeClient):
+        def __init__(self, *a):
+            super().__init__(*a)
+            self.errors = {"Total?": StudioError("POST /api/chat failed: HTTP 503")}
+
+    EVENTS.clear()
+    code = cli.main(["run", "--golden", str(golden)], client_factory=Flaky, judge_factory=FakeJudge)
+    assert code == 0
+    res = last_result(tmp_path)
+    rows = {r["id"]: r for r in res["rows"]}
+    assert res["partial"] is False and list(rows) == ["fact-one", "fact-two", "nope"]
+    assert rows["fact-one"]["error"] == "POST /api/chat failed: HTTP 503"
+    assert all(v is None for v in rows["fact-one"]["metrics"].values())
+    assert rows["nope"]["metrics"]["abstain_correct"] == 1.0
+    out = capsys.readouterr().out
+    assert "[ask 1/3] fact-one: ERROR POST /api/chat failed: HTTP 503" in out
+    assert "errors: 2" in out
+
+
+@pytest.mark.parametrize("fatal_error", [StudioError("not signed in / sign-in expired", fatal=True)])
+def test_fatal_error_mid_run_writes_partial_results(env, capsys, fatal_error):
+    tmp_path, golden = env
+
+    class Dies(FakeClient):
+        def __init__(self, *a):
+            super().__init__(*a)
+            self.errors = {"Vendor?": fatal_error}
+
+    code = cli.main(["run", "--golden", str(golden), "--label", "p"], client_factory=Dies, judge_factory=FakeJudge)
+    captured = capsys.readouterr()
+    assert code == 2
+    path, res = only_result(tmp_path)
+    assert res["partial"] is True
+    assert [r["id"] for r in res["rows"]] == ["fact-one"]
+    assert "sign-in expired" in captured.err and "Traceback" not in captured.err
+    assert str(path) in captured.out + captured.err
+    assert "partial" in (captured.out + captured.err).lower()
+    assert "PARTIAL" in captured.out
+
+
+def test_keyboard_interrupt_while_asking_writes_partial_results(env, capsys):
+    tmp_path, golden = env
+
+    class Interrupted(FakeClient):
+        def __init__(self, *a):
+            super().__init__(*a)
+            self.errors = {"Vendor?": KeyboardInterrupt()}
+
+    code = cli.main(["run", "--golden", str(golden)], client_factory=Interrupted, judge_factory=FakeJudge)
+    captured = capsys.readouterr()
+    assert code == 130
+    res = last_result(tmp_path)
+    assert res["partial"] is True and [r["id"] for r in res["rows"]] == ["fact-one"]
+    assert "Traceback" not in captured.err
+    assert "interrupted" in captured.err.lower()
+
+
+def test_keyboard_interrupt_while_grading_keeps_asked_rows(env, capsys):
+    tmp_path, golden = env
+
+    class Boom(FakeJudge):
+        async def score(self, entry, result):
+            if entry.id == "nope":
+                raise KeyboardInterrupt
+            return await super().score(entry, result)
+
+    code = cli.main(
+        ["run", "--golden", str(golden), "--concurrency", "1"],
+        client_factory=FakeClient, judge_factory=Boom,
+    )
+    assert code == 130
+    res = last_result(tmp_path)
+    assert res["partial"] is True
+    assert [r["id"] for r in res["rows"]] == ["fact-one", "fact-two", "nope"]
+    assert res["rows"][0]["metrics"]["faithfulness"] == 0.75
+    assert "faithfulness" not in res["rows"][2]["metrics"]
+    assert "Traceback" not in capsys.readouterr().err
+
+
+def test_keyboard_interrupt_with_no_rows_writes_nothing(env, capsys):
+    tmp_path, golden = env
+
+    class Interrupted(FakeClient):
+        def __init__(self, *a):
+            super().__init__(*a)
+            self.errors = {"Total?": KeyboardInterrupt()}
+
+    code = cli.main(["run", "--golden", str(golden)], client_factory=Interrupted, judge_factory=FakeJudge)
+    assert code == 130
     assert not (tmp_path / "results").exists()
+
+
+def test_all_questions_are_asked_before_any_grading(env):
+    _, golden = env
+    assert run(["run", "--golden", str(golden)]) == 0
+    kinds = [k for k, _ in EVENTS]
+    assert kinds == ["ask", "ask", "ask", "grade", "grade"]
+
+
+def test_note_is_stored_and_shown(env, capsys):
+    tmp_path, golden = env
+    note = "studio embed=nomic-embed-text chat=llama3.2:3b"
+    assert run(["run", "--golden", str(golden), "--note", note]) == 0
+    assert last_result(tmp_path)["note"] == note
+    assert f"note: {note}" in capsys.readouterr().out
 
 
 def test_golden_error_exits_2(env, capsys):

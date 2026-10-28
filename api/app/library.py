@@ -8,11 +8,25 @@ the enrichment module; this router only puts the source document into OpenArch.
 from __future__ import annotations
 
 import os
+from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, Response, UploadFile, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    Form,
+    HTTPException,
+    Request,
+    Response,
+    UploadFile,
+    status,
+)
+from pydantic import BaseModel
 
+from .acl import RuleIn, parse_access_field, to_sys_acl, validate_rules
 from .auth import current_credentials, get_openarch_client
+from .enrichment import EnrichmentService
 from .models import Credentials
 from .openarch import (
     ROOT_DOCUMENT_ID,
@@ -115,10 +129,12 @@ async def delete_document(
 @router.get("/documents/{doc_id}/acl")
 async def get_document_acl(
     doc_id: str,
+    usernames: str | None = None,
     client: OpenArchClient = Depends(get_openarch_client),
 ) -> dict[str, Any]:
     try:
-        return await client.get_effective_acl(doc_id)
+        ids = [u for u in (usernames or "").split(",") if u]
+        return await client.get_effective_acl(doc_id, ids or None)
     except Exception as exc:  # noqa: BLE001
         raise _translate(exc) from exc
 
@@ -196,21 +212,34 @@ async def get_document_preview(
     return Response(content=content, media_type=content_type)
 
 
+class FolderIn(BaseModel):
+    title: str | None = None
+    access: list[RuleIn] | None = None
+
+
+def _create_error(exc: Exception, with_access: bool) -> HTTPException:
+    if with_access and isinstance(exc, OpenArchForbidden):
+        return HTTPException(status_code=403, detail="You can't set access in this folder")
+    return _translate(exc)
+
+
 @router.post("/folders", status_code=status.HTTP_201_CREATED)
 async def create_folder(
-    body: dict[str, Any],
+    body: FolderIn,
     parentId: str = ROOT_DOCUMENT_ID,
     client: OpenArchClient = Depends(get_openarch_client),
 ) -> dict[str, Any]:
-    title = str(body.get("title") or "").strip()
+    title = (body.title or "").strip()
     if not title:
         raise HTTPException(status_code=400, detail="Folder name is required")
+    payload: dict[str, Any] = {"sys_primaryType": "SysFolder", "sys_title": title, "sys_name": title}
+    if body.access is not None:
+        validate_rules(body.access, datetime.now(timezone.utc))
+        payload["sys_acl"] = to_sys_acl(body.access)
     try:
-        return await client.create_document(
-            parentId, {"sys_primaryType": "SysFolder", "sys_title": title, "sys_name": title}
-        )
+        return await client.create_document(parentId, payload)
     except Exception as exc:  # noqa: BLE001
-        raise _translate(exc) from exc
+        raise _create_error(exc, body.access is not None) from exc
 
 
 @router.post("/documents/{doc_id}/move")
@@ -236,9 +265,13 @@ async def upload_document(
     background: BackgroundTasks,
     request: Request,
     parentId: str = ROOT_DOCUMENT_ID,
+    access: str | None = Form(None),
     client: OpenArchClient = Depends(get_openarch_client),
     credentials: Credentials = Depends(current_credentials),
 ) -> dict[str, Any]:
+    rules = parse_access_field(access)
+    if rules is not None:
+        validate_rules(rules, datetime.now(timezone.utc))
     filename = file.filename or "upload.bin"
     extension = os.path.splitext(filename)[1].lower()
     if extension not in SUPPORTED_TYPES:
@@ -251,29 +284,54 @@ async def upload_document(
     if not content:
         raise HTTPException(status_code=400, detail="Empty file")
 
-    mime = SUPPORTED_TYPES[extension]
-    try:
-        upload_id = await client.upload_binary(filename, mime, content)
-        created = await client.create_document(
-            parentId,
-            {
-                "sys_primaryType": "SysFile",
-                "sys_title": filename,
-                "sys_name": filename,
-                "sysfile_blob": {"uploadId": upload_id},
-            },
-        )
-        doc_id = created["sys_id"]
-        document = await client.get_document(doc_id)
-    except Exception as exc:  # noqa: BLE001
-        raise _translate(exc) from exc
-
     # Auto-start enrichment: a successful upload begins extraction/embedding in the background.
     # Baseline mode keeps the app to native OpenArch only: store the SysFile, skip enrichment.
-    if getattr(request.app.state, "baseline_mode", False):
+    baseline = getattr(request.app.state, "baseline_mode", False)
+    try:
+        return await store_and_enrich(
+            client,
+            parentId,
+            filename,
+            content,
+            credentials,
+            background,
+            rules,
+            service=None if baseline else request.app.state.enrichment,
+        )
+    except Exception as exc:  # noqa: BLE001
+        raise _create_error(exc, rules is not None) from exc
+
+
+async def store_and_enrich(
+    client: OpenArchClient,
+    parent_id: str,
+    filename: str,
+    content: bytes,
+    owner: Credentials,
+    background: BackgroundTasks,
+    access: list[RuleIn] | None = None,
+    *,
+    service: EnrichmentService | None,
+) -> dict[str, Any]:
+    """Create a SysFile from `content`; with a service, start enrichment in the background.
+
+    OpenArch errors propagate unchanged; callers translate them.
+    """
+    mime = SUPPORTED_TYPES[os.path.splitext(filename)[1].lower()]
+    payload: dict[str, Any] = {
+        "sys_primaryType": "SysFile",
+        "sys_title": filename,
+        "sys_name": filename,
+    }
+    if access is not None:
+        payload["sys_acl"] = to_sys_acl(access)
+    payload["sysfile_blob"] = {"uploadId": await client.upload_binary(filename, mime, content)}
+    created = await client.create_document(parent_id, payload)
+    doc_id = created["sys_id"]
+    document = await client.get_document(doc_id)
+    if service is None:
         return document
-    service = request.app.state.enrichment
-    job = service.store.create(doc_id, filename)
-    background.add_task(service.run, job, credentials, content=content, mime=mime)
+    job = service.store.create(doc_id, filename, owner.username)
+    background.add_task(service.run, job, owner, content=content, mime=mime)
     document["_studioJobId"] = job.id
     return document

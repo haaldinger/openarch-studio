@@ -10,16 +10,16 @@ from __future__ import annotations
 from typing import Any, AsyncIterator
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from . import a2ui, agui
 from .agent import AgentService
-from .auth import current_credentials
+from .auth import Session, current_session, is_demo_admin, persona_credentials
 from .config import Settings
 from .enrichment import EnrichmentService
-from .models import Credentials
+from .openarch import OpenArchForbidden
 
 router = APIRouter(prefix="/api")
 
@@ -34,6 +34,7 @@ class ChatRequest(BaseModel):
     history: list[ChatMessage] = []
     sessionId: str | None = None
     scope: str | None = None  # folder id; restricts retrieval to that subtree
+    actAs: str | None = None  # demo persona to run this one question as
 
 
 def get_agent(request: Request) -> AgentService:
@@ -48,10 +49,18 @@ def get_settings_dep(request: Request) -> Settings:
 @router.post("/chat")
 async def chat(
     body: ChatRequest,
+    request: Request,
     agent: AgentService = Depends(get_agent),
-    credentials: Credentials = Depends(current_credentials),
+    session: Session = Depends(current_session),
     settings: Settings = Depends(get_settings_dep),
 ) -> StreamingResponse:
+    if body.actAs:
+        demo = getattr(request.app.state, "demo", None)
+        if not is_demo_admin(demo, session):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not permitted")
+        credentials = persona_credentials(demo, body.actAs, session.origin)
+    else:
+        credentials = session.active
     history = [m.model_dump() for m in body.history]
     run_id = uuid4().hex
 
@@ -71,6 +80,10 @@ async def chat(
                 body.question, credentials, scope=body.scope
             )
             evidence = await agent.verify(found, credentials, titles)
+        except OpenArchForbidden:
+            message = "You no longer have access to this folder" if body.scope else "Not permitted"
+            yield agui.event(agui.RUN_ERROR, {"runId": run_id, "message": message})
+            return
         except Exception as exc:  # noqa: BLE001 - surfaced to the client as a run error
             yield agui.event(agui.RUN_ERROR, {"runId": run_id, "message": str(exc)})
             return

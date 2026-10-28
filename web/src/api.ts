@@ -1,5 +1,6 @@
 import type { A2uiMessage } from "./components/a2ui/types";
 import type {
+  AccessInfo,
   AppConfig,
   Citation,
   DocumentDetail,
@@ -8,6 +9,9 @@ import type {
   DocumentList,
   GraphData,
   Job,
+  Principal,
+  RuleInput,
+  Persona,
   SearchMode,
   SearchResponse,
   SessionInfo,
@@ -74,6 +78,26 @@ export async function getSession(): Promise<SessionInfo | null> {
   }
 }
 
+export function actAs(username: string): Promise<SessionInfo> {
+  return request<SessionInfo>("/api/session/act-as", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username }),
+  });
+}
+
+export function listPersonas(): Promise<Persona[]> {
+  return request<Persona[]>("/api/demo/personas");
+}
+
+export function setupDemo(): Promise<{ folders: Record<string, string>; jobs: string[] }> {
+  return request("/api/demo/setup", { method: "POST" });
+}
+
+export function resetDemo(): Promise<void> {
+  return request<void>("/api/demo", { method: "DELETE" });
+}
+
 /** Authenticated JSON fetch for feature endpoints; 401 surfaces as ApiError(401). */
 export function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   return request<T>(path, init);
@@ -84,12 +108,16 @@ export function listDocuments(parentId?: string): Promise<DocumentList> {
   return apiFetch<DocumentList>(`/api/documents${q}`);
 }
 
-export function createFolder(title: string, parentId?: string): Promise<DocumentDetail> {
+export function createFolder(
+  title: string,
+  parentId?: string,
+  access?: RuleInput[],
+): Promise<DocumentDetail> {
   const q = parentId ? `?parentId=${encodeURIComponent(parentId)}` : "";
   return apiFetch<DocumentDetail>(`/api/folders${q}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ title }),
+    body: JSON.stringify(access?.length ? { title, access } : { title }),
   });
 }
 
@@ -97,8 +125,21 @@ export function getDocument(id: string): Promise<DocumentDetail> {
   return apiFetch<DocumentDetail>(`/api/documents/${encodeURIComponent(id)}`);
 }
 
-export function getDocumentAcl(id: string): Promise<unknown> {
-  return apiFetch<unknown>(`/api/documents/${encodeURIComponent(id)}/acl`);
+export function getAccess(id: string): Promise<AccessInfo> {
+  return apiFetch<AccessInfo>(`/api/documents/${encodeURIComponent(id)}/access`);
+}
+
+/** Replaces the document's local rules; returns the refreshed access view. */
+export function putAccess(id: string, rules: RuleInput[]): Promise<AccessInfo> {
+  return apiFetch<AccessInfo>(`/api/documents/${encodeURIComponent(id)}/access`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ rules }),
+  });
+}
+
+export function searchPrincipals(q: string): Promise<Principal[]> {
+  return apiFetch<Principal[]>(`/api/principals?q=${encodeURIComponent(q)}`);
 }
 
 export function getDocumentEmbeddings(id: string): Promise<DocumentEmbeddings> {
@@ -139,9 +180,14 @@ export async function listFolders(): Promise<{ id: string; title: string | null 
     .map((x) => ({ id: x.id as string, title: x.title ?? null }));
 }
 
-export function uploadDocument(file: File, parentId?: string): Promise<DocumentDetail> {
+export function uploadDocument(
+  file: File,
+  parentId?: string,
+  access?: RuleInput[],
+): Promise<DocumentDetail> {
   const form = new FormData();
   form.append("file", file);
+  if (access?.length) form.append("access", JSON.stringify(access));
   const q = parentId ? `?parentId=${encodeURIComponent(parentId)}` : "";
   return apiFetch<DocumentDetail>(`/api/documents${q}`, { method: "POST", body: form });
 }
@@ -203,12 +249,13 @@ export async function streamChat(
   handlers: ChatHandlers,
   scope?: string,
   signal?: AbortSignal,
+  actAs?: string,
 ): Promise<void> {
   const response = await fetch("/api/chat", {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
-    body: JSON.stringify({ question, history, scope }),
+    body: JSON.stringify({ question, history, scope, ...(actAs ? { actAs } : {}) }),
     signal,
   });
   if (!response.ok || !response.body) {

@@ -1,9 +1,10 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { PageIntro } from "../components/PageIntro";
 import { ScopeBanner } from "../components/ScopeBanner";
 import { ApiError, search } from "../api";
 import { useScope } from "../scope";
+import { useSession } from "../session";
 import type { SearchMode, SearchResponse } from "../types";
 
 const MODES: { id: SearchMode; label: string; hint: string }[] = [
@@ -45,11 +46,18 @@ const HXQL_SAMPLES: { label: string; query: string }[] = [
 
 export function SearchPage() {
   const { scope } = useScope();
+  const { generation } = useSession();
   const [mode, setMode] = useState<SearchMode>("keyword");
   const [query, setQuery] = useState("");
   const [response, setResponse] = useState<SearchResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  // Results belong to the identity that ran them.
+  useEffect(() => {
+    setResponse(null);
+    setError(null);
+  }, [generation]);
 
   async function run(event: FormEvent) {
     event.preventDefault();
@@ -61,7 +69,9 @@ export function SearchPage() {
     } catch (err) {
       setError(
         err instanceof ApiError && err.status === 403
-          ? "You do not have permission for this query."
+          ? err.message && err.message !== "Forbidden"
+            ? err.message
+            : "You do not have permission for this query."
           : "Search failed.",
       );
       setResponse(null);

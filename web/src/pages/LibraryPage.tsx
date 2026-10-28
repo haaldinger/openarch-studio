@@ -3,9 +3,11 @@ import { UploadCloud, FolderPlus, Target, ChevronRight } from "lucide-react";
 import { PageIntro } from "../components/PageIntro";
 import { DocumentRow } from "../components/DocumentRow";
 import { Modal } from "../components/Modal";
+import { EMPTY_DRAFT, RuleEditor, draftToRule, type RuleDraft } from "../components/RuleEditor";
 import { ApiError, createFolder, deleteDocument, listDocuments, uploadDocument } from "../api";
 import { useScope } from "../scope";
-import type { DocumentSummary } from "../types";
+import { useSession } from "../session";
+import type { DocumentSummary, RuleInput } from "../types";
 
 const ROOT_ID = "00000000-0000-0000-0000-000000000000";
 const SUPPORTED = ".pdf,.docx,.txt,.md,.html,.htm,.tif,.tiff,.png,.jpg,.jpeg,.gif,.bmp";
@@ -15,8 +17,87 @@ interface Crumb {
   name: string;
 }
 
+interface AccessChoiceState {
+  share: boolean;
+  drafts: RuleDraft[];
+}
+
+const SAME_AS_FOLDER: AccessChoiceState = { share: false, drafts: [EMPTY_DRAFT] };
+
+/** Null while a shared rule is still incomplete; an empty list means "same as folder". */
+function resolveAccess(choice: AccessChoiceState): RuleInput[] | null {
+  if (!choice.share) return [];
+  const rules = choice.drafts.map((d) => draftToRule(d));
+  return rules.every((r): r is RuleInput => r !== null) ? (rules as RuleInput[]) : null;
+}
+
+function AccessChoice({
+  value,
+  onChange,
+}: {
+  value: AccessChoiceState;
+  onChange: (next: AccessChoiceState) => void;
+}) {
+  return (
+    <div className="access-choice">
+      <span className="rule-field-label">Who can access</span>
+      <div className="rule-chips" role="group" aria-label="Who can access">
+        <button
+          type="button"
+          className={value.share ? "rule-chip" : "rule-chip active"}
+          aria-pressed={!value.share}
+          onClick={() => onChange({ ...value, share: false })}
+        >
+          Same as folder
+        </button>
+        <button
+          type="button"
+          className={value.share ? "rule-chip active" : "rule-chip"}
+          aria-pressed={value.share}
+          onClick={() => onChange({ ...value, share: true })}
+        >
+          Also share with…
+        </button>
+      </div>
+      {value.share && (
+        <div className="access-choice-rules">
+          {value.drafts.map((draft, i) => (
+            <div key={i} className="access-choice-rule">
+              <RuleEditor
+                value={draft}
+                onChange={(next) =>
+                  onChange({ ...value, drafts: value.drafts.map((d, j) => (j === i ? next : d)) })
+                }
+              />
+              {value.drafts.length > 1 && (
+                <button
+                  type="button"
+                  className="link-button"
+                  onClick={() =>
+                    onChange({ ...value, drafts: value.drafts.filter((_, j) => j !== i) })
+                  }
+                >
+                  Remove rule
+                </button>
+              )}
+            </div>
+          ))}
+          <button
+            type="button"
+            className="btn-ghost"
+            onClick={() => onChange({ ...value, drafts: [...value.drafts, EMPTY_DRAFT] })}
+          >
+            Add another rule
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function LibraryPage({ baselineMode = false }: { baselineMode?: boolean }) {
   const { scope, setScope } = useScope();
+  const { generation } = useSession();
   const [path, setPath] = useState<Crumb[]>([{ id: ROOT_ID, name: "Library" }]);
   const [docs, setDocs] = useState<DocumentSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -25,7 +106,10 @@ export function LibraryPage({ baselineMode = false }: { baselineMode?: boolean }
   const [dragging, setDragging] = useState(false);
   const [folderOpen, setFolderOpen] = useState(false);
   const [folderName, setFolderName] = useState("");
+  const [folderError, setFolderError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [uploadAccess, setUploadAccess] = useState<AccessChoiceState>(SAME_AS_FOLDER);
+  const [folderAccess, setFolderAccess] = useState<AccessChoiceState>(SAME_AS_FOLDER);
   const [pendingDelete, setPendingDelete] = useState<DocumentSummary | null>(null);
   const [deleting, setDeleting] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -37,24 +121,36 @@ export function LibraryPage({ baselineMode = false }: { baselineMode?: boolean }
 
   const refresh = useCallback(() => {
     setLoading(true);
+    setError(null);
     listDocuments(current.id)
       .then((list) => setDocs(list.documents))
       .catch((err) =>
         setError(err instanceof ApiError ? err.message : "Could not load the library."),
       )
       .finally(() => setLoading(false));
-  }, [current.id]);
+    // generation: reload when the acting identity changes.
+  }, [current.id, generation]);
 
   useEffect(refresh, [refresh]);
 
+  useEffect(() => {
+    setPath([{ id: ROOT_ID, name: "Library" }]);
+  }, [generation]);
+
   async function handleFiles(files: FileList | null) {
     if (!files || files.length === 0) return;
+    const access = resolveAccess(uploadAccess);
+    if (access === null) {
+      setError("Choose who to share with, or switch back to Same as folder.");
+      return;
+    }
     setUploading(true);
     setError(null);
     try {
       for (const file of Array.from(files)) {
-        await uploadDocument(file, atRoot ? undefined : current.id);
+        await uploadDocument(file, atRoot ? undefined : current.id, access);
       }
+      setUploadAccess(SAME_AS_FOLDER);
       refresh();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Upload failed.");
@@ -65,15 +161,18 @@ export function LibraryPage({ baselineMode = false }: { baselineMode?: boolean }
 
   async function handleCreateFolder() {
     const name = folderName.trim();
-    if (!name) return;
+    const access = resolveAccess(folderAccess);
+    if (!name || access === null) return;
     setCreating(true);
+    setFolderError(null);
     try {
-      await createFolder(name, atRoot ? undefined : current.id);
+      await createFolder(name, atRoot ? undefined : current.id, access);
       setFolderOpen(false);
       setFolderName("");
+      setFolderAccess(SAME_AS_FOLDER);
       refresh();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Could not create folder.");
+      setFolderError(err instanceof ApiError ? err.message : "Could not create folder.");
     } finally {
       setCreating(false);
     }
@@ -120,7 +219,15 @@ export function LibraryPage({ baselineMode = false }: { baselineMode?: boolean }
           ))}
         </nav>
         <div className="lib-actions">
-          <button type="button" className="btn-ghost" onClick={() => setFolderOpen(true)}>
+          <button
+            type="button"
+            className="btn-ghost"
+            onClick={() => {
+              setError(null);
+              setFolderError(null);
+              setFolderOpen(true);
+            }}
+          >
             <FolderPlus size={16} /> New folder
           </button>
           {!atRoot &&
@@ -171,6 +278,8 @@ export function LibraryPage({ baselineMode = false }: { baselineMode?: boolean }
         />
       </div>
 
+      <AccessChoice value={uploadAccess} onChange={setUploadAccess} />
+
       {uploading && <p className="muted inline-status">Uploading &amp; storing in OpenArch…</p>}
       {error && (
         <p className="form-error" role="alert">
@@ -211,6 +320,7 @@ export function LibraryPage({ baselineMode = false }: { baselineMode?: boolean }
         onClose={() => {
           setFolderOpen(false);
           setFolderName("");
+          setFolderAccess(SAME_AS_FOLDER);
         }}
         initialFocusRef={folderInputRef}
         footer={
@@ -221,6 +331,7 @@ export function LibraryPage({ baselineMode = false }: { baselineMode?: boolean }
               onClick={() => {
                 setFolderOpen(false);
                 setFolderName("");
+                setFolderAccess(SAME_AS_FOLDER);
               }}
             >
               Cancel
@@ -229,7 +340,7 @@ export function LibraryPage({ baselineMode = false }: { baselineMode?: boolean }
               type="button"
               className="btn-primary"
               onClick={() => void handleCreateFolder()}
-              disabled={!folderName.trim() || creating}
+              disabled={!folderName.trim() || creating || resolveAccess(folderAccess) === null}
             >
               {creating ? "Creating…" : "Create folder"}
             </button>
@@ -254,6 +365,12 @@ export function LibraryPage({ baselineMode = false }: { baselineMode?: boolean }
           Created in <strong>{current.name}</strong> as a native{" "}
           <span className="tag native">OpenArch</span> <code>SysFolder</code>.
         </p>
+        <AccessChoice value={folderAccess} onChange={setFolderAccess} />
+        {folderError && (
+          <p className="form-error" role="alert">
+            {folderError}
+          </p>
+        )}
       </Modal>
 
       <Modal

@@ -132,8 +132,12 @@ code {
 /* ── Shell layout ───────────────────────────────────────────────── */
 .shell {
   display: grid;
-  grid-template-columns: var(--rail-w) 1fr;
+  grid-template-columns: var(--rail-w) minmax(0, 1fr);
   min-height: 100vh;
+}
+/* A later .stage rule (pipeline step) sets min-width: 130px; keep the page stage shrinkable. */
+.shell > .stage {
+  min-width: 0;
 }
 
 .rail {
@@ -1699,6 +1703,86 @@ select.modal-input {
   gap: 10px;
   align-items: flex-end;
 }
+.compare-toggle {
+  margin-bottom: 12px;
+}
+.compare-toggle .btn-ghost.active {
+  background: var(--ink);
+  color: var(--paper);
+}
+.compare-cols {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  align-items: start;
+}
+.compare-col {
+  min-width: 0;
+  padding: 16px;
+  background: #fff;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+}
+.compare-col .turn-a {
+  max-width: none;
+}
+.compare-col-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.compare-persona {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  padding: 6px 10px;
+  background: #fff;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  font: inherit;
+  cursor: pointer;
+}
+.compare-persona:hover {
+  border-color: var(--studio);
+}
+.compare-persona-prefix {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--ink-faint);
+}
+.compare-persona-caret {
+  color: var(--ink-faint);
+}
+.compare-col-head .btn-ghost:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.compare-col-head .btn-ghost:disabled:hover {
+  border-color: var(--line-strong);
+  color: var(--ink);
+}
+.compare-summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  padding: 14px 18px;
+  background: #fff;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+}
+.compare-group ul {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 0.88rem;
+}
+@media (max-width: 720px) {
+  .compare-cols,
+  .compare-summary {
+    grid-template-columns: 1fr;
+  }
+}
 .ask-bar textarea {
   flex: 1;
   padding: 12px 14px;
@@ -2009,4 +2093,270 @@ select.modal-input {
 .baseline-banner strong {
   font-weight: 650;
   letter-spacing: 0.01em;
+}
+
+/* ── ACL showcase: persona switcher, acting-as banner, demo menu ───────── */
+.persona-switch {
+  width: 100%;
+  padding: 8px 10px;
+  background: var(--studio-bg);
+  color: var(--studio);
+  border: 1px solid var(--studio);
+  border-radius: 10px;
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.persona-switch:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.demo-menu-items {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 4px;
+  padding-left: 10px;
+  border-left: 2px solid var(--line);
+}
+.acting-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--studio);
+  background: var(--studio-bg);
+  border-bottom: 1px solid var(--line);
+  padding: 8px 20px;
+}
+.persona-list {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  max-height: 320px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.persona-row {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 10px;
+  width: 100%;
+  padding: 8px 12px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.persona-row:hover:not(:disabled) {
+  border-color: var(--studio);
+}
+.persona-row.current {
+  border-color: var(--studio);
+  background: var(--studio-bg);
+}
+.persona-row:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.persona-name {
+  font-weight: 650;
+  color: var(--ink);
+}
+.persona-label {
+  color: var(--ink-soft);
+}
+.persona-groups {
+  grid-column: 2;
+  font-size: 0.75rem;
+  color: var(--ink-faint);
+}
+
+/* ── Permissions panel ──────────────────────────────────────────────────── */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.perm-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+.perm-heading {
+  margin: 0 0 10px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-faint);
+}
+.perm-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+}
+.perm-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+.perm-table th,
+.perm-table td {
+  padding: 8px 8px;
+  text-align: left;
+  vertical-align: middle;
+  border-top: 1px solid var(--line);
+}
+.perm-rules td:not(:first-child) {
+  white-space: nowrap;
+}
+.perm-rules td.perm-source-inherited {
+  white-space: normal;
+  min-width: 120px;
+}
+.perm-rules td:first-child {
+  min-width: 7rem;
+  overflow-wrap: break-word;
+}
+.perm-rules .btn-sm {
+  padding: 3px 10px;
+  font-size: 0.8rem;
+  border-radius: 6px;
+}
+.perm-table thead th {
+  border-top: none;
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+}
+.perm-table tbody th {
+  font-weight: inherit;
+}
+.perm-table .perm-check {
+  text-align: center;
+  width: 110px;
+}
+.perm-name {
+  font-weight: 650;
+}
+.perm-sub {
+  display: inline-block;
+  margin-left: 8px;
+  font-size: 0.78rem;
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+.perm-grid td.perm-check {
+  line-height: 1;
+}
+.perm-yes {
+  display: block;
+  margin: 0 auto;
+  color: var(--native);
+}
+.perm-no {
+  display: block;
+  text-align: center;
+  line-height: 16px;
+  color: var(--ink-faint);
+}
+.perm-window {
+  display: block;
+  font-variant-numeric: tabular-nums;
+}
+.perm-status {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 3px 9px;
+  border-radius: 999px;
+  color: var(--ink-soft);
+  background: var(--paper-2);
+}
+.perm-status-effective {
+  color: var(--native);
+  background: var(--native-bg);
+}
+.perm-status-pending {
+  color: var(--model);
+  background: var(--model-bg);
+}
+.perm-note {
+  margin: 10px 0 0;
+  font-size: 0.85rem;
+}
+.rule-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+.rule-field {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+.rule-field-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+.rule-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.rule-chip {
+  padding: 6px 12px;
+  background: #fff;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+  color: var(--ink);
+}
+.rule-chip:hover {
+  border-color: var(--studio);
+}
+.rule-chip.active {
+  background: var(--studio-bg);
+  border-color: var(--studio);
+  color: var(--studio);
+  font-weight: 650;
+}
+.rule-custom {
+  max-width: 260px;
+}
+.access-choice {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 12px 0;
+}
+.access-choice-rules {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 8px;
+}
+.access-choice-rule {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
 }

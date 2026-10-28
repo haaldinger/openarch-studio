@@ -6,10 +6,12 @@ import { ScopeBanner } from "../components/ScopeBanner";
 import { ForceGraph, TYPE_COLOR } from "../components/ForceGraph";
 import { ApiError, getGraph } from "../api";
 import { useScope } from "../scope";
+import { useSession } from "../session";
 import type { GraphData } from "../types";
 
 export function GraphPage() {
   const { scope } = useScope();
+  const { generation } = useSession();
   const [data, setData] = useState<GraphData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -19,11 +21,12 @@ export function GraphPage() {
 
   useEffect(() => {
     setLoading(true);
+    setError(null);
     getGraph(scope?.id)
       .then(setData)
       .catch((err) => setError(err instanceof ApiError ? err.message : "Could not load the graph."))
       .finally(() => setLoading(false));
-  }, [scope?.id]);
+  }, [scope?.id, generation]);
 
   // Esc exits fullscreen.
   useEffect(() => {

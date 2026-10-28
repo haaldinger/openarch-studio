@@ -20,5 +20,17 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class PersonaInfo(BaseModel):
+    username: str
+    label: str
+    groups: list[str]
+
+
 class SessionInfo(BaseModel):
+    username: str
+    actingAs: PersonaInfo | None = None
+    demoAdmin: bool = False
+
+
+class ActAsRequest(BaseModel):
     username: str

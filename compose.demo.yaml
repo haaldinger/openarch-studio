@@ -1,0 +1,17 @@
+# ACL showcase overlay: swaps in demo personas for OpenArch and turns on Studio demo mode.
+# Use:  docker compose -f compose.yaml -f compose.demo.yaml up -d --build
+services:
+  openarch-app:
+    environment:
+      OPENARCH_USERS_FILE: file:/etc/openarch/users.yml
+    volumes:
+      - ./demo/openarch-users.yml:/etc/openarch/users.yml:ro
+
+  studio-api:
+    environment:
+      STUDIO_DEMO_MODE: "true"
+      STUDIO_DEMO_USERS_FILE: /etc/studio/demo-users.yml
+      STUDIO_DEMO_SAMPLES_DIR: /etc/studio/demo-samples
+    volumes:
+      - ./demo/openarch-users.yml:/etc/studio/demo-users.yml:ro
+      - ./demo/samples:/etc/studio/demo-samples:ro

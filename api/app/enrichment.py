@@ -46,6 +46,7 @@ class Job:
     id: str
     doc_id: str
     filename: str
+    owner: str  # username of the identity that started the job
     state: str = "running"  # running | complete | failed
     stages: list[Stage] = field(default_factory=lambda: [Stage(n) for n in STAGES])
     error: str | None = None
@@ -69,16 +70,17 @@ class JobStore:
     def __init__(self) -> None:
         self._jobs: dict[str, Job] = {}
 
-    def create(self, doc_id: str, filename: str) -> Job:
-        job = Job(id=str(uuid.uuid4()), doc_id=doc_id, filename=filename)
+    def create(self, doc_id: str, filename: str, owner: str) -> Job:
+        job = Job(id=str(uuid.uuid4()), doc_id=doc_id, filename=filename, owner=owner)
         self._jobs[job.id] = job
         return job
 
     def get(self, job_id: str) -> Job | None:
         return self._jobs.get(job_id)
 
-    def list(self) -> list[Job]:
-        return sorted(self._jobs.values(), key=lambda j: j.created, reverse=True)
+    def list_for(self, owner: str) -> list[Job]:
+        jobs = [j for j in self._jobs.values() if j.owner == owner]
+        return sorted(jobs, key=lambda j: j.created, reverse=True)
 
 
 class EnrichmentService:

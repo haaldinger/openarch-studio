@@ -1,10 +1,25 @@
-export interface SessionInfo {
+export interface PersonaInfo {
   username: string;
+  label: string;
+  groups: string[];
+}
+
+export interface Persona extends PersonaInfo {
+  available: boolean;
+}
+
+export interface SessionInfo {
+  /** The signed-in (origin) user. */
+  username: string;
+  /** Persona the admin is currently viewing as, or null. */
+  actingAs: PersonaInfo | null;
+  demoAdmin: boolean;
 }
 
 export interface AppConfig {
   /** When true, Studio extensions are disabled and only native OpenArch is shown. */
   baselineMode: boolean;
+  demoMode: boolean;
 }
 
 export interface DocumentSummary {
@@ -91,6 +106,7 @@ export interface SearchResponse {
 
 export interface Citation {
   docId: string;
+  title?: string;
   chunkId: string;
   snippet: string;
   score: number | null;
@@ -121,6 +137,48 @@ export interface GraphData {
   nodes: GraphNode[];
   edges: GraphEdge[];
   entityTypes: string[];
+}
+
+export interface Principal {
+  kind: "user" | "group";
+  id: string;
+  name: string | null;
+  label?: string;
+}
+
+export type AccessSource =
+  | { kind: "local" }
+  | { kind: "inherited"; id: string | null; title: string | null };
+
+export interface AccessRule {
+  principal: Principal;
+  permission: string;
+  granted: boolean;
+  begin: string | null;
+  end: string | null;
+  status: "EFFECTIVE" | "PENDING" | "ARCHIVED" | null;
+  source: AccessSource;
+}
+
+export interface EffectiveAccess {
+  userId: string | null;
+  username: string;
+  label?: string;
+  permissions: string[];
+}
+
+export interface AccessInfo {
+  canManage: boolean;
+  rules: AccessRule[];
+  effective: EffectiveAccess[];
+}
+
+/** A rule as sent to `PUT /api/documents/{id}/access` (local rules only). */
+export interface RuleInput {
+  principal: { kind: "user" | "group"; id: string };
+  permission: string;
+  begin?: string;
+  end?: string;
 }
 
 export type HealthState = "up" | "degraded" | "down";

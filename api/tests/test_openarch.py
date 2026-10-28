@@ -12,7 +12,6 @@ from app.models import Credentials
 from app.openarch import (
     OpenArchAuthError,
     OpenArchClient,
-    OpenArchForbidden,
     OpenArchNotFound,
     OpenArchUnavailable,
 )
@@ -58,8 +57,7 @@ async def test_status_codes_map_to_typed_errors() -> None:
         await make_client().authenticate()
 
     respx.get(ROOT).mock(return_value=httpx.Response(403))
-    with pytest.raises(OpenArchForbidden):
-        await make_client().authenticate()
+    assert await make_client().authenticate() == "admin"
 
     respx.get(ROOT).mock(return_value=httpx.Response(404))
     with pytest.raises(OpenArchNotFound):

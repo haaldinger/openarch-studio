@@ -8,9 +8,12 @@ from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI
 
+from .access import router as access_router
 from .auth import SessionStore
 from .baseline import require_extensions
 from .config import Settings, get_settings
+from .demo import load_demo_users
+from .demo_setup import router as demo_setup_router
 from .enrichment import EnrichmentService
 from .fields import FieldsService
 from .graph import GraphService
@@ -46,6 +49,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # Runtime-mutable so the switch can flip live via PUT /api/config (no restart).
     app.state.baseline_mode = settings.baseline_mode
     app.state.sessions = SessionStore(settings.session_ttl_seconds)
+    app.state.demo = load_demo_users(settings.demo_users_file) if settings.demo_mode else None
     app.state.graph = GraphService(settings)
     app.state.enrichment = EnrichmentService(
         settings, graph=app.state.graph, fields=FieldsService(settings)
@@ -53,6 +57,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.reranker = Reranker(settings)
     app.include_router(router)
     app.include_router(library_router)
+    app.include_router(access_router)
+    app.include_router(demo_setup_router)
     app.include_router(capabilities_router)
     # Extension surfaces — disabled wholesale when baseline mode is on.
     extension_only = [Depends(require_extensions)]

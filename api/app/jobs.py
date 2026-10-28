@@ -19,8 +19,11 @@ def get_enrichment(request: Request) -> EnrichmentService:
 
 
 @router.get("/jobs")
-async def list_jobs(service: EnrichmentService = Depends(get_enrichment)) -> dict[str, Any]:
-    return {"jobs": [job.to_dict() for job in service.store.list()]}
+async def list_jobs(
+    service: EnrichmentService = Depends(get_enrichment),
+    credentials: Credentials = Depends(current_credentials),
+) -> dict[str, Any]:
+    return {"jobs": [job.to_dict() for job in service.store.list_for(credentials.username)]}
 
 
 @router.post("/documents/{doc_id}/enrich", status_code=status.HTTP_202_ACCEPTED)
@@ -33,7 +36,7 @@ async def enrich_document(
 ) -> dict[str, Any]:
     doc = await client.get_document(doc_id)
     filename = doc.get("sys_name") or doc.get("sys_title") or doc_id
-    job = service.store.create(doc_id, str(filename))
+    job = service.store.create(doc_id, str(filename), credentials.username)
     background.add_task(service.run, job, credentials)
     return job.to_dict()
 
@@ -46,8 +49,8 @@ async def retry_job(
     credentials: Credentials = Depends(current_credentials),
 ) -> dict[str, Any]:
     old = service.store.get(job_id)
-    if old is None:
+    if old is None or old.owner != credentials.username:
         raise HTTPException(status_code=404, detail="Job not found")
-    job = service.store.create(old.doc_id, old.filename)
+    job = service.store.create(old.doc_id, old.filename, credentials.username)
     background.add_task(service.run, job, credentials)
     return job.to_dict()

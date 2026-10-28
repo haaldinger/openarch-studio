@@ -35,6 +35,10 @@ class OpenArchNotFound(OpenArchError):
     """Target does not exist, or is not visible to this caller (HTTP 404)."""
 
 
+class OpenArchConflict(OpenArchError):
+    """The document changed concurrently (HTTP 409)."""
+
+
 class OpenArchUnavailable(OpenArchError):
     """OpenArch could not be reached, or returned a server error."""
 
@@ -79,13 +83,21 @@ class OpenArchClient:
             raise OpenArchForbidden(path)
         if response.status_code == 404:
             raise OpenArchNotFound(path)
+        if response.status_code == 409:
+            raise OpenArchConflict(path)
         if response.status_code >= 500:
             raise OpenArchUnavailable(f"{path} -> HTTP {response.status_code}")
         return response
 
     async def authenticate(self) -> str:
-        """Validate credentials against the repository root; return the username."""
-        await self._request("GET", f"/api/documents/{ROOT_DOCUMENT_ID}")
+        """Validate credentials against the repository root; return the username.
+
+        A 403 on root means the credentials are valid but the user cannot read root.
+        """
+        try:
+            await self._request("GET", f"/api/documents/{ROOT_DOCUMENT_ID}")
+        except OpenArchForbidden:
+            pass
         return self._credentials.username
 
     async def get_document(self, doc_id: str) -> dict[str, Any]:
@@ -137,11 +149,32 @@ class OpenArchClient:
         )
         return response.json()["id"]
 
-    async def get_effective_acl(self, doc_id: str, users: list[str] | None = None) -> dict[str, Any]:
-        params = {"users": ",".join(users)} if users else None
+    async def get_effective_acl(
+        self, doc_id: str, user_ids: list[str] | None = None
+    ) -> dict[str, Any]:
+        params = {"usernames": ",".join(user_ids)} if user_ids else None
         response = await self._request(
             "GET", f"/api/documents/{doc_id}/fulleffectiveacl", params=params
         )
+        return response.json()
+
+    async def get_effective_permissions(
+        self, doc_id: str, user_ids: list[str]
+    ) -> dict[str, Any]:
+        # OpenArch's `usernames` parameter takes user ids, not names.
+        response = await self._request(
+            "GET",
+            f"/api/documents/{doc_id}/fulleffectivepermissions",
+            params={"usernames": ",".join(user_ids)},
+        )
+        return response.json()
+
+    async def find_users(self, name: str) -> list[dict[str, Any]]:
+        response = await self._request("GET", "/api/user", params={"name": name})
+        return response.json()
+
+    async def find_groups(self, name: str) -> list[dict[str, Any]]:
+        response = await self._request("GET", "/api/group", params={"name": name})
         return response.json()
 
     async def download(self, doc_id: str, xpath: str = "sysfile_blob") -> tuple[bytes, str]:

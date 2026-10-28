@@ -42,6 +42,22 @@ _Avoid_: auth proxy, login service, token service
 The principle that every OpenArch call runs with the signed-in user's own credentials — no service account and no elevation, so OpenArch's permissions are the single authority.
 _Avoid_: on behalf of, impersonation, service account
 
+**Persona**:
+A demo-mode OpenArch user (for example `sam`, a Sales rep) whose credentials the API holds so a demo admin can see Studio as that user. Defined in the demo users file with a `studioPersona` label.
+_Avoid_: role, test user, impersonated user
+
+**Acting as**:
+The demo-mode state where requests run with a persona's credentials while the session's origin stays the admin who signed in; shown by a banner, ended with Back to Admin.
+_Avoid_: impersonating, switching user, view as
+
+**Local rule**:
+An access rule stored on the document itself (`sys_acl`); the only kind Studio edits.
+_Avoid_: direct permission, explicit ACE
+
+**Inherited rule**:
+An access rule a document gets from an ancestor folder; shown read-only with its source folder.
+_Avoid_: parent permission, propagated ACE
+
 ### Storage model
 
 **SysFile**:

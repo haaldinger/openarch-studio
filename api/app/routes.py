@@ -7,15 +7,35 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 
 from .auth import (
     COOKIE_NAME,
+    Session,
     SessionStore,
-    current_credentials,
+    current_session,
     get_session_store,
     get_settings_dep,
+    is_demo_admin,
+    persona_credentials,
+    require_demo_admin,
 )
 from .config import Settings
-from .models import Credentials, LoginRequest, SessionInfo
+from .demo import DemoUsers
+from .models import ActAsRequest, Credentials, LoginRequest, PersonaInfo, SessionInfo
 
 router = APIRouter(prefix="/api")
+
+
+def _session_info(session: Session, demo: DemoUsers | None) -> SessionInfo:
+    acting_as = None
+    if demo is not None and session.active.username != session.origin.username:
+        persona = demo.personas.get(session.active.username)
+        if persona is not None:
+            acting_as = PersonaInfo(
+                username=persona.username, label=persona.label, groups=list(persona.groups)
+            )
+    return SessionInfo(
+        username=session.origin.username,
+        actingAs=acting_as,
+        demoAdmin=is_demo_admin(demo, session),
+    )
 
 
 async def _probe(client: httpx.AsyncClient, url: str) -> str:
@@ -38,6 +58,7 @@ async def health(settings: Settings = Depends(get_settings_dep)) -> dict[str, st
 @router.post("/session", response_model=SessionInfo)
 async def create_session(
     body: LoginRequest,
+    request: Request,
     response: Response,
     store: SessionStore = Depends(get_session_store),
     settings: Settings = Depends(get_settings_dep),
@@ -70,12 +91,60 @@ async def create_session(
         secure=False,
         path="/",
     )
-    return SessionInfo(username=credentials.username)
+    return _session_info(Session(origin=credentials, active=credentials), request.app.state.demo)
 
 
 @router.get("/session", response_model=SessionInfo)
-async def read_session(credentials: Credentials = Depends(current_credentials)) -> SessionInfo:
-    return SessionInfo(username=credentials.username)
+async def read_session(request: Request, session: Session = Depends(current_session)) -> SessionInfo:
+    return _session_info(session, request.app.state.demo)
+
+
+@router.post("/session/act-as", response_model=SessionInfo)
+async def act_as(
+    body: ActAsRequest,
+    request: Request,
+    session: Session = Depends(current_session),
+    demo: DemoUsers = Depends(require_demo_admin),
+    store: SessionStore = Depends(get_session_store),
+    settings: Settings = Depends(get_settings_dep),
+) -> SessionInfo:
+    from .openarch import OpenArchClient, OpenArchError, OpenArchForbidden, OpenArchUnavailable
+
+    target = persona_credentials(demo, body.username, session.origin)
+    if target is not session.origin:
+        try:
+            await OpenArchClient(settings.openarch_url, target).authenticate()
+        except OpenArchForbidden:
+            pass  # authenticated; the root folder just isn't readable by this persona
+        except OpenArchUnavailable:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="OpenArch is unreachable"
+            ) from None
+        except OpenArchError:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=f"Couldn't sign in as {body.username}; check the demo users file",
+            ) from None
+    store.set_active(request.cookies.get(COOKIE_NAME), target)
+    return _session_info(session, demo)
+
+
+@router.get("/demo/personas")
+async def list_personas(
+    request: Request, _session: Session = Depends(current_session)
+) -> list[dict[str, object]]:
+    demo: DemoUsers | None = request.app.state.demo
+    if demo is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
+    return [
+        {
+            "username": p.username,
+            "label": p.label,
+            "groups": list(p.groups),
+            "available": p.password is not None,
+        }
+        for p in demo.personas.values()
+    ]
 
 
 @router.delete("/session", status_code=status.HTTP_204_NO_CONTENT)

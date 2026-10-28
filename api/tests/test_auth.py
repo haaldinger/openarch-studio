@@ -23,7 +23,7 @@ def test_login_sets_httponly_session_cookie(client: TestClient) -> None:
     response = client.post("/api/session", json={"username": "admin", "password": "password"})
 
     assert response.status_code == 200
-    assert response.json() == {"username": "admin"}
+    assert response.json() == {"username": "admin", "actingAs": None, "demoAdmin": False}
     cookie = response.headers.get("set-cookie", "")
     assert COOKIE_NAME in cookie
     assert "HttpOnly" in cookie
@@ -58,7 +58,11 @@ def test_session_roundtrip_and_logout(client: TestClient) -> None:
     respx.get(ROOT).mock(return_value=httpx.Response(200, json={"sys_id": "root"}))
     client.post("/api/session", json={"username": "admin", "password": "password"})
 
-    assert client.get("/api/session").json() == {"username": "admin"}
+    assert client.get("/api/session").json() == {
+        "username": "admin",
+        "actingAs": None,
+        "demoAdmin": False,
+    }
 
     client.delete("/api/session")
     assert client.get("/api/session").status_code == 401

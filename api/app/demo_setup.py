@@ -17,11 +17,15 @@ from .openarch import ROOT_DOCUMENT_ID, OpenArchClient
 
 router = APIRouter(prefix="/api/demo")
 
-DEMO_FOLDER = "Studio Demo"
-# Demo folder -> group that can read it; the root demo folder is readable by `members`.
+# Department -> group that can read its root-level folder. No shared parent: ACEs are additive down
+# the tree, so a parent grant to `members` would expose every department folder.
 FOLDER_GROUPS = {"Company": "members", "Finance": "finance", "HR": "hr", "Sales": "sales"}
 # Document-level Read granted to a persona on one sample (the live time limit is added by hand).
 PERSONA_READS = {("Sales", "q4-pricing.md"): "cory"}
+
+
+def _title(name: str) -> str:
+    return f"Demo \u00b7 {name}"
 
 
 def _group_read(demo: DemoUsers, group: str) -> list[RuleIn]:
@@ -80,10 +84,10 @@ async def setup_demo(
     folders: dict[str, str] = {}
     jobs: list[str] = []
     try:
-        root = await _ensure_folder(client, ROOT_DOCUMENT_ID, DEMO_FOLDER, _group_read(demo, "members"))
-        folders[DEMO_FOLDER] = root
         for name, group in FOLDER_GROUPS.items():
-            folder_id = await _ensure_folder(client, root, name, _group_read(demo, group))
+            folder_id = await _ensure_folder(
+                client, ROOT_DOCUMENT_ID, _title(name), _group_read(demo, group)
+            )
             folders[name] = folder_id
             existing = {
                 d.get("sys_title") for d in (await client.browse_children(folder_id)).get("documents", [])
@@ -122,13 +126,14 @@ async def reset_demo(
     settings: Settings = request.app.state.settings
     client = OpenArchClient(settings.openarch_url, origin)
     try:
-        root = await _find_child(client, ROOT_DOCUMENT_ID, DEMO_FOLDER)
-        if root is not None:
-            graph = request.app.state.graph.store
-            for folder in (await client.browse_children(root)).get("documents", []):
-                for doc in (await client.browse_children(folder["sys_id"])).get("documents", []):
-                    graph.remove(doc["sys_id"])
-            await client.delete_document(root)
+        graph = request.app.state.graph.store
+        for name in FOLDER_GROUPS:
+            folder_id = await _find_child(client, ROOT_DOCUMENT_ID, _title(name))
+            if folder_id is None:
+                continue
+            for doc in (await client.browse_children(folder_id)).get("documents", []):
+                graph.remove(doc["sys_id"])
+            await client.delete_document(folder_id)
     except Exception as exc:  # noqa: BLE001
         raise _translate(exc) from exc
     return Response(status_code=status.HTTP_204_NO_CONTENT)

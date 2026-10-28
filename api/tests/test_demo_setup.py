@@ -25,6 +25,7 @@ ROOT_ID = "00000000-0000-0000-0000-000000000000"
 ADMIN_AUTH = "Basic " + base64.b64encode(b"admin:password").decode()
 USERS = load_demo_users(USERS_FILE)
 FOLDERS = {"Company": "members", "Finance": "finance", "HR": "hr", "Sales": "sales"}
+TITLES = {name: f"Demo · {name}" for name in FOLDERS}
 
 
 def ace(group: str) -> dict[str, Any]:
@@ -126,23 +127,30 @@ def test_setup_creates_folders_with_group_acls(demo_client: TestClient) -> None:
     assert response.status_code == 200
     body = response.json()
     folders = _folder_payloads(fake)
-    assert set(folders) == {"Studio Demo", *FOLDERS}
-    assert folders["Studio Demo"]["sys_acl"] == [ace("members")]
+    assert set(folders) == set(TITLES.values())
     for name, group in FOLDERS.items():
-        assert folders[name]["sys_acl"] == [ace(group)]
-    root_parent = next(p for p, payload in fake.created if payload["sys_title"] == "Studio Demo")
-    assert root_parent == ROOT_ID
-    demo_id = fake.id_of(ROOT_ID, "Studio Demo")
-    for name in FOLDERS:
-        assert next(p for p, pl in fake.created if pl["sys_title"] == name) == demo_id
-    assert body["folders"] == {
-        "Studio Demo": demo_id,
-        **{name: fake.id_of(demo_id, name) for name in FOLDERS},
-    }
+        assert folders[TITLES[name]]["sys_acl"] == [ace(group)]
+    assert body["folders"] == {name: fake.id_of(ROOT_ID, TITLES[name]) for name in FOLDERS}
     assert len(body["jobs"]) == 8
     uploaded = _file_payloads(fake)
     assert set(uploaded) == {p.name for p in SAMPLES.glob("*/*.md")}
     assert all(payload["sysfile_blob"]["uploadId"].startswith("upl-") for payload in uploaded.values())
+
+
+@respx.mock
+def test_department_folders_have_no_shared_parent(demo_client: TestClient) -> None:
+    fake = FakeOpenArch()
+    fake.install()
+    _sign_in(demo_client)
+
+    demo_client.post("/api/demo/setup")
+
+    folders = [(parent, p) for parent, p in fake.created if p["sys_primaryType"] == "SysFolder"]
+    assert len(folders) == 4
+    assert all(parent == ROOT_ID for parent, _ in folders)
+    members = USERS.group_ids["members"]
+    granting = {p["sys_title"] for _, p in folders if any(a["group"]["id"] == members for a in p["sys_acl"])}
+    assert granting == {"Demo · Company"}
 
 
 @respx.mock
@@ -166,8 +174,7 @@ def test_setup_is_idempotent(demo_client: TestClient) -> None:
 @respx.mock
 def test_setup_only_uploads_missing_files(demo_client: TestClient) -> None:
     fake = FakeOpenArch()
-    demo = fake.seed(ROOT_ID, "Studio Demo")
-    hr = fake.seed(demo, "HR")
+    hr = fake.seed(ROOT_ID, "Demo · HR")
     fake.seed(hr, "salary-bands.md", "SysFile")
     fake.install()
     _sign_in(demo_client)
@@ -177,7 +184,7 @@ def test_setup_only_uploads_missing_files(demo_client: TestClient) -> None:
     assert response.status_code == 200
     assert "salary-bands.md" not in _file_payloads(fake)
     assert "bonus-policy-2027.md" in _file_payloads(fake)
-    assert "Studio Demo" not in _folder_payloads(fake) and "HR" not in _folder_payloads(fake)
+    assert "Demo · HR" not in _folder_payloads(fake)
     assert response.json()["folders"]["HR"] == hr
 
 
@@ -248,9 +255,9 @@ def test_setup_missing_samples_dir_is_a_clear_error(demo_client: TestClient) -> 
 
 
 @respx.mock
-def test_reset_deletes_studio_demo(demo_client: TestClient) -> None:
+def test_reset_deletes_demo_folders(demo_client: TestClient) -> None:
     fake = FakeOpenArch()
-    demo = fake.seed(ROOT_ID, "Studio Demo")
+    demo = [fake.seed(ROOT_ID, title) for title in TITLES.values()]
     fake.seed(ROOT_ID, "Other")
     fake.install()
     _sign_in(demo_client)
@@ -258,7 +265,7 @@ def test_reset_deletes_studio_demo(demo_client: TestClient) -> None:
     response = demo_client.delete("/api/demo")
 
     assert response.status_code == 204
-    assert fake.deleted == [demo]
+    assert sorted(fake.deleted) == sorted(demo)
 
 
 @respx.mock
@@ -274,7 +281,7 @@ def test_reset_without_demo_folder_is_a_noop(demo_client: TestClient) -> None:
 @respx.mock
 def test_reset_forbidden_for_non_admin(demo_client: TestClient) -> None:
     fake = FakeOpenArch()
-    fake.seed(ROOT_ID, "Studio Demo")
+    fake.seed(ROOT_ID, "Demo · HR")
     fake.install()
     _sign_in(demo_client, "sam")
 

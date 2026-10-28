@@ -173,9 +173,9 @@ docker compose -f compose.yaml -f compose.demo.yaml up -d --build
 
 The overlay mounts `demo/openarch-users.yml` into OpenArch and Studio and sets `STUDIO_DEMO_MODE=true`.
 Sign in as `admin` / `password`, open the header **Demo** menu and choose **Set up demo**. This creates a
-`Studio Demo` folder with `Company`, `Finance`, `HR` and `Sales` subfolders and uploads the fictional
+`Demo · Company`, `Demo · Finance`, `Demo · HR` and `Demo · Sales` root folders (no shared parent) and uploads the fictional
 "Northwind Labs" sample documents from `demo/samples/`. Watch enrichment on **Activity**; **Reset demo**
-deletes the folder again.
+deletes the four folders again.
 
 Personas (all with password `password`):
 

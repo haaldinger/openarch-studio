@@ -122,10 +122,10 @@ behavior is unchanged.
 - **`POST /api/documents` and `POST /api/folders`** accept an optional `access` field sent as `sys_acl`
   in the create call. 403 maps to "You can't set access in this folder".
 - **`POST /api/demo/setup`** (demo admin only) is idempotent, find-or-create by title, and runs as the
-  signed-in admin even while acting as a persona. It builds `Studio Demo` > `Company`, `Finance`, `HR`,
-  `Sales` with `sys_acl`, and uploads `demo/samples/<Folder>/` (`STUDIO_DEMO_SAMPLES_DIR`, mounted by
+  signed-in admin even while acting as a persona. It builds four root folders, `Demo · Company`,
+  `Demo · Finance`, `Demo · HR`, `Demo · Sales` (no shared parent), with `sys_acl`, and uploads `demo/samples/<Folder>/` (`STUDIO_DEMO_SAMPLES_DIR`, mounted by
   the overlay). `Sales/q4-pricing.md` also gets a document-level `Read` for `cory`. `DELETE /api/demo`
-  removes the folder.
+  removes the four folders.
 - Studio never evaluates permissions. Everything the panel shows comes from `sys_acl`,
   `fulleffectiveacl` and `fulleffectivepermissions` (called with `usernames` = comma-joined **user ids**).
 

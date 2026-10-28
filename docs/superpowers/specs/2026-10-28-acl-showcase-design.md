@@ -49,6 +49,8 @@ admin, but the first release is shaped around a live demo.
 | `sys_acl` is only returned to callers with `ManageSecurity` | Non-managers see their own effective permissions only. |
 | A query scoped by `sys_ancestorIds` to an unreadable folder returns 403, not an empty list | Studio maps it to a clear "no longer have access to this folder" message. |
 
+ACEs are additive down the tree, so a parent grant to `members` would expose every department folder.
+
 Permission names offered and accepted by Studio: `Read`, `ReadWrite`, `Write`, `ManageSecurity`,
 `Everything` (`SecurityConstants`).
 
@@ -94,14 +96,13 @@ nothing that worked before breaks) plus:
 ### One-click demo setup
 
 - `POST /api/demo/setup` (demo admin only): idempotent, find-or-create by title.
-  - Folder `Studio Demo` at root, readable by `members`.
-  - Children `Company` (Read: `members`), `Finance` (Read: `finance`), `HR` (Read: `hr`),
-    `Sales` (Read: `sales`), each created with `sys_acl`.
-  - Uploads every file in `demo/samples/<Folder>/` not already present by name, using the normal upload
+  - Four root-level folders, no shared parent: `Demo · Company` (Read: `members`), `Demo · Finance`
+    (Read: `finance`), `Demo · HR` (Read: `hr`), `Demo · Sales` (Read: `sales`), each created with `sys_acl`.
+  - Uploads every file in `demo/samples/<Company|Finance|HR|Sales>/` not already present by name, using the normal upload
     path (enrichment starts as usual). Returns the folder ids and the list of started jobs.
   - `Sales/q4-pricing.md` additionally gets a document-level `Read` for `cory` with no end date (the
     live time-limit is added by hand during the demo).
-- `DELETE /api/demo` (demo admin only): deletes `Studio Demo` (children go with it).
+- `DELETE /api/demo` (demo admin only): deletes the four demo folders (each if present).
 - UI: a **Demo** menu in the header (demo mode + demo admin only) with **Set up demo** (shows progress
   through the Activity page) and **Reset demo** (confirm dialog).
 

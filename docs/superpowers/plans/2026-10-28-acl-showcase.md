@@ -22,7 +22,7 @@ All paths are relative to `pocs/openarch-studio/`. API tests: `cd api && .venv/b
 - Every rule sent to OpenArch has `granted: true` (OpenArch rejects negative ACEs).
 - Effective-permission calls use query parameter `usernames` with **user ids** (comma-joined).
 - Personas (username / groups / `studioPersona`): `fiona` finance,members "Finance analyst"; `henry` hr,members "HR partner"; `sam` sales,members "Sales rep"; `erin` finance,hr,sales,members "Executive"; `cory` members "Contractor". All `password: "{noop}password"`.
-- Demo folders: `Studio Demo` (root, Read `members`) → `Company` (Read `members`), `Finance` (Read `finance`), `HR` (Read `hr`), `Sales` (Read `sales`).
+- Demo folders: four root folders, no shared parent: `Demo · Company` (Read `members`), `Demo · Finance` (Read `finance`), `Demo · HR` (Read `hr`), `Demo · Sales` (Read `sales`).
 - No native `<select>`; pickers are searchable modals built on `components/Modal.tsx`.
 - Copy (exact): banner "You're seeing what {Name} ({label}) can see"; "Back to Admin"; "Only users with Manage security can see the rules"; "You no longer have access to this folder"; "You don't have permission to change access here"; "You can't set access in this folder"; "Access changed meanwhile; reloaded".
 
@@ -208,7 +208,7 @@ All paths are relative to `pocs/openarch-studio/`. API tests: `cd api && .venv/b
 
 **Interfaces:**
 - Consumes: `require_demo_admin`, `origin_credentials` (Task 2), `to_sys_acl` (Task 5), upload path in `library.py` (factor its create-and-enrich body into `async def store_and_enrich(client, parent_id, filename, content, owner, background, access=None) -> dict` and reuse it).
-- Produces: `POST /api/demo/setup` → `{"folders": {"Studio Demo": id, "Company": id, …}, "jobs": [jobId…]}`; `DELETE /api/demo` → 204.
+- Produces: `POST /api/demo/setup` → `{"folders": {"Company": id, "Finance": id, "HR": id, "Sales": id}, "jobs": [jobId…]}`; `DELETE /api/demo` → 204.
 
 - [ ] **Step 1: Write the sample documents** (synthetic, 120–300 words each). Facts that must appear: Finance `bonus-budget-2027.md` "2027 bonus pool: €1.2M"; HR `bonus-policy-2027.md` "bonus pool is 8% of base salary" and eligibility after 6 months; Sales `commission-plan-2027.md` commission rates and accelerators; Sales `q4-pricing.md` Enterprise list price and "discount floor: 18%"; HR `salary-bands.md` engineer bands; Company `employee-handbook.md` "bonus details are restricted to HR and Finance".
 - [ ] **Step 2: Write failing tests:** `test_setup_creates_folders_with_group_acls` (exact `sys_acl` per folder, group ids from the users file); `test_setup_is_idempotent` (existing folders/files by title → no second create/upload); `test_setup_uses_origin_credentials_while_acting_as` (act-as `sam`, then setup → every OpenArch call uses admin Basic auth); `test_q4_pricing_gets_cory_read`; `test_setup_forbidden_for_non_admin`; `test_reset_deletes_studio_demo`.

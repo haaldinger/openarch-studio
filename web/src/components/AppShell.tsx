@@ -259,7 +259,7 @@ export function AppShell({
             }
           >
             <p className="modal-confirm">
-              This deletes the Studio Demo folder and everything in it, then clears its search data.
+              This deletes the four Demo folders and everything in them, then clears their search data.
             </p>
           </Modal>
         </>

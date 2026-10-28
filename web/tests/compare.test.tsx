@@ -170,6 +170,32 @@ describe("Ask compare", () => {
     expect(chatBodies[0].actAs).toBe("erin");
     expect(chatBodies[0].question).toBe("q");
   });
+
+  it("marks a column stale and hides the strip when its persona changes, until Re-ask", async () => {
+    const user = userEvent.setup();
+    renderAsk();
+    await user.click(screen.getByRole("button", { name: /compare/i }));
+    await user.type(screen.getByLabelText(/your question/i), "q");
+    await user.click(screen.getByRole("button", { name: /^ask$/i }));
+    await screen.findByRole("region", { name: /citation comparison/i });
+    await waitFor(() => expect(screen.getAllByRole("button", { name: /re-ask/i })[0]).toBeEnabled());
+
+    const leftCol = screen.getByRole("region", { name: /answer as admin/i });
+    await user.click(within(leftCol).getByRole("button", { name: /admin/i }));
+    await user.click(await screen.findByRole("button", { name: /sam\s*sales rep/i }));
+
+    expect(screen.queryByRole("region", { name: /citation comparison/i })).not.toBeInTheDocument();
+    const stale = screen.getByRole("region", { name: /answer as admin/i });
+    expect(stale).toHaveTextContent(/asked as admin/i);
+    expect(stale).toHaveTextContent(/re-ask to update/i);
+    expect(within(screen.getByRole("region", { name: /answer as erin/i })).queryByText(/asked as/i)).toBeNull();
+
+    await user.click(within(stale).getByRole("button", { name: /re-ask/i }));
+    const strip = await screen.findByRole("region", { name: /citation comparison/i });
+    expect(within(strip).getByText(/only sam/i)).toBeInTheDocument();
+    expect(within(strip).queryByText(/only admin/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/asked as/i)).not.toBeInTheDocument();
+  });
 });
 
 describe("Ask abort", () => {

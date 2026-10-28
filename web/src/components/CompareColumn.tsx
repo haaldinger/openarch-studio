@@ -5,6 +5,8 @@ import { RetrievalTrace } from "./RetrievalTrace";
 import type { Citation, Persona } from "../types";
 
 export interface ColumnResult {
+  /** Username the answer was generated as. */
+  persona: string;
   question: string;
   answer: string;
   citations: Citation[];
@@ -42,8 +44,10 @@ interface CompareColumnProps {
 export function CompareColumn({ persona, personas, result, onPersonaChange, onReask }: CompareColumnProps) {
   const [picking, setPicking] = useState(false);
   const label = personas.find((p) => p.username === persona)?.label;
+  const answeredAs = result?.persona ?? persona;
+  const stale = !!result && result.persona !== persona;
   return (
-    <section className="compare-col" aria-label={`Answer as ${personaName(persona)}`}>
+    <section className="compare-col" aria-label={`Answer as ${personaName(answeredAs)}`}>
       <header className="compare-col-head">
         <button type="button" className="compare-persona" onClick={() => setPicking(true)}>
           <span className="persona-name">{personaName(persona)}</span>
@@ -70,9 +74,12 @@ export function CompareColumn({ persona, personas, result, onPersonaChange, onRe
       />
       {result ? (
         <div className="turn-a">
+          {stale && (
+            <p className="muted">Asked as {personaName(result.persona)} — Re-ask to update</p>
+          )}
           {result.searching && (
             <p className="muted inline-status" role="status">
-              Searching documents {personaName(persona)} can read…
+              Searching documents {personaName(result.persona)} can read…
             </p>
           )}
           {result.answer ||

@@ -86,6 +86,7 @@ export function AskPage() {
     setResults((prev) => {
       const next: [ColumnResult | null, ColumnResult | null] = [...prev];
       next[index] = {
+        persona,
         question: q,
         answer: "",
         citations: [],
@@ -253,10 +254,14 @@ export function AskPage() {
               />
             ))}
           </div>
-          {results[0] && results[1] && !compareBusy && (
+          {results[0] &&
+            results[1] &&
+            !compareBusy &&
+            results[0].persona === sides[0] &&
+            results[1].persona === sides[1] && (
             <CompareSummary
-              leftName={sides[0]}
-              rightName={sides[1]}
+              leftName={results[0].persona}
+              rightName={results[1].persona}
               left={results[0].citations}
               right={results[1].citations}
             />

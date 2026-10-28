@@ -158,6 +158,41 @@ OpenArch and are retryable from **Activity**.
 Citations carry the source page. Clicking one opens `/documents/{id}?page=N`, and PDFs open at that
 page in the browser's native viewer.
 
+## Evaluation
+
+`eval/` holds a harness that asks Studio a golden set of 28 questions (English, German, French,
+Spanish, Dutch) over the sample documents and scores retrieval, abstention and answer quality, so
+changes to extraction, chunking, embedding or reranking can be compared run to run. Answer quality
+is graded by Ragas with a local `qwen3` model. See [`eval/README.md`](eval/README.md) for setup and
+usage.
+
+```bash
+cd eval && python3 -m venv .venv && .venv/bin/pip install -e '.[test]'
+.venv/bin/studio-eval run --label my-change
+```
+
+Baseline results (`eval/baselines/baseline-nomic.json`, overall aggregates):
+
+| Metric | Mean | n |
+| --- | --- | --- |
+| hit | 0.720 | 25 |
+| mrr | 0.539 | 25 |
+| evidence_hit | 0.450 | 20 |
+| evidence_mrr | 0.278 | 20 |
+| false_abstain | 0.680 | 25 |
+| abstain_correct | 1.000 | 3 |
+| faithfulness | 0.396 | 28 |
+| answer_relevancy | 0.232 | 25 |
+| context_precision | 0.309 | 25 |
+| context_recall | 0.480 | 25 |
+
+Run note: "studio embed=nomic-embed-text chat=llama3.2:3b rerank=bge-reranker-base"; all 28 questions
+reranked, 0 errors; judge `qwen3`. The right invoice is retrieved for about 72%
+of answerable questions, but the chunk containing the answer only about 45% of the time. Ask
+(`llama3.2:3b`) declines 68% of answerable questions, so answer generation and chunk-level retrieval
+are the weakest links; the next sub-projects (multilingual embeddings, hybrid search) target
+`evidence_hit`.
+
 ## POC limitations (deferred, by design)
 
 - Memory-backed Basic-auth sessions, not production identity (no OIDC, no multi-instance store).
@@ -182,7 +217,10 @@ were checked at `main` (pinned revision not confirmed). Tika, Ollama, nomic-embe
 not in the Docling image and were checked at their default branch or model card.
 text-embeddings-inference was checked at tag `v1.9.0`; the `cpu-1.9` / `cpu-arm64-1.9` image tags
 float across 1.9.x patch releases, so the exact patch is not pinned. `BAAI/bge-reranker-base` was
-checked at revision `2cfc18c`, but the reranker downloads the model's default branch.
+checked at revision `2cfc18c`, but the reranker downloads the model's default branch. The
+evaluation harness's Ragas was checked at its pinned tag `v0.4.3`; its grader `qwen3` is pulled
+through Ollama, whose tag floats (currently the 8B variant), so its license was checked on the
+Qwen/Qwen3-8B model card at revision `b968826` and the exact weights are not pinned.
 
 | Component | Role | License | Link |
 |---|---|---|---|
@@ -201,6 +239,8 @@ checked at revision `2cfc18c`, but the reranker downloads the model's default br
 | Llama 3.2 | Default chat and extract model | Llama 3.2 Community License | [license](https://github.com/meta-llama/llama-models/blob/main/models/llama3_2/LICENSE) |
 | text-embeddings-inference | Reranker service | Apache-2.0 | [LICENSE](https://github.com/huggingface/text-embeddings-inference/blob/v1.9.0/LICENSE) |
 | BAAI/bge-reranker-base | Reranking model | MIT | [model card](https://huggingface.co/BAAI/bge-reranker-base/tree/2cfc18c9415c912f9d8155881c133215df768a70), [FlagEmbedding LICENSE](https://github.com/FlagOpen/FlagEmbedding/blob/master/LICENSE) |
+| Ragas | Evaluation metrics library (`eval/`) | Apache-2.0 (v0.4.3) | [LICENSE](https://github.com/explodinggradients/ragas/blob/v0.4.3/LICENSE) |
+| Qwen3 (`qwen3`) | Evaluation grader model (`eval/`) | Apache-2.0 (Qwen3-8B at revision `b968826`; Ollama tag floats, not pinned) | [model card](https://huggingface.co/Qwen/Qwen3-8B/tree/b968826d9c46dd6066d109eabc6255188de91218) |
 
 Bundled in the Docling image, license not yet verified: EasyOCR model weights (`craft_mlt_25k`,
 `english_g2`, `latin_g2`).

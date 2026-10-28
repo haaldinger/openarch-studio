@@ -17,6 +17,9 @@ After indexing, a small local model also classifies each document and extracts t
 (vendor, date, total, …). They are written to OpenArch's native `CinContext` mixin, shown in the
 document inspector and as type chips in the Library, and searchable with HXQL, for example
 `SELECT * FROM SysContent WHERE cinctx_contextProperties.total > 1000`.
+Field value types are fixed by field name (names like `total`, `tax_amount`, `quantity` are numbers;
+all others are strings), so HXQL range queries work on amount-like fields only. Retrying or
+re-enriching a document replaces its embeddings rather than adding a second set.
 
 ## What's OpenArch vs. what Studio adds
 
@@ -104,7 +107,7 @@ All LLM roles share `STUDIO_MODEL_BASE_URL`. `STUDIO_GRAPH_MODEL` is a deprecate
 `STUDIO_EXTRACT_MODEL`; the API and Compose use it only when `STUDIO_EXTRACT_MODEL` is unset. `llama3.1` is a
 heavier alternative for `STUDIO_CHAT_MODEL` on GPU hosts (`ollama pull llama3.1` first); it is
 unusably slow on CPU. At startup the API pings the extract and chat models in the background so the
-first request isn't cold; a failed ping is logged and never blocks startup.
+first request isn't cold (skipped in baseline mode); a failed ping is logged and never blocks startup.
 
 If the extract model call fails, only the `classified` stage fails (retry from **Activity**); the
 document stays searchable.

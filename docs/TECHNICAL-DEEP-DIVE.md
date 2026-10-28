@@ -165,7 +165,10 @@ flowchart LR
    to 1024.
 5. **indexed** — write the Parquet, `ensure_has_embeddings_mixin`, upload the
    blob, create the `SysEmbeddings` child, then
-   `waitForFullTextSearchIndexing`.
+   `waitForFullTextSearchIndexing`. Re-enriching a document replaces its
+   embeddings: once the new child exists, older `SysEmbeddings` children of the
+   same parent are deleted (a failed delete is logged and the job still
+   completes).
 
 6. **classified** — [`fields.py`](../api/app/fields.py) makes one JSON-mode call
    to `STUDIO_EXTRACT_MODEL` (default `llama3.2:3b`) over the first 6,000
@@ -179,13 +182,23 @@ flowchart LR
      type and 50 types.
    - **Normalization.** Type and field names become ASCII `snake_case` (≤ 64
      chars); at most 25 fields; strings are cut at 500 chars; dates in
-     `%Y-%m-%d`, `%d.%m.%Y`, `%m/%d/%Y` or `%Y/%m/%d` become ISO 8601; money
-     strings become numbers, but identifier-like strings (leading zeros,
-     non-thousands space groups, more than 15 digits) stay strings; non-finite
-     numbers are dropped.
+     `%Y-%m-%d`, `%d.%m.%Y`, `%m/%d/%Y` or `%Y/%m/%d` become ISO 8601. A field
+     named `document_type` is ignored (the classification wins).
+   - **Typing is by field name, not value.** OpenSearch maps each
+     `cinctx_contextProperties` key from the first value it sees, so a key must
+     always have the same JSON type. A name matching
+     `(^|_)(total|subtotal|amount|tax|vat|price|cost|quantity|qty|balance|discount|fee|charge|sum)(_|$)`
+     is numeric: native numbers are kept, strings are coerced as money, and
+     anything that is not a finite number is dropped (including `"1.234"`,
+     which is ambiguous between English and German, bools, lists and integers
+     over 15 digits). Every other name is always a string: native numbers
+     become decimal strings, bools `"true"`/`"false"`, and numeric-looking
+     strings (`"10115"`, `"00501"`) stay as written. Range queries only work
+     on numeric names.
    - **Storage.** `store` adds the `CinContext` mixin and writes
      `cinctx_contextProperties` = `{"document_type": …, …fields}` (a flat map,
      replaced on each run) and `cinctx_contextPropertyNames` (its keys).
+     `document_type` is written last so it always wins.
      Written as the signed-in user.
    - **HXQL findings** (verified live): REST accepts the free-form map, and
      HXQL filters on its keys with the dot or slash path form, e.g.

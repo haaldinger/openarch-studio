@@ -3,3 +3,39 @@ Copyright 2026 Hyland (https://www.hyland.com/)
 
 This product is licensed under the Apache License, Version 2.0.
 See the LICENSE file for details.
+
+Third-party components
+----------------------
+OpenArch Studio runs alongside, and does not redistribute, the following components. Licenses were
+checked against each upstream repository or model card. Docling image components were checked at the
+versions the image pins (docling-serve v1.38.2, Docling 2.142.1, docling-ibm-models 4.0.4, rapidocr
+3.10.0, easyocr 1.7.2), except the exceptions below. Docling 2.142.1 pins the layout-heron,
+layout-heron ONNX and DocumentFigureClassifier v2.5 models to the floating revision `main` (no fixed
+commit), so those three were checked at `main`; the pinned revision is not confirmable. Components
+not in the Docling image (Tika, Ollama, nomic-embed-text, Llama) were checked at their default
+branch or model card. text-embeddings-inference was checked at tag v1.9.0; the cpu-1.9 and
+cpu-arm64-1.9 image tags float across 1.9.x patch releases, so the exact patch is not pinned.
+BAAI/bge-reranker-base was checked at revision 2cfc18c, but the reranker downloads the model's
+default branch.
+
+docling-serve        MIT                                  https://github.com/docling-project/docling-serve/blob/v1.38.2/LICENSE
+Docling              MIT                                  https://github.com/docling-project/docling/blob/v2.142.1/LICENSE
+docling-layout-heron Apache-2.0 (and its ONNX export; checked at main, pinned revision not confirmed)  https://huggingface.co/docling-project/docling-layout-heron
+TableFormer          CDLA-Permissive-2.0 (docling-models v2.3.0)  https://huggingface.co/docling-project/docling-models/blob/v2.3.0/README.md
+DocumentFigureClassifier v2.5  MIT (checked at main, pinned revision not confirmed)  https://huggingface.co/docling-project/DocumentFigureClassifier-v2.5
+RapidOCR             Apache-2.0                           https://github.com/RapidAI/RapidOCR/blob/v3.10.0/LICENSE
+PP-OCR models (RapidOCR)  Apache-2.0                      https://github.com/RapidAI/RapidOCR/blob/v3.10.0/README.md#-license
+EasyOCR              Apache-2.0 (code)                    https://github.com/JaidedAI/EasyOCR/blob/v1.7.2/LICENSE
+Apache Tika          Apache-2.0                           https://github.com/apache/tika/blob/main/LICENSE.txt
+Ollama               MIT                                  https://github.com/ollama/ollama/blob/main/LICENSE
+nomic-embed-text     Apache-2.0                           https://huggingface.co/nomic-ai/nomic-embed-text-v1.5
+Llama 3.1            Llama 3.1 Community License          https://github.com/meta-llama/llama-models/blob/main/models/llama3_1/LICENSE
+Llama 3.2            Llama 3.2 Community License          https://github.com/meta-llama/llama-models/blob/main/models/llama3_2/LICENSE
+text-embeddings-inference  Apache-2.0 (v1.9.0; image tag floats across 1.9.x)  https://github.com/huggingface/text-embeddings-inference/blob/v1.9.0/LICENSE
+BAAI/bge-reranker-base  MIT (revision 2cfc18c)           https://huggingface.co/BAAI/bge-reranker-base/tree/2cfc18c9415c912f9d8155881c133215df768a70
+
+Bundled in the Docling image, license not yet verified: EasyOCR model weights (craft_mlt_25k, english_g2, latin_g2).
+
+Built with Llama.
+Llama 3.1 is licensed under the Llama 3.1 Community License, Copyright © Meta Platforms, Inc. All Rights Reserved.
+Llama 3.2 is licensed under the Llama 3.2 Community License, Copyright © Meta Platforms, Inc. All Rights Reserved.

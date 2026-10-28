@@ -1228,6 +1228,25 @@ select.modal-input {
   color: var(--studio);
   background: var(--studio-bg);
 }
+.chip-type {
+  color: var(--ink);
+  background: var(--paper-2);
+  border: 1px solid var(--line-strong);
+}
+.extracted {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line-strong);
+}
+.extracted-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.extracted-head .panel-attr {
+  margin: 0;
+}
 
 /* ── Inspector: tabs, key/value, json ───────────────────────────── */
 .tabs {

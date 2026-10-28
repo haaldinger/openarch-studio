@@ -1,4 +1,4 @@
-# Issue: default chat model (`llama3.1` 8B) is unusably slow on CPU
+# Issue: default chat model (`llama3.1` 8B) is unusably slow on CPU (resolved)
 
 ## Summary
 The default Studio chat model is `llama3.1` (8B). On a CPU-only host (no GPU),
@@ -40,3 +40,7 @@ my laptop and ask a question." With the current default that path looks broken.
 ## Note
 The retrieval, grounding and citation logic are model-agnostic and work fine on
 the lighter model — this is purely a default-sizing / documentation issue.
+
+## Resolution
+The default chat model is now `llama3.2:3b`. Set `STUDIO_CHAT_MODEL` to override
+it (e.g. `llama3.1` on a GPU host).

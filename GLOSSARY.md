@@ -71,8 +71,30 @@ _Avoid_: vector, encoding, representation
 ### Enrichment & retrieval
 
 **Enrichment**:
-The pipeline that turns an uploaded file into searchable, AI-ready artifacts, reported through its stages (stored, extracted, chunked, embedded, indexed).
+The pipeline that turns an uploaded file into searchable, AI-ready artifacts, reported through its stages (stored, extracted, chunked, embedded, indexed, classified).
 _Avoid_: ingestion, processing, indexing (for the whole pipeline)
+
+**Extractor**:
+The swappable component of the extracted stage that turns a file's bytes into page-aware Markdown text — Docling first, with Tika as the fallback.
+_Avoid_: parser, converter, OCR engine, text reader
+
+**Document type**:
+The short snake_case label a model assigns to a document (for example `invoice`), reusing an
+existing type from the caller's readable documents when one fits.
+_Avoid_: category, class, kind
+
+**Extracted fields**:
+The typed name/value pairs a model reads from a document's text, stored in OpenArch's native
+`CinContext` mixin alongside the document type and shown read-only as AI-extracted.
+_Avoid_: metadata (loosely), attributes, tags, key-value pairs
+
+**Rerank**:
+The optional step that reorders ACL-filtered retrieval candidates with a cross-encoder, falling back to vector order (and saying why) when the reranker is unavailable.
+_Avoid_: re-rank (hyphenated), rescoring, boosting
+
+**Model role**:
+One of the four jobs a model does in Studio — embed, extract, chat, rerank — each with its own setting so they can be sized independently.
+_Avoid_: model type, model slot, model tier
 
 **Readiness**:
 Whether a document has been enriched — reconstructed from OpenArch, not from Studio's in-memory job history.

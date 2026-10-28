@@ -1,5 +1,5 @@
 # OpenArch Studio — companion POC stack.
-# Includes the OpenArch base stack and adds Studio API, UI, Tika, and Ollama.
+# Includes the OpenArch base stack and adds Studio API, UI, Docling (Tika fallback), and Ollama.
 # Run from this directory:  docker compose up -d --build
 name: openarch-studio
 
@@ -19,10 +19,15 @@ services:
     environment:
       STUDIO_OPENARCH_URL: http://openarch-app:8080
       STUDIO_TIKA_URL: http://tika:9998
+      STUDIO_EXTRACTOR: ${STUDIO_EXTRACTOR:-docling}
+      STUDIO_DOCLING_URL: ${STUDIO_DOCLING_URL:-http://docling:5001}
+      STUDIO_DOCLING_TIMEOUT_SECONDS: ${STUDIO_DOCLING_TIMEOUT_SECONDS:-300}
       STUDIO_MODEL_BASE_URL: ${STUDIO_MODEL_BASE_URL:-http://ollama:11434/v1}
       STUDIO_EMBEDDING_MODEL: ${STUDIO_EMBEDDING_MODEL:-nomic-embed-text}
-      STUDIO_CHAT_MODEL: ${STUDIO_CHAT_MODEL:-llama3.1}
-      STUDIO_GRAPH_MODEL: ${STUDIO_GRAPH_MODEL:-llama3.2:1b}
+      STUDIO_CHAT_MODEL: ${STUDIO_CHAT_MODEL:-llama3.2:3b}
+      STUDIO_EXTRACT_MODEL: ${STUDIO_EXTRACT_MODEL:-${STUDIO_GRAPH_MODEL:-llama3.2:3b}}
+      STUDIO_RERANKER_URL: ${STUDIO_RERANKER_URL-http://reranker:80}
+      STUDIO_RERANK_MODEL: ${STUDIO_RERANK_MODEL:-BAAI/bge-reranker-base}
       STUDIO_GRAPH_STORE_PATH: /data/graph.json
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -31,6 +36,7 @@ services:
     depends_on:
       - openarch-app
       - tika
+      - docling
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8800/api/health').status==200 else 1)"]
       interval: 15s
@@ -49,9 +55,18 @@ services:
     expose:
       - "9998"
 
+  # Layout-aware extraction (tables, reading order, OCR) to markdown; Tika is the fallback.
+  docling:
+    image: quay.io/docling-project/docling-serve-cpu:v1.38.2
+    environment:
+      # Server-side cap on the sync convert endpoint (default 120s); keep equal to the client timeout.
+      DOCLING_SERVE_MAX_SYNC_WAIT: ${STUDIO_DOCLING_TIMEOUT_SECONDS:-300}
+    expose:
+      - "5001"
+
   # Local model runtime (OpenAI-compatible). Pull models once after start:
   #   docker compose exec ollama ollama pull nomic-embed-text
-  #   docker compose exec ollama ollama pull llama3.1
+  #   docker compose exec ollama ollama pull llama3.2:3b
   ollama:
     image: ollama/ollama:latest
     expose:
@@ -59,7 +74,17 @@ services:
     volumes:
       - ollama-data:/root/.ollama
 
+  # Cross-encoder reranker (text-embeddings-inference); see .env.example for image choice.
+  reranker:
+    image: ${STUDIO_RERANKER_IMAGE:-ghcr.io/huggingface/text-embeddings-inference:cpu-arm64-1.9}
+    command: --model-id ${STUDIO_RERANK_MODEL:-BAAI/bge-reranker-base} --max-batch-tokens 4096
+    expose:
+      - "80"
+    volumes:
+      - reranker-models:/data
+
 volumes:
   ollama-data:
   studio-data:
   opensearch-data:
+  reranker-models:

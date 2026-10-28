@@ -1,4 +1,4 @@
-"""Enrichment pipeline: extract (Tika) -> chunk -> embed -> SysEmbeddings child.
+"""Enrichment pipeline: extract (Docling, Tika fallback) -> chunk -> embed -> SysEmbeddings child.
 
 Jobs run as FastAPI background tasks against an in-memory store. Active job
 history is transient (a restart clears it); durable readiness is reconstructed
@@ -10,6 +10,7 @@ retry needs nothing kept in Studio.
 from __future__ import annotations
 
 import asyncio
+import logging
 import re
 import time
 import uuid
@@ -19,15 +20,18 @@ from typing import Any
 import httpx
 
 from .config import Settings
+from .extraction import Extracted, build_extractor
 from .models import Credentials
-from .openarch import OpenArchClient
-from .parquet import EmbeddedChunk, chunk_text, normalize_vector, write_embeddings
+from .openarch import OpenArchClient, OpenArchForbidden
+from .parquet import EmbeddedChunk, chunk_pages, normalize_vector, write_embeddings
 
 if False:  # typing-only import to avoid a runtime cycle
+    from .fields import FieldsService
     from .graph import GraphService
 
-STAGES = ["stored", "extracted", "chunked", "embedded", "indexed"]
+STAGES = ["stored", "extracted", "chunked", "embedded", "indexed", "classified"]
 _PARQUET_MIME = "application/x-parquet"
+log = logging.getLogger(__name__)
 
 
 @dataclass
@@ -79,11 +83,18 @@ class JobStore:
 
 class EnrichmentService:
     def __init__(
-        self, settings: Settings, store: JobStore | None = None, graph: "GraphService | None" = None
+        self,
+        settings: Settings,
+        store: JobStore | None = None,
+        graph: "GraphService | None" = None,
+        extractor: Any = None,
+        fields: "FieldsService | None" = None,
     ) -> None:
         self._settings = settings
         self.store = store or JobStore()
         self._graph = graph
+        self._fields = fields
+        self._extractor = extractor or build_extractor(settings)
         # Bounds concurrent OCR/embedding work across a batch upload.
         self._sem = asyncio.Semaphore(max(1, settings.enrich_concurrency))
 
@@ -92,22 +103,20 @@ class EnrichmentService:
         return label[:200]
 
     async def extract_text(self, content: bytes, mime: str) -> str:
-        return await self._extract(content, mime)
+        return (await self._extractor.extract(content, mime, "document")).markdown
 
     async def embed_query(self, text: str) -> list[float]:
         """Embed a single query string and normalize it to the stored vector width."""
         vector = (await self._embed([text]))[0]
         return normalize_vector(vector)
 
-    async def _extract(self, content: bytes, mime: str) -> str:
-        url = f"{self._settings.tika_url}/tika"
-        # OCR of large scanned images is slow; allow generous time.
-        async with httpx.AsyncClient(timeout=300.0) as client:
-            response = await client.put(
-                url, content=content, headers={"Accept": "text/plain", "Content-Type": mime}
-            )
-            response.raise_for_status()
-            return response.text
+    def _extracted_detail(self, extracted: Extracted) -> str:
+        n = len(extracted.markdown)
+        if extracted.engine == "docling":
+            return f"Docling · {n} chars"
+        if self._settings.extractor == "tika":
+            return f"Tika · {n} chars"
+        return f"Tika fallback · {n} chars"
 
     async def _embed(self, texts: list[str]) -> list[list[float]]:
         url = f"{self._settings.model_base_url}/embeddings"
@@ -153,13 +162,13 @@ class EnrichmentService:
 
         running = job.stage("extracted")
         running.status = "running"
-        text = await self._extract(content, mime)
+        extracted = await self._extractor.extract(content, mime, job.filename)
         running.status = "done"
-        running.detail = f"{len(text)} chars"
+        running.detail = self._extracted_detail(extracted)
 
         chunking = job.stage("chunked")
         chunking.status = "running"
-        chunks = chunk_text(text)
+        chunks = chunk_pages(extracted.pages)
         if not chunks:
             raise ValueError("no extractable text to chunk")
         chunking.status = "done"
@@ -181,7 +190,7 @@ class EnrichmentService:
         blob = write_embeddings(embedded, self.embedding_type())
         await client.ensure_has_embeddings_mixin(job.doc_id)
         upload_id = await client.upload_binary(f"{job.filename}.parquet", _PARQUET_MIME, blob)
-        await client.create_document(
+        created = await client.create_document(
             job.doc_id,
             {
                 "sys_primaryType": "SysEmbeddings",
@@ -190,6 +199,7 @@ class EnrichmentService:
                 "sysemb_embeddings": {"uploadId": upload_id},
             },
         )
+        await self._delete_stale_embeddings(client, job.doc_id, created.get("sys_id"))
         embedding.status = "done"
         embedding.detail = f"{len(embedded)} vectors"
 
@@ -200,9 +210,50 @@ class EnrichmentService:
 
         job.state = "complete"
 
+        await self._classify(job, client, extracted.markdown)
+
         # Knowledge graph is additive: extract from the same text, never fail the job on it.
         if self._graph is not None:
             try:
-                await self._graph.extract(job.doc_id, text)
+                await self._graph.extract(job.doc_id, extracted.markdown)
             except Exception:  # noqa: BLE001
                 pass
+
+    async def _delete_stale_embeddings(
+        self, client: OpenArchClient, doc_id: str, keep_id: str | None
+    ) -> None:
+        """Re-enrichment replaces embeddings; a failed cleanup is logged, never fatal."""
+        if not keep_id:
+            return
+        try:
+            stale = [i for i in await client.list_embedding_child_ids(doc_id) if i != keep_id]
+        except Exception:  # noqa: BLE001
+            log.warning("could not list stale embeddings for %s", doc_id, exc_info=True)
+            return
+        for child_id in stale:
+            try:
+                await client.delete_document(child_id)
+            except Exception:  # noqa: BLE001
+                log.warning("could not delete stale embeddings %s", child_id, exc_info=True)
+
+    async def _classify(self, job: Job, client: OpenArchClient, markdown: str) -> None:
+        """Additive stage: failures are recorded on the stage, never on the job."""
+        stage = job.stage("classified")
+        if self._fields is None:
+            stage.status = "done"
+            stage.detail = "skipped"
+            return
+        stage.status = "running"
+        try:
+            vocabulary = await self._fields.vocabulary(client)
+            result = await self._fields.classify(markdown, vocabulary)
+            await self._fields.store(client, job.doc_id, result)
+        except OpenArchForbidden:
+            stage.status = "failed"
+            stage.detail = "no write permission on this document"
+        except Exception as exc:  # noqa: BLE001 - includes ValueError and httpx errors
+            stage.status = "failed"
+            stage.detail = str(exc) or type(exc).__name__
+        else:
+            stage.status = "done"
+            stage.detail = f"{result.document_type} · {len(result.fields)} fields"

@@ -46,6 +46,22 @@ async function stubApi(page: import("@playwright/test").Page) {
         provenanceFlow: ["Question"],
       });
     }
+    if (path === "/api/chat" && method === "POST") {
+      const event = (name: string, data: object) =>
+        `event: ${name}\ndata: ${JSON.stringify({ type: name, ...data })}\n\n`;
+      return route.fulfill({
+        status: 200,
+        contentType: "text/event-stream",
+        body:
+          event("TEXT_MESSAGE_CONTENT", { delta: "Answer" }) +
+          event("STATE_SNAPSHOT", {
+            snapshot: {
+              citations: [{ docId: "d1", chunkId: "c1", snippet: "policy text", score: 0.9, page: 2 }],
+            },
+          }) +
+          event("RUN_FINISHED", { runId: "r1" }),
+      });
+    }
     return json({});
   });
 }
@@ -60,6 +76,19 @@ test("sign in and browse the enriched library", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Library", level: 1 })).toBeVisible();
   await expect(page.getByText("Handbook.pdf")).toBeVisible();
   await expect(page.getByText("Enriched")).toBeVisible();
+});
+
+test("a citation links to the cited page", async ({ page }) => {
+  await stubApi(page);
+  await page.goto("/");
+  await page.getByLabel(/username/i).fill("admin");
+  await page.getByRole("button", { name: /enter studio/i }).click();
+  await page.getByRole("link", { name: /^ask\b/i }).click();
+
+  await page.getByLabel(/your question/i).fill("what is the policy?");
+  await page.getByRole("button", { name: /^ask$/i }).click();
+
+  await expect(page.getByRole("link", { name: /policy text/ })).toHaveAttribute("href", /page=2/);
 });
 
 test("capability map attributes native vs extension", async ({ page }) => {

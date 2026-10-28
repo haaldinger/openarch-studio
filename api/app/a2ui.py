@@ -110,7 +110,10 @@ def comparison_surface(surface_id: str, citations: list[dict[str, Any]]) -> list
                     "action": {
                         "event": {
                             "name": "open_document",
-                            "context": {"docId": {"path": f"/sources/{i}/docId"}},
+                            "context": {
+                                "docId": {"path": f"/sources/{i}/docId"},
+                                "page": {"path": f"/sources/{i}/page"},
+                            },
                         }
                     },
                 },
@@ -181,6 +184,7 @@ def _source_contents(shown: list[dict[str, Any]], *, snippets: bool = False):
             _entry("title", str(c.get("title") or c.get("docId") or "Untitled")),
             _entry("docId", str(c.get("docId") or "")),
             _entry("chunkId", str(c.get("chunkId") or "")),
+            _entry("page", str(c.get("page") or "")),
         ]
         if snippets:
             text = str(c.get("snippet") or "").strip().replace("\n", " ")
@@ -244,7 +248,10 @@ def sources_surface(surface_id: str, citations: list[dict[str, Any]]) -> list[di
                     "action": {
                         "event": {
                             "name": "open_document",
-                            "context": {"docId": {"path": f"/sources/{i}/docId"}},
+                            "context": {
+                                "docId": {"path": f"/sources/{i}/docId"},
+                                "page": {"path": f"/sources/{i}/page"},
+                            },
                         }
                     },
                 },

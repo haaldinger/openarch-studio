@@ -15,6 +15,7 @@ interface Turn {
   answer: string;
   citations: Citation[];
   retrieved: number | null;
+  rerank: string | null;
   searching: boolean;
   surface: A2uiMessage[] | null;
   error: string | null;
@@ -54,6 +55,7 @@ export function AskPage() {
         answer: "",
         citations: [],
         retrieved: null,
+        rerank: null,
         searching: false,
         surface: null,
         error: null,
@@ -68,7 +70,7 @@ export function AskPage() {
         historyRef.current,
         {
           onRetrievalStart: () => patchLast({ searching: true }),
-          onRetrieval: (count) => patchLast({ retrieved: count, searching: false }),
+          onRetrieval: (count, rerank) => patchLast({ retrieved: count, rerank, searching: false }),
           onToken: (token) => {
             answer += token;
             patchLast({ answer });
@@ -127,7 +129,11 @@ export function AskPage() {
                   messages={turn.surface}
                   onAction={(name, context) => {
                     if (name === "open_document" && context.docId) {
-                      navigate(`/documents/${context.docId}`);
+                      navigate(
+                        context.page
+                          ? `/documents/${context.docId}?page=${encodeURIComponent(context.page)}`
+                          : `/documents/${context.docId}`,
+                      );
                     } else if (name === "ask_question" && context.question) {
                       void askQuestion(context.question);
                     }
@@ -136,7 +142,7 @@ export function AskPage() {
               ) : (
                 <CitationList citations={turn.citations} />
               )}
-              <RetrievalTrace count={turn.retrieved} />
+              <RetrievalTrace count={turn.retrieved} rerank={turn.rerank} />
             </div>
           </div>
         ))}

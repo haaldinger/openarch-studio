@@ -21,13 +21,17 @@ flowchart LR
     OA["openarch-app :8080\n(system of record)"]
     Mongo[(MongoDB)]
     OS[(OpenSearch\nfull-text + kNN)]
-    Tika["Apache Tika :9998\n(text + OCR)"]
+    Docling["Docling :5001\n(layout-aware extraction + OCR)"]
+    Tika["Apache Tika :9998\n(fallback text + OCR)"]
     Ollama["Ollama :11434\n(embeddings + chat)"]
+    Reranker["Reranker :80\n(TEI cross-encoder)"]
 
     Browser -->|same-origin /api/*| API
     API -->|HTTP Basic as the user| OA
-    API -->|PUT /tika| Tika
+    API -->|POST /v1/convert/file| Docling
+    API -.->|PUT /tika on failure| Tika
     API -->|/v1/embeddings, /v1/chat| Ollama
+    API -.->|POST /rerank, optional| Reranker
     OA --> Mongo
     OA --> OS
 ```
@@ -37,8 +41,10 @@ flowchart LR
 | `studio-web` | `./web` (nginx) | React SPA, served on `${STUDIO_PORT:-8900}` → container `:80`. Proxies `/api/*` to the API. |
 | `studio-api` | `./api` (FastAPI/uvicorn `:8800`) | Backend-for-frontend: session gateway, enrichment, search, RAG, graph. |
 | `openarch-app` | included from [`../../docker-compose.yml`](../../docker-compose.yml) | Documents, ACLs, HXQL + vector query. |
-| `tika` | `apache/tika:2.9.2.1-full` | Text extraction and **Tesseract OCR** of scanned images. |
+| `docling` | `quay.io/docling-project/docling-serve-cpu:v1.38.2` | Primary extraction: layout-aware Markdown, tables, and OCR. Not published to the host. |
+| `tika` | `apache/tika:2.9.2.1-full` | Fallback extraction and **Tesseract OCR** of scanned images. |
 | `ollama` | `ollama/ollama:latest` | Local OpenAI-compatible embeddings and chat. |
+| `reranker` | `ghcr.io/huggingface/text-embeddings-inference:cpu-arm64-1.9` (`${STUDIO_RERANKER_IMAGE}`) | Cross-encoder reranking (`BAAI/bge-reranker-base`). Optional; weights cached in the `reranker-models` volume. |
 
 The Studio stack `include:`s the OpenArch base compose file, so one
 `docker compose up` brings up the whole thing. See
@@ -92,6 +98,8 @@ database. This is what lets deletion, ACLs, and scoping "just work."
   `_e_<embedding-type>`, carrying a Parquet blob in `sysemb_embeddings`. The
   parent first gains the `SysHasEmbeddings` mixin
   (`ensure_has_embeddings_mixin`).
+- **Extracted fields** — the native `CinContext` mixin on the source file (see §4,
+  step 6).
 - **Folders** — native `SysFolder`; hierarchy via `sys_parentId` and the
   `sys_ancestorIds` array (used for subtree scoping, see §7).
 
@@ -121,37 +129,102 @@ The embeddings blob must match OpenArch's `embedding.avsc`. Studio mirrors it in
 
 [`enrichment.py`](../api/app/enrichment.py) turns an uploaded binary into
 searchable, AI-ready artifacts. It runs as a FastAPI background task and reports
-progress through five stages.
+progress through six stages (`classified` is additive, see step 6).
 
 ```mermaid
 flowchart LR
-    S1["stored\n(bytes in OpenArch)"] --> S2["extracted\n(Tika / OCR)"]
-    S2 --> S3["chunked\n(paragraph, ≤1000 chars)"]
+    S1["stored\n(bytes in OpenArch)"] --> S2["extracted\n(Docling, Tika fallback)"]
+    S2 --> S3["chunked\n(per page, ≤1000 chars)"]
     S3 --> S4["embedded\n(Ollama → 1024-dim)"]
     S4 --> S5["indexed\n(SysEmbeddings child + wait)"]
+    S5 --> S6["classified\n(type + fields → CinContext)"]
     S5 -.->|additive| G["graph extract\n(small model)"]
 ```
 
 1. **stored** — the source `SysFile` already holds the bytes; the pipeline
    re-reads them from OpenArch so a retry needs nothing cached in Studio.
-2. **extracted** — `PUT {tika}/tika` with the original MIME type. Tika runs
-   Tesseract for scanned images. Timeout is **300 s** because OCR of large
-   multi-page scans is slow.
-3. **chunked** — `chunk_text()` splits on blank lines, then hard-wraps
-   paragraphs at 1000 chars; chunk ids are deterministic (`uuid5`) so the same
-   text always yields the same ids.
+2. **extracted** — [`extraction.py`](../api/app/extraction.py) defines an
+   `Extractor` seam returning Markdown, one string per page, and the engine
+   name. `DoclingExtractor` posts the original bytes to docling-serve
+   (`POST /v1/convert/file`, Markdown output, OCR on) with a page-break
+   placeholder so pages can be recovered. `TikaExtractor` is the older
+   `PUT {tika}/tika` path and returns a single page. `FallbackExtractor` tries
+   Docling and, on `ExtractionFailed` (HTTP error, `failure`/`skipped` status,
+   empty text), falls back to Tika. `STUDIO_EXTRACTOR=tika` skips Docling.
+   The Activity stage detail reads `Docling · n chars`, `Tika fallback · n chars`
+   or `Tika · n chars`. The Docling timeout is `STUDIO_DOCLING_TIMEOUT_SECONDS`
+   (default **300 s**); OCR of large multi-page scans is slow.
+3. **chunked** — `chunk_pages()` works page by page: each page is split on
+   headings and blank lines, so a paragraph, list or table is one block. A table
+   stays whole when it fits, otherwise it is split on row boundaries; other blocks are
+   hard-wrapped at 1000 chars. The nearest
+   preceding heading is prefixed to each chunk for context. Chunk ids are
+   deterministic (`uuid5`) so the same text always yields the same ids, and the
+   real page number is stored in the SysEmbeddings `location.text.page`.
 4. **embedded** — one batched call to `/v1/embeddings`; each vector normalized
    to 1024.
 5. **indexed** — write the Parquet, `ensure_has_embeddings_mixin`, upload the
    blob, create the `SysEmbeddings` child, then
-   `waitForFullTextSearchIndexing`.
+   `waitForFullTextSearchIndexing`. Re-enriching a document replaces its
+   embeddings: once the new child exists, older `SysEmbeddings` children of the
+   same parent are deleted (a failed delete is logged and the job still
+   completes).
+
+6. **classified** — [`fields.py`](../api/app/fields.py) makes one JSON-mode call
+   to `STUDIO_EXTRACT_MODEL` (default `llama3.2:3b`) over the first 6,000
+   characters of the Markdown and returns `{type, fields}`.
+   - **Vocabulary.** Before the call, `FieldsService.vocabulary` runs an HXQL
+     query **as the caller** over the 200 most recently modified documents with
+     the `CinContext` mixin and builds `{type: [field names]}`, so the model
+     can reuse existing types and names. Only names are read, never values, and
+     only from documents the caller can read. Names are sanitized before they
+     reach the prompt: only names already in normalized form, at most 25 per
+     type and 50 types.
+   - **Normalization.** Type and field names become ASCII `snake_case` (≤ 64
+     chars); at most 25 fields; strings are cut at 500 chars; dates in
+     `%Y-%m-%d`, `%d.%m.%Y`, `%m/%d/%Y` or `%Y/%m/%d` become ISO 8601. A field
+     named `document_type` is ignored (the classification wins).
+   - **Typing is by field name, not value.** OpenSearch maps each
+     `cinctx_contextProperties` key from the first value it sees, so a key must
+     always have the same JSON type. A name matching
+     `(^|_)(total|subtotal|amount|tax|vat|price|cost|quantity|qty|balance|discount|fee|charge|sum)(_|$)`
+     is numeric unless its last `_` segment is one of id, number, no, nr, num,
+     code, rate, percent, pct, percentage, date, currency, type, name, period,
+     method, center, centre, terms, status, ref, reference (so `vat_id`,
+     `tax_rate`, `total_currency` stay text). Numeric values are always stored as
+     decimals (floats, never longs): native numbers are converted, strings are
+     coerced as money, and anything that is not a finite number is dropped
+     (including `"1.234"`, which is ambiguous between English and German,
+     bools, lists and absolute values ≥ 1e15). Every other name is always a
+     string: native numbers
+     become decimal strings, bools `"true"`/`"false"`, and numeric-looking
+     strings (`"10115"`, `"00501"`) stay as written. Range queries only work
+     on numeric names. An OpenArch index that already saw a field with a
+     different type needs that document re-enriched (or a fresh index), because
+     OpenSearch can't change a field's type in place.
+   - **Storage.** `store` adds the `CinContext` mixin and writes
+     `cinctx_contextProperties` = `{…fields, "document_type": …}` (a flat map,
+     replaced on each run) and `cinctx_contextPropertyNames` (its keys).
+     `document_type` is written last so it always wins.
+     Written as the signed-in user.
+   - **HXQL findings** (verified live): REST accepts the free-form map, and
+     HXQL filters on its keys with the dot or slash path form, e.g.
+     `SELECT * FROM SysContent WHERE cinctx_contextProperties.total > 1000`.
+     The `:` path form does not work. String equality on keys and
+     `cinctx_contextPropertyNames = 'total'` also work.
+   - **Failure behavior.** A failure (`no write permission on this document`,
+     `model returned invalid JSON`, a model/HTTP error) marks only the
+     `classified` stage `failed`; the job stays `complete` and the document
+     stays searchable. Activity offers Retry when any stage failed. The stage
+     detail reads `{type} · {n} fields`. Baseline mode hides the Extracted
+     fields panel and the Library type chips.
 
 After indexing succeeds, graph extraction runs **additively** (a failure there
 never fails the enrichment job).
 
 ### Concurrency
 
-OCR (Tika) and embedding (Ollama, CPU) are the bottlenecks. A batch upload of
+OCR (Docling/Tika) and embedding (Ollama, CPU) are the bottlenecks. A batch upload of
 many files would otherwise flood them and produce read timeouts, so the service
 holds an `asyncio.Semaphore(enrich_concurrency)` (default **2**) around the whole
 per-document pipeline.
@@ -186,6 +259,33 @@ naming which layer did what and how long it took.
 `embeddingType` is passed as a wildcard (`<type>*`) so a query matches whatever
 embedding model variant produced the stored vectors.
 
+### Reranking
+
+[`rerank.py`](../api/app/rerank.py) reorders candidates with a cross-encoder served by
+Hugging Face text-embeddings-inference (`POST {STUDIO_RERANKER_URL}/rerank`).
+Semantic search, keyword search and chat retrieval use it; HXQL does not.
+
+- **Candidates.** Semantic search asks OpenArch's ACL-filtered kNN for
+  `max(top_k, min(top_k * 2, 12))` hits, reranks them, and keeps `top_k`. Ask uses
+  the same count only when a reranker is configured; otherwise it uses `top_k`.
+  Keyword search fetches 50 chunk hits, keeps those containing the query terms,
+  and reranks the first `max(limit, 12)` of them. Reranking only reorders what the
+  caller was already permitted to read.
+- **Truncation.** Each text is cut to 512 characters before it is sent.
+- **Fallback.** `STUDIO_RERANKER_URL` empty, a 5 s timeout, a non-2xx response, an
+  unreachable service, or a malformed response keeps vector order. The search
+  provenance and the chat `TOOL_CALL_END` event carry `rerank: reranked` or
+  `rerank: skipped (not configured | timeout | HTTP <code> | unreachable | incomplete response)`,
+  and the UI shows it.
+- **Scores.** Results and citations carry `score` (the rerank score when reranked)
+  and `vectorScore` (OpenArch's kNN score); the UI shows both on citations.
+- **Why `bge-reranker-base`, and why 12 candidates.** The first choice,
+  `BAAI/bge-reranker-v2-m3`, was OOM-killed at TEI's default batch size and took
+  56 s for 30 candidates on Docker CPU. `BAAI/bge-reranker-base` with
+  `--max-batch-tokens 4096` and the smaller candidate set are chosen to stay within
+  the 5 s timeout on Docker CPU (from a local benchmark). Larger models are a `STUDIO_RERANK_MODEL` change if you have the
+  hardware.
+
 ---
 
 ## 6. RAG agent and streaming chat
@@ -202,6 +302,7 @@ sequenceDiagram
     participant M as Model
     U->>A: question
     A->>O: semantic_search (as user) → evidence
+    A->>A: rerank candidates (optional, falls back to vector order)
     A->>O: verify: re-GET each cited doc
     O-->>A: drop any now-forbidden doc
     A->>M: system + context + history + question (stream)
@@ -220,6 +321,11 @@ Security properties baked in:
 - **No fabricated citations.** Studio only emits citations drawn from the
   evidence it actually retrieved; with no evidence it returns a fixed
   "not enough information" answer instead of hallucinating.
+- **Page-aware citations.** Each chunk's page comes from the stored
+  `location.text.page`, so chat, keyword/semantic search and A2UI sources all
+  carry a `page`. Clicking a citation opens `/documents/{id}?page=N`; PDFs open
+  at `#page=N` in the browser's native viewer. Sources from the Tika path have
+  a single page.
 
 ---
 
@@ -248,8 +354,8 @@ scoped graph showed only that document's entities.
 ## 8. Knowledge graph
 
 [`graph.py`](../api/app/graph.py) extracts a typed entity/relation graph from
-each enriched document using a **small, fast model** (`llama3.2:1b` by default,
-separate from the chat model so structured extraction doesn't block chat).
+each enriched document using the **extract model** (`STUDIO_EXTRACT_MODEL`,
+`llama3.2:3b` by default).
 
 - **Ontology:** `Person, Organization, Location, Policy, Concept, Role, Date`.
   The extractor is constrained to these types and ≤20 entities per doc.
@@ -288,15 +394,15 @@ from search 3 → 0, and left 0 references in the graph.
 
 [`capabilities.py`](../api/app/capabilities.py) serves a strict ledger the UI
 renders, and a test proves native capabilities are never attributed to
-Studio/Tika/Ollama and extensions never claim native status.
+Studio/Docling/Tika/Ollama and extensions never claim native status.
 
 - **Native (OpenArch):** storage, folders & hierarchy, deletion, metadata/content
   models, ACLs & effective permissions, HXQL queries, `SysEmbeddings` vector
   search, users/groups/vocabularies, permission-aware retrieval, OpenSearch
   indexing.
-- **Extensions (Studio / Studio+Tika / Studio+model):** visual workspace, OCR,
+- **Extensions (Studio / Studio + Docling (Tika fallback) / Studio+model):** visual workspace, OCR,
   inline viewer, text/metadata extraction, chunking & embedding, embeddings
-  inspection, guided search, RAG + streaming chat, graph extraction &
+  inspection, guided search, reranking, RAG + streaming chat, graph extraction &
   visualization, citations & retrieval trace, deletion reflected in Q&A & graph,
   the session gateway.
 
@@ -328,14 +434,36 @@ All settings are `STUDIO_`-prefixed env vars with Compose-friendly defaults
 | Setting | Default | Purpose |
 |---|---|---|
 | `STUDIO_OPENARCH_URL` | `http://openarch-app:8080` | system of record |
-| `STUDIO_TIKA_URL` | `http://tika:9998` | extraction / OCR |
+| `STUDIO_TIKA_URL` | `http://tika:9998` | fallback extraction / OCR |
+| `STUDIO_EXTRACTOR` | `docling` | `docling` (Tika fallback) or `tika` only |
+| `STUDIO_DOCLING_URL` | `http://docling:5001` | docling-serve |
+| `STUDIO_DOCLING_TIMEOUT_SECONDS` | `300` | per-document Docling timeout |
 | `STUDIO_MODEL_BASE_URL` | `http://ollama:11434/v1` | OpenAI-compatible models |
 | `STUDIO_EMBEDDING_MODEL` | `nomic-embed-text` | chunk + query embeddings |
-| `STUDIO_CHAT_MODEL` | `llama3.1` | RAG answers |
-| `STUDIO_GRAPH_MODEL` | `llama3.2:1b` | graph extraction |
+| `STUDIO_CHAT_MODEL` | `llama3.2:3b` | RAG answers (chat role) |
+| `STUDIO_EXTRACT_MODEL` | `llama3.2:3b` | graph, document classification + field extraction (extract role); `STUDIO_GRAPH_MODEL` is a deprecated alias, used only when this is unset |
+| `STUDIO_RERANK_MODEL` | `BAAI/bge-reranker-base` | cross-encoder the `reranker` service loads (rerank role) |
+| `STUDIO_RERANKER_URL` | `http://reranker:80` (Compose default; API default empty = off) | reranker endpoint; empty disables reranking |
+| `STUDIO_RERANKER_IMAGE` | `…text-embeddings-inference:cpu-arm64-1.9` | Compose-only; `…:cpu-1.9` on x86_64 |
 | `enrich_concurrency` | `2` | max concurrent enrichments |
 | `STUDIO_GRAPH_STORE_PATH` | `/data/graph.json` | persisted graph |
 | `session_ttl_seconds` | `3600` | in-memory session lifetime |
+
+### Model roles and warm-up
+
+Four roles, one setting each: **embed** (`STUDIO_EMBEDDING_MODEL`), **extract**
+(`STUDIO_EXTRACT_MODEL`: graph, classification, fields), **chat**
+(`STUDIO_CHAT_MODEL`) and **rerank** (`STUDIO_RERANK_MODEL`, set on the reranker
+container). The three LLM roles share `STUDIO_MODEL_BASE_URL`. Chat defaults to
+`llama3.2:3b` because `llama3.1` 8B was unusably slow on CPU
+(see [studio-issues/02](../studio-issues/02-default-chat-model-too-heavy.md)); it
+remains a valid `STUDIO_CHAT_MODEL` on GPU hosts.
+
+[`warmup.py`](../api/app/warmup.py) sends one 1-token request to the extract and
+chat models in a background task at startup, so the first graph build or answer
+isn't cold (see
+[studio-issues/01](../studio-issues/01-graph-auto-extraction-reliability.md)).
+Failures are logged and never block startup.
 
 ### Run
 
@@ -346,9 +474,11 @@ export OPENARCH_VERSION=1.0.0
 docker compose up -d --build
 # one-time model pulls:
 docker compose exec ollama ollama pull nomic-embed-text
-docker compose exec ollama ollama pull llama3.1
-docker compose exec ollama ollama pull llama3.2:1b
+docker compose exec ollama ollama pull llama3.2:3b
 ```
+
+On x86_64 hosts set `STUDIO_RERANKER_IMAGE=ghcr.io/huggingface/text-embeddings-inference:cpu-1.9`
+in `.env`. The reranker downloads its model on first start.
 
 Open `http://localhost:8900`, sign in with OpenArch credentials
 (`admin` / `password` on a default repo).
@@ -357,17 +487,17 @@ Open `http://localhost:8900`, sign in with OpenArch credentials
 
 ## 13. Testing
 
-- **API:** `cd api && .venv/bin/pytest -q` (60 passing) — covers the Parquet
+- **API:** `cd api && .venv/bin/pytest -q` (256 passing) — covers the Parquet
   schema/normalization, search modes, agent retrieve/verify, capability
   attribution invariants, graph parsing/merge/scope, and deletion.
-- **Web:** `cd web && npx vitest run` (13 passing) and `npx tsc -b --noEmit`.
+- **Web:** `cd web && npx vitest run` (28 passing) and `npx tsc -b --noEmit`.
 
 ---
 
 ## 14. Known limitations & upstream findings
 
-- **OCR language packs.** Tika's default Tesseract data covers Latin scripts
-  well; Greek/Czech/Polish scans need extra `tessdata` for best accuracy.
+- **OCR language coverage** has not been verified for non-Latin or less common scripts; test
+  representative scans before relying on them.
 - **Keyword search** depends on the embedding index rather than server-side
   `sys_fulltext` in this deployment (see §5).
 - **Build-from-source.** The public OpenArch image is gated, so the POC builds

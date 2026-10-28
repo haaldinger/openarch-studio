@@ -43,6 +43,12 @@ SUPPORTED_TYPES: dict[str, str] = {
 }
 
 
+def _document_type(doc: dict[str, Any]) -> str | None:
+    props = doc.get("cinctx_contextProperties")
+    value = props.get("document_type") if isinstance(props, dict) else None
+    return value if isinstance(value, str) and value else None
+
+
 def summarize(doc: dict[str, Any]) -> dict[str, Any]:
     """Compact a DocumentDTO for list views; the inspector uses the raw document."""
     return {
@@ -53,6 +59,7 @@ def summarize(doc: dict[str, Any]) -> dict[str, Any]:
         "isFolderish": bool(doc.get("sys_isFolderish")),
         "modified": doc.get("sys_modified"),
         "mixinTypes": doc.get("sys_mixinTypes", []),
+        "documentType": _document_type(doc),
         "parentId": doc.get("sys_parentId"),
     }
 

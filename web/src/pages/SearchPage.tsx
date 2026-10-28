@@ -35,6 +35,10 @@ const HXQL_SAMPLES: { label: string; query: string }[] = [
     label: "By exact title",
     query: "SELECT * FROM SysFile WHERE sys_title = '21Greek_GR01_InvoiceNo.tif'",
   },
+  {
+    label: "Extracted total over 1000",
+    query: "SELECT * FROM SysContent WHERE cinctx_contextProperties.total > 1000",
+  },
 ];
 
 export function SearchPage() {
@@ -141,7 +145,10 @@ export function SearchPage() {
                 <div className="result" key={`${r.id}-${i}`}>
                   <div className="result-head">
                     {r.id ? (
-                      <Link to={`/documents/${r.id}`} className="result-title">
+                      <Link
+                        to={`/documents/${r.id}${r.page ? `?page=${r.page}` : ""}`}
+                        className="result-title"
+                      >
                         {r.title ?? r.id}
                       </Link>
                     ) : (
@@ -174,6 +181,11 @@ export function SearchPage() {
               {response.provenance.embeddingType && (
                 <li>
                   Embedding type <code>{response.provenance.embeddingType}</code>
+                </li>
+              )}
+              {response.provenance.rerank && (
+                <li>
+                  Rerank <strong>{response.provenance.rerank}</strong>
                 </li>
               )}
               <li>{response.provenance.tookMs} ms</li>

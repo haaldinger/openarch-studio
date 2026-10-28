@@ -48,3 +48,10 @@ GET /api/graph
 ## Why it matters
 A silently-empty Graph tab reads as "the feature doesn't work" to anyone
 demoing or evaluating Studio, even though the pipeline and persistence are fine.
+
+## Resolution
+The API now warms the extract model (and chat model) in the background at startup,
+so the first extraction no longer hits a cold model; the on-view self-heal remains
+as the fallback. Graph extraction now uses `STUDIO_EXTRACT_MODEL` (the old
+`STUDIO_GRAPH_MODEL` is still accepted as an alias). The current default extract model is
+`llama3.2:3b` (`STUDIO_EXTRACT_MODEL`); the `llama3.2:1b` in the Summary is the model at the time of the bug.

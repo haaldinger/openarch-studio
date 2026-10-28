@@ -151,14 +151,17 @@ class OpenArchClient:
         response = await self._request("GET", f"/api/download/{doc_id}/{xpath}")
         return response.content, response.headers.get("content-type", "application/octet-stream")
 
-    async def ensure_has_embeddings_mixin(self, doc_id: str) -> None:
-        """Add the SysHasEmbeddings mixin a parent needs before it can hold a SysEmbeddings child."""
+    async def ensure_mixin(self, doc_id: str, mixin: str) -> None:
         doc = await self.get_document(doc_id)
         mixins = list(doc.get("sys_mixinTypes") or [])
-        if "SysHasEmbeddings" in mixins:
+        if mixin in mixins:
             return
-        mixins.append("SysHasEmbeddings")
+        mixins.append(mixin)
         await self.update_document(doc_id, {"sys_mixinTypes": mixins})
+
+    async def ensure_has_embeddings_mixin(self, doc_id: str) -> None:
+        """Add the SysHasEmbeddings mixin a parent needs before it can hold a SysEmbeddings child."""
+        await self.ensure_mixin(doc_id, "SysHasEmbeddings")
 
     async def wait_for_indexing(self, timeout: int = 5) -> bool:
         try:
@@ -184,6 +187,13 @@ class OpenArchClient:
         if scope:
             safe = re.sub(r"[^A-Za-z0-9-]", "", scope)
             query += f" AND sys_ancestorIds = '{safe}'"
+        result = await self.query({"query": query, "limit": limit})
+        return [d["sys_id"] for d in result.get("documents", []) if d.get("sys_id")]
+
+    async def list_embedding_child_ids(self, doc_id: str, *, limit: int = 100) -> list[str]:
+        """Ids of the SysEmbeddings children under a document."""
+        safe = re.sub(r"[^A-Za-z0-9-]", "", doc_id)
+        query = f"SELECT * FROM SysEmbeddings WHERE sys_parentId = '{safe}'"
         result = await self.query({"query": query, "limit": limit})
         return [d["sys_id"] for d in result.get("documents", []) if d.get("sys_id")]
 

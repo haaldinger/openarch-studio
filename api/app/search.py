@@ -11,6 +11,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 
+from .agent import MAX_RERANK_CANDIDATES, candidate_count, hit_page
 from .auth import get_openarch_client
 from .enrichment import EnrichmentService
 from .library import summarize
@@ -19,6 +20,7 @@ from .openarch import (
     OpenArchForbidden,
     OpenArchUnavailable,
 )
+from .rerank import Reranker
 
 router = APIRouter(prefix="/api")
 
@@ -38,11 +40,37 @@ def get_enrichment(request: Request) -> EnrichmentService:
     return request.app.state.enrichment
 
 
+def get_reranker(request: Request) -> Reranker:
+    return request.app.state.reranker
+
+
+def _result(hit: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": hit.get("sysembed_docId"),
+        "title": None,
+        "snippet": hit.get("sysembed_text"),
+        "score": hit.get("sysembed_score"),
+        "vectorScore": hit.get("sysembed_score"),
+        "page": hit_page(hit),
+    }
+
+
+async def _rerank(
+    reranker: Reranker, query: str, results: list[dict[str, Any]], limit: int
+) -> tuple[list[dict[str, Any]], str]:
+    outcome = await reranker.rerank(query, [r["snippet"] or "" for r in results])
+    if outcome.status != "reranked":
+        return results[:limit], outcome.status
+    ordered = [{**results[i], "score": outcome.scores[i]} for i in outcome.order]
+    return ordered[:limit], outcome.status
+
+
 @router.post("/search")
 async def search(
     body: SearchRequest,
     client: OpenArchClient = Depends(get_openarch_client),
     service: EnrichmentService = Depends(get_enrichment),
+    reranker: Reranker = Depends(get_reranker),
 ) -> dict[str, Any]:
     if not body.query.strip():
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Query is required")
@@ -59,18 +87,17 @@ async def search(
                 vector, embedding_type=embedding_type, scope=body.scope, limit=50
             )
             terms = [t.lower() for t in body.query.split() if t]
-            results = [
-                {
-                    "id": hit.get("sysembed_docId"),
-                    "title": None,
-                    "snippet": hit.get("sysembed_text"),
-                    "score": hit.get("sysembed_score"),
-                }
+            matched = [
+                _result(hit)
                 for hit in result.get("embeddings", [])
                 if any(t in (hit.get("sysembed_text") or "").lower() for t in terms)
-            ][: body.limit]
+            ]
+            results, rerank_status = await _rerank(
+                reranker, body.query, matched[: max(body.limit, MAX_RERANK_CANDIDATES)], body.limit
+            )
             provenance = {"providedBy": "OpenArch chunk index", "extendedBy": "Studio full-text filter",
-                          "requestPath": "/api/query/embeddings", "embeddingType": embedding_type}
+                          "requestPath": "/api/query/embeddings", "embeddingType": embedding_type,
+                          "rerank": rerank_status}
 
         elif body.mode == "hxql":
             result = await client.query({"query": body.query, "limit": body.limit})
@@ -79,25 +106,26 @@ async def search(
                 for s in (summarize(d) for d in result.get("documents", []))
             ]
             provenance = {"providedBy": "OpenArch", "extendedBy": None,
-                          "requestPath": "/api/query", "embeddingType": None}
+                          "requestPath": "/api/query", "embeddingType": None, "rerank": None}
 
         elif body.mode == "semantic":
             vector = await service.embed_query(body.query)
             embedding_type = f"{service.embedding_type()}*"
             result = await client.semantic_search(
-                vector, embedding_type=embedding_type, scope=body.scope, limit=body.limit
+                vector,
+                embedding_type=embedding_type,
+                scope=body.scope,
+                limit=candidate_count(body.limit),
             )
-            results = [
-                {
-                    "id": hit.get("sysembed_docId"),
-                    "title": None,
-                    "snippet": hit.get("sysembed_text"),
-                    "score": hit.get("sysembed_score"),
-                }
-                for hit in result.get("embeddings", [])
-            ]
+            results, rerank_status = await _rerank(
+                reranker,
+                body.query,
+                [_result(hit) for hit in result.get("embeddings", [])],
+                body.limit,
+            )
             provenance = {"providedBy": "OpenArch vector search", "extendedBy": "Studio embedding",
-                          "requestPath": "/api/query/embeddings", "embeddingType": embedding_type}
+                          "requestPath": "/api/query/embeddings", "embeddingType": embedding_type,
+                          "rerank": rerank_status}
         else:
             raise HTTPException(status_code=400, detail=f"Unknown search mode: {body.mode}")
     except OpenArchForbidden:

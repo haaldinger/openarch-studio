@@ -38,7 +38,7 @@ class ChatRequest(BaseModel):
 
 def get_agent(request: Request) -> AgentService:
     enrichment: EnrichmentService = request.app.state.enrichment
-    return AgentService(request.app.state.settings, enrichment)
+    return AgentService(request.app.state.settings, enrichment, request.app.state.reranker)
 
 
 def get_settings_dep(request: Request) -> Settings:
@@ -67,7 +67,9 @@ async def chat(
         )
         titles: dict[str, str] = {}
         try:
-            found = await agent.retrieve(body.question, credentials, scope=body.scope)
+            found, rerank_status = await agent.retrieve(
+                body.question, credentials, scope=body.scope
+            )
             evidence = await agent.verify(found, credentials, titles)
         except Exception as exc:  # noqa: BLE001 - surfaced to the client as a run error
             yield agui.event(agui.RUN_ERROR, {"runId": run_id, "message": str(exc)})
@@ -76,7 +78,11 @@ async def chat(
             agui.TOOL_CALL_END,
             {
                 "toolCallId": tool_call_id,
-                "result": {"retrieved": len(found), "readable": len(evidence)},
+                "result": {
+                    "retrieved": len(found),
+                    "readable": len(evidence),
+                    "rerank": rerank_status,
+                },
             },
         )
 
@@ -102,6 +108,8 @@ async def chat(
                 "chunkId": e.chunk_id,
                 "snippet": e.text,
                 "score": e.score,
+                "vectorScore": e.vector_score,
+                "page": e.page,
                 "title": titles.get(e.doc_id, e.doc_id),
             }
             for e in evidence

@@ -10,7 +10,7 @@ from the evidence it actually retrieved.
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import AsyncIterator
 
 import httpx
@@ -19,6 +19,14 @@ from .config import Settings
 from .enrichment import EnrichmentService
 from .models import Credentials
 from .openarch import OpenArchClient, OpenArchForbidden, OpenArchNotFound
+from .rerank import Reranker
+
+MAX_RERANK_CANDIDATES = 12
+
+
+def candidate_count(limit: int) -> int:
+    """How many hits to fetch so the reranker has room to reorder `limit` results."""
+    return max(limit, min(limit * 2, MAX_RERANK_CANDIDATES))
 
 INSUFFICIENT = (
     "I don't have enough information in the indexed content to answer that."
@@ -38,32 +46,55 @@ class Evidence:
     chunk_id: str
     text: str
     score: float | None
+    page: int = 1
+    vector_score: float | None = None
+
+
+def hit_page(hit: dict) -> int:
+    """Page of an embedding hit; documents enriched before page tracking have none."""
+    page = ((hit.get("sysembed_location") or {}).get("text") or {}).get("page")
+    return page if isinstance(page, int) and page > 0 else 1
 
 
 class AgentService:
-    def __init__(self, settings: Settings, enrichment: EnrichmentService) -> None:
+    def __init__(
+        self,
+        settings: Settings,
+        enrichment: EnrichmentService,
+        reranker: Reranker | None = None,
+    ) -> None:
         self._settings = settings
         self._enrichment = enrichment
+        self._reranker = reranker
 
     async def retrieve(
         self, question: str, credentials: Credentials, *, top_k: int = 6, scope: str | None = None
-    ) -> list[Evidence]:
+    ) -> tuple[list[Evidence], str]:
         client = OpenArchClient(self._settings.openarch_url, credentials)
         vector = await self._enrichment.embed_query(question)
         embedding_type = f"{self._enrichment.embedding_type()}*"
+        fetch = candidate_count(top_k) if self._reranker else top_k
         result = await client.semantic_search(
-            vector, embedding_type=embedding_type, scope=scope, limit=top_k
+            vector, embedding_type=embedding_type, scope=scope, limit=fetch
         )
-        return [
+        evidence = [
             Evidence(
                 doc_id=hit.get("sysembed_docId"),
                 chunk_id=hit.get("sysembed_id") or hit.get("sysembed_docId"),
                 text=hit.get("sysembed_text") or "",
                 score=hit.get("sysembed_score"),
+                page=hit_page(hit),
+                vector_score=hit.get("sysembed_score"),
             )
             for hit in result.get("embeddings", [])
             if hit.get("sysembed_docId")
         ]
+        if self._reranker is None:
+            return evidence[:top_k], "skipped (not configured)"
+        outcome = await self._reranker.rerank(question, [e.text for e in evidence])
+        if outcome.status == "reranked":
+            evidence = [replace(evidence[i], score=outcome.scores[i]) for i in outcome.order]
+        return evidence[:top_k], outcome.status
 
     async def verify(
         self,

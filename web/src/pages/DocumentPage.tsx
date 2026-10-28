@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams, Link } from "react-router-dom";
 import { FileText, Search, FolderInput } from "lucide-react";
 import { PageIntro } from "../components/PageIntro";
 import { Modal } from "../components/Modal";
@@ -32,16 +32,18 @@ const SYS_LABEL: Record<string, string> = {
   sys_creator: "Creator",
 };
 
-export function DocumentPage() {
+export function DocumentPage({ baselineMode = false }: { baselineMode?: boolean }) {
   const { docId } = useParams<{ docId: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const page = Number(searchParams.get("page")) || undefined;
   const [doc, setDoc] = useState<DocumentDetail | null>(null);
   const [acl, setAcl] = useState<unknown>(null);
   const [embeddings, setEmbeddings] = useState<EmbeddingChunk[] | null>(null);
   const [embRaw, setEmbRaw] = useState<Record<string, unknown>[] | null>(null);
   const [embView, setEmbView] = useState<"chunks" | "raw">("chunks");
   const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useState<Tab>("metadata");
+  const [tab, setTab] = useState<Tab>(page ? "content" : "metadata");
   const [finderItems, setFinderItems] = useState<{ id: string; title: string | null }[]>([]);
   const [finderQuery, setFinderQuery] = useState("");
   const [folders, setFolders] = useState<{ id: string; title: string | null }[]>([]);
@@ -63,6 +65,10 @@ export function DocumentPage() {
         ),
       );
   }, [docId]);
+
+  useEffect(() => {
+    if (page) setTab("content");
+  }, [docId, page]);
 
   useEffect(() => {
     if (tab === "permissions" && docId && acl === null) {
@@ -231,6 +237,10 @@ export function DocumentPage() {
               )}
             </span>
           </div>
+          <ExtractedFields
+            properties={doc.cinctx_contextProperties as Record<string, unknown> | undefined}
+            baselineMode={baselineMode}
+          />
         </div>
       )}
 
@@ -248,7 +258,11 @@ export function DocumentPage() {
           <p className="panel-attr">
             Binary streamed from <span className="tag native">OpenArch</span>.
           </p>
-          <DocumentViewer docId={docId} mime={(doc?.sysfile_blob as { mimeType?: string })?.mimeType} />
+          <DocumentViewer
+            docId={docId}
+            mime={(doc?.sysfile_blob as { mimeType?: string })?.mimeType}
+            page={page}
+          />
         </div>
       )}
 
@@ -380,6 +394,32 @@ export function DocumentPage() {
   );
 }
 
+function ExtractedFields({
+  properties,
+  baselineMode,
+}: {
+  properties?: Record<string, unknown>;
+  baselineMode: boolean;
+}) {
+  const type = properties?.document_type;
+  if (baselineMode || !properties || !type) return null;
+  const fields = Object.entries(properties).filter(([key]) => key !== "document_type");
+  return (
+    <section className="extracted" aria-label="Extracted fields">
+      <div className="extracted-head">
+        <span className="chip chip-type">{String(type)}</span>
+        <span className="panel-attr">AI-extracted · Studio + model</span>
+      </div>
+      {fields.map(([key, value]) => (
+        <div className="kv-row" key={key}>
+          <span className="kv-key">{key}</span>
+          <span className="kv-val">{formatValue(value)}</span>
+        </div>
+      ))}
+    </section>
+  );
+}
+
 function formatValue(value: unknown): string {
   if (value && typeof value === "object") {
     const v = value as Record<string, unknown>;
@@ -406,7 +446,7 @@ function VectorBars({ values }: { values: number[] }) {
 }
 
 /** Inline viewer: images render directly (TIFF converted server-side), PDFs in a frame. */
-function DocumentViewer({ docId, mime }: { docId: string; mime?: string }) {
+function DocumentViewer({ docId, mime, page }: { docId: string; mime?: string; page?: number }) {
   const [failed, setFailed] = useState(false);
 
   if (mime?.startsWith("image/") && !failed) {
@@ -420,7 +460,8 @@ function DocumentViewer({ docId, mime }: { docId: string; mime?: string }) {
     );
   }
   if (mime === "application/pdf") {
-    return <iframe className="doc-frame" src={contentUrl(docId)} title="Document preview" />;
+    const src = page ? `${contentUrl(docId)}#page=${page}` : contentUrl(docId);
+    return <iframe className="doc-frame" src={src} title="Document preview" />;
   }
   return (
     <a className="btn-primary btn-inline" href={contentUrl(docId)} target="_blank" rel="noreferrer">

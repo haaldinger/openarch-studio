@@ -15,6 +15,7 @@ export interface DocumentSummary {
   isFolderish: boolean;
   modified: string | null;
   mixinTypes: string[];
+  documentType?: string | null;
   parentId: string | null;
 }
 
@@ -69,6 +70,8 @@ export interface SearchResult {
   title: string | null;
   snippet: string | null;
   score: number | null;
+  vectorScore?: number | null;
+  page?: number;
 }
 
 export interface SearchProvenance {
@@ -77,6 +80,7 @@ export interface SearchProvenance {
   requestPath: string;
   embeddingType: string | null;
   tookMs: number;
+  rerank?: string | null;
 }
 
 export interface SearchResponse {
@@ -90,6 +94,8 @@ export interface Citation {
   chunkId: string;
   snippet: string;
   score: number | null;
+  vectorScore?: number | null;
+  page: number;
 }
 
 export interface ChatMessage {

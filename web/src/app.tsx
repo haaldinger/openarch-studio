@@ -78,7 +78,7 @@ export function App() {
       >
         <Routes>
           <Route path="/" element={<Navigate to="/library" replace />} />
-          <Route path="/library" element={<LibraryPage />} />
+          <Route path="/library" element={<LibraryPage baselineMode={baselineMode} />} />
           <Route
             path="/search"
             element={baselineMode ? <Navigate to="/library" replace /> : <SearchPage />}
@@ -91,8 +91,8 @@ export function App() {
             path="/graph"
             element={baselineMode ? <Navigate to="/library" replace /> : <GraphPage />}
           />
-          <Route path="/documents" element={<DocumentPage />} />
-          <Route path="/documents/:docId" element={<DocumentPage />} />
+          <Route path="/documents" element={<DocumentPage baselineMode={baselineMode} />} />
+          <Route path="/documents/:docId" element={<DocumentPage baselineMode={baselineMode} />} />
           <Route
             path="/activity"
             element={baselineMode ? <Navigate to="/library" replace /> : <ActivityPage />}

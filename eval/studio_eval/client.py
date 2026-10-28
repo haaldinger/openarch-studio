@@ -13,6 +13,8 @@ import httpx
 
 ROOT_ID = "00000000-0000-0000-0000-000000000000"
 CHAT_READ_TIMEOUT_S = 300.0
+MISSING_JOB_POLLS = 3
+_RERUN_HINT = "Delete it from the Eval corpus folder and re-run."
 
 
 class StudioError(Exception):
@@ -39,6 +41,7 @@ class ChatResult:
 
 def parse_chat_stream(lines: Iterable[str]) -> ChatResult:
     result = ChatResult(answer="", citations=[])
+    finished = False
     for line in lines:
         if not line.startswith("data:"):
             continue
@@ -64,7 +67,12 @@ def parse_chat_stream(lines: Iterable[str]) -> ChatResult:
                     )
                 )
         elif kind == "RUN_ERROR":
+            finished = True
             result.error = event.get("message") or "run error"
+        elif kind == "RUN_FINISHED":
+            finished = True
+    if not finished:
+        result.error = "stream ended without RUN_FINISHED"
     return result
 
 
@@ -91,14 +99,16 @@ class StudioClient:
     def __exit__(self, *exc: object) -> None:
         self._http.close()
 
-    def _unreachable(self) -> StudioError:
-        return StudioError(f"cannot reach Studio at {self.base_url}")
+    def _transport_error(self, exc: httpx.TransportError) -> StudioError:
+        if isinstance(exc, (httpx.ConnectError, httpx.ConnectTimeout)):
+            return StudioError(f"cannot reach Studio at {self.base_url}")
+        return StudioError(f"Studio request failed: {type(exc).__name__}: {exc}")
 
     def _request(self, method: str, url: str, **kwargs: Any) -> httpx.Response:
         try:
             response = self._http.request(method, url, **kwargs)
-        except (httpx.ConnectError, httpx.ConnectTimeout):
-            raise self._unreachable() from None
+        except httpx.TransportError as exc:
+            raise self._transport_error(exc) from None
         if response.status_code == 401:
             raise StudioError("not signed in / sign-in expired")
         if response.status_code >= 400:
@@ -110,8 +120,8 @@ class StudioClient:
             response = self._http.post(
                 "/api/session", json={"username": self._user, "password": self._password}
             )
-        except (httpx.ConnectError, httpx.ConnectTimeout):
-            raise self._unreachable() from None
+        except httpx.TransportError as exc:
+            raise self._transport_error(exc) from None
         if response.status_code == 401:
             raise StudioError(f"sign-in failed for user {self._user}")
         if response.status_code >= 400:
@@ -119,14 +129,14 @@ class StudioClient:
 
     def _children(self, parent_id: str) -> list[dict[str, Any]]:
         response = self._request("GET", "/api/documents", params={"parentId": parent_id})
-        return response.json().get("documents", [])
+        return _json(response).get("documents", [])
 
     def ensure_folder(self, title: str) -> str:
         for doc in self._children(ROOT_ID):
             if doc.get("isFolderish") and doc.get("title") == title:
                 return doc["id"]
         response = self._request("POST", "/api/folders", json={"title": title})
-        return response.json()["sys_id"]
+        return _json(response)["sys_id"]
 
     def ensure_corpus(
         self,
@@ -135,10 +145,13 @@ class StudioClient:
         timeout_s: float = 900,
         poll_s: float = 5,
     ) -> dict[str, str]:
+        samples_dir = Path(samples_dir)
+        if not samples_dir.is_dir():
+            raise StudioError(f"samples directory not found: {samples_dir}")
         present = {d.get("name") or d.get("title"): d["id"] for d in self._children(folder_id)}
         corpus: dict[str, str] = {}
         pending: dict[str, str] = {}  # job id -> file name
-        for path in sorted(p for p in Path(samples_dir).iterdir() if p.is_file()):
+        for path in sorted(p for p in samples_dir.iterdir() if p.is_file()):
             if path.name in present:
                 corpus[path.name] = present[path.name]
                 continue
@@ -148,7 +161,7 @@ class StudioClient:
                 params={"parentId": folder_id},
                 files={"file": (path.name, path.read_bytes())},
             )
-            doc = response.json()
+            doc = _json(response)
             corpus[path.name] = doc["sys_id"]
             if doc.get("_studioJobId"):
                 pending[doc["_studioJobId"]] = path.name
@@ -159,21 +172,31 @@ class StudioClient:
         if not pending:
             return
         start = self._clock()
+        missing: dict[str, int] = {}
         while True:
-            jobs = {j["id"]: j for j in self._request("GET", "/api/jobs").json().get("jobs", [])}
+            jobs = {j["id"]: j for j in _json(self._request("GET", "/api/jobs")).get("jobs", [])}
             for job_id, name in list(pending.items()):
                 job = jobs.get(job_id)
                 if job is None:
+                    missing[job_id] = missing.get(job_id, 0) + 1
+                    if missing[job_id] >= MISSING_JOB_POLLS:
+                        raise StudioError(
+                            f"enrichment job for {name} disappeared — was studio-api restarted? "
+                            f"{_RERUN_HINT}"
+                        )
                     continue
+                missing.pop(job_id, None)
                 if job["state"] == "complete":
                     del pending[job_id]
                 elif job["state"] == "failed":
-                    raise StudioError(f"enrichment failed for {name}: {_failure(job)}")
+                    raise StudioError(f"enrichment failed for {name}: {_failure(job)}. {_RERUN_HINT}")
             if not pending:
                 return
             if self._clock() - start >= timeout_s:
                 names = ", ".join(sorted(pending.values()))
-                raise StudioError(f"enrichment timed out after {timeout_s:g}s; pending: {names}")
+                raise StudioError(
+                    f"enrichment timed out after {timeout_s:g}s; pending: {names}. {_RERUN_HINT}"
+                )
             self._sleep(poll_s)
 
     def ask(self, question: str, scope: str) -> ChatResult:
@@ -189,17 +212,24 @@ class StudioClient:
                 if response.status_code >= 400:
                     raise StudioError(f"POST /api/chat failed: HTTP {response.status_code}")
                 return parse_chat_stream(response.iter_lines())
-        except (httpx.ConnectError, httpx.ConnectTimeout):
-            raise self._unreachable() from None
+        except httpx.TransportError as exc:
+            raise self._transport_error(exc) from None
 
     def extracted_text(self, doc_id: str) -> dict[int, str]:
         response = self._request("GET", f"/api/documents/{doc_id}/embeddings", params={"raw": "true"})
         pages: dict[int, list[str]] = {}
-        for hit in response.json().get("raw", []):
+        for hit in _json(response).get("raw", []):
             page = ((hit.get("sysembed_location") or {}).get("text") or {}).get("page")
             page = page if isinstance(page, int) and page > 0 else 1
             pages.setdefault(page, []).append(hit.get("sysembed_text") or "")
         return {p: "\n\n".join(texts) for p, texts in sorted(pages.items())}
+
+
+def _json(response: httpx.Response) -> Any:
+    try:
+        return response.json()
+    except ValueError:
+        raise StudioError(f"unexpected response from {response.request.url.path}") from None
 
 
 def _failure(job: dict[str, Any]) -> str:

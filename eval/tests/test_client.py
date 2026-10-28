@@ -68,6 +68,23 @@ def test_parse_chat_stream_ignores_noise():
     assert parse_chat_stream(lines).answer == "hi"
 
 
+def test_parse_chat_stream_empty_stream_is_error():
+    got = parse_chat_stream([])
+    assert got.error == "stream ended without RUN_FINISHED"
+    assert got.answer == "" and got.citations == []
+
+
+def test_parse_chat_stream_truncated_keeps_partial():
+    lines = stream(
+        sse("TEXT_MESSAGE_CONTENT", delta="partial"),
+        sse("STATE_SNAPSHOT", snapshot={"citations": [{"docId": "d1", "snippet": "s"}]}),
+    )
+    got = parse_chat_stream(lines)
+    assert got.error == "stream ended without RUN_FINISHED"
+    assert got.answer == "partial"
+    assert [c.doc_id for c in got.citations] == ["d1"]
+
+
 @pytest.fixture
 def client():
     with StudioClient(BASE, "alice", "pw") as c:
@@ -103,14 +120,57 @@ def test_ask_streams_and_sends_scope(client):
         stream(
             sse("TEXT_MESSAGE_CONTENT", delta="ok"),
             sse("STATE_SNAPSHOT", snapshot={"citations": []}),
+            sse("RUN_FINISHED", runId="r"),
         )
     )
     route = respx.post(f"{BASE}/api/chat").mock(
         return_value=httpx.Response(200, text=body, headers={"content-type": "text/event-stream"})
     )
     got = client.ask("Q?", "folder-1")
-    assert got.answer == "ok"
+    assert got.answer == "ok" and got.error is None
     assert json.loads(route.calls[0].request.content) == {"question": "Q?", "scope": "folder-1"}
+
+
+@respx.mock
+def test_ask_read_timeout(client):
+    respx.post(f"{BASE}/api/chat").mock(side_effect=httpx.ReadTimeout("slow"))
+    with pytest.raises(StudioError, match="Studio request failed: ReadTimeout: slow"):
+        client.ask("Q?", "f")
+
+
+@respx.mock
+def test_ask_remote_protocol_error(client):
+    respx.post(f"{BASE}/api/chat").mock(side_effect=httpx.RemoteProtocolError("cut off"))
+    with pytest.raises(StudioError, match="Studio request failed: RemoteProtocolError: cut off"):
+        client.ask("Q?", "f")
+
+
+@respx.mock
+def test_ask_connect_error(client):
+    respx.post(f"{BASE}/api/chat").mock(side_effect=httpx.ConnectError("boom"))
+    with pytest.raises(StudioError, match="cannot reach Studio"):
+        client.ask("Q?", "f")
+
+
+@respx.mock
+def test_request_read_timeout(client):
+    respx.get(f"{BASE}/api/documents").mock(side_effect=httpx.ReadTimeout("slow"))
+    with pytest.raises(StudioError, match="Studio request failed: ReadTimeout"):
+        client.ensure_folder("x")
+
+
+@respx.mock
+def test_login_read_timeout(client):
+    respx.post(f"{BASE}/api/session").mock(side_effect=httpx.ReadTimeout("slow"))
+    with pytest.raises(StudioError, match="Studio request failed: ReadTimeout"):
+        client.login()
+
+
+@respx.mock
+def test_non_json_200_body(client):
+    respx.get(f"{BASE}/api/documents").mock(return_value=httpx.Response(200, text="<html>proxy</html>"))
+    with pytest.raises(StudioError, match="unexpected response from /api/documents"):
+        client.ensure_folder("x")
 
 
 @respx.mock
@@ -318,3 +378,63 @@ def test_ensure_corpus_classified_failure_is_not_fatal(samples):
     )
     with StudioClient(BASE, "u", "p") as c:
         assert c.ensure_corpus("F", samples)["b.tif"] == "id-b"
+
+
+def test_ensure_corpus_missing_samples_dir(tmp_path):
+    with StudioClient(BASE, "u", "p") as c:
+        with pytest.raises(StudioError, match="samples directory not found: .*nope"):
+            c.ensure_corpus("F", tmp_path / "nope")
+
+
+@respx.mock
+def test_ensure_corpus_job_disappears_after_three_polls(samples):
+    respx.get(f"{BASE}/api/documents").mock(return_value=folder_listing("a.tif", "c.tif"))
+    respx.post(f"{BASE}/api/documents").mock(
+        return_value=httpx.Response(201, json={"sys_id": "id-b", "_studioJobId": "jb"})
+    )
+    jobs_route = respx.get(f"{BASE}/api/jobs").mock(return_value=httpx.Response(200, json={"jobs": []}))
+    t = FakeTime()
+    with StudioClient(BASE, "u", "p", sleep=t.sleep, clock=t.clock) as c:
+        with pytest.raises(StudioError, match=r"job for b\.tif disappeared .*restarted") as exc:
+            c.ensure_corpus("F", samples, timeout_s=600, poll_s=5)
+    assert jobs_route.call_count == 3
+    assert "Eval corpus folder" in str(exc.value)
+
+
+@respx.mock
+def test_ensure_corpus_job_reappearing_resets_miss_count(samples):
+    respx.get(f"{BASE}/api/documents").mock(return_value=folder_listing("a.tif", "c.tif"))
+    respx.post(f"{BASE}/api/documents").mock(
+        return_value=httpx.Response(201, json={"sys_id": "id-b", "_studioJobId": "jb"})
+    )
+    polls = iter([
+        {"jobs": []}, {"jobs": []},
+        {"jobs": [job("jb", "id-b", "b.tif")]},
+        {"jobs": []}, {"jobs": []},
+        {"jobs": [job("jb", "id-b", "b.tif", "complete")]},
+    ])
+    respx.get(f"{BASE}/api/jobs").mock(side_effect=lambda r: httpx.Response(200, json=next(polls)))
+    t = FakeTime()
+    with StudioClient(BASE, "u", "p", sleep=t.sleep, clock=t.clock) as c:
+        assert c.ensure_corpus("F", samples, timeout_s=600, poll_s=5)["b.tif"] == "id-b"
+
+
+@respx.mock
+def test_ensure_corpus_failure_and_timeout_suggest_cleanup(samples):
+    respx.get(f"{BASE}/api/documents").mock(return_value=folder_listing("a.tif", "c.tif"))
+    respx.post(f"{BASE}/api/documents").mock(
+        return_value=httpx.Response(201, json={"sys_id": "id-b", "_studioJobId": "jb"})
+    )
+    state = {"v": "failed"}
+    respx.get(f"{BASE}/api/jobs").mock(
+        side_effect=lambda r: httpx.Response(
+            200, json={"jobs": [job("jb", "id-b", "b.tif", state["v"], error="boom")]}
+        )
+    )
+    t = FakeTime()
+    with StudioClient(BASE, "u", "p", sleep=t.sleep, clock=t.clock) as c:
+        with pytest.raises(StudioError, match="Delete it from the Eval corpus folder and re-run"):
+            c.ensure_corpus("F", samples)
+        state["v"] = "running"
+        with pytest.raises(StudioError, match=r"timed out.*[Dd]elete it from the Eval corpus folder and re-run"):
+            c.ensure_corpus("F", samples, timeout_s=10, poll_s=5)

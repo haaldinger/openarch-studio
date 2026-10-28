@@ -2,16 +2,20 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import BaseModel
 
+from .acl import RuleIn, to_sys_acl, validate_rules
 from .auth import Session, current_session, get_openarch_client
 from .demo import DemoUsers
 from .library import _translate
 from .openarch import (
     ROOT_DOCUMENT_ID,
     OpenArchClient,
+    OpenArchConflict,
     OpenArchError,
     OpenArchForbidden,
     OpenArchNotFound,
@@ -106,12 +110,8 @@ async def _effective(
     return effective
 
 
-@router.get("/documents/{doc_id}/access")
-async def get_access(
-    doc_id: str,
-    request: Request,
-    session: Session = Depends(current_session),
-    client: OpenArchClient = Depends(get_openarch_client),
+async def _access_view(
+    doc_id: str, request: Request, session: Session, client: OpenArchClient
 ) -> dict[str, Any]:
     demo: DemoUsers | None = getattr(request.app.state, "demo", None)
     try:
@@ -124,6 +124,42 @@ async def get_access(
     except OpenArchError as exc:
         raise _translate(exc) from exc
     return {"canManage": can_manage, "rules": rules, "effective": effective}
+
+
+@router.get("/documents/{doc_id}/access")
+async def get_access(
+    doc_id: str,
+    request: Request,
+    session: Session = Depends(current_session),
+    client: OpenArchClient = Depends(get_openarch_client),
+) -> dict[str, Any]:
+    return await _access_view(doc_id, request, session, client)
+
+
+class AccessIn(BaseModel):
+    rules: list[RuleIn]
+
+
+@router.put("/documents/{doc_id}/access")
+async def put_access(
+    doc_id: str,
+    body: AccessIn,
+    request: Request,
+    session: Session = Depends(current_session),
+    client: OpenArchClient = Depends(get_openarch_client),
+) -> dict[str, Any]:
+    validate_rules(body.rules, datetime.now(timezone.utc))
+    try:
+        await client.update_document(doc_id, {"sys_acl": to_sys_acl(body.rules)})
+    except OpenArchForbidden as exc:
+        raise HTTPException(
+            status_code=403, detail="You don't have permission to change access here"
+        ) from exc
+    except OpenArchConflict as exc:
+        raise HTTPException(status_code=409, detail="Access changed meanwhile; reloaded") from exc
+    except OpenArchError as exc:
+        raise _translate(exc) from exc
+    return await _access_view(doc_id, request, session, client)
 
 
 @router.get("/principals")

@@ -35,6 +35,10 @@ class OpenArchNotFound(OpenArchError):
     """Target does not exist, or is not visible to this caller (HTTP 404)."""
 
 
+class OpenArchConflict(OpenArchError):
+    """The document changed concurrently (HTTP 409)."""
+
+
 class OpenArchUnavailable(OpenArchError):
     """OpenArch could not be reached, or returned a server error."""
 
@@ -79,6 +83,8 @@ class OpenArchClient:
             raise OpenArchForbidden(path)
         if response.status_code == 404:
             raise OpenArchNotFound(path)
+        if response.status_code == 409:
+            raise OpenArchConflict(path)
         if response.status_code >= 500:
             raise OpenArchUnavailable(f"{path} -> HTTP {response.status_code}")
         return response

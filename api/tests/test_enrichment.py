@@ -66,7 +66,7 @@ async def test_happy_path_completes_all_stages() -> None:
     _mock_openarch_write()
 
     service = make_service()
-    job = service.store.create(DOC, "a.txt")
+    job = service.store.create(DOC, "a.txt", "admin")
     await service.run(job, creds(), content=b"ignored by tika mock", mime="text/plain")
 
     assert job.state == "complete"
@@ -90,7 +90,7 @@ def _model_reply(content: str) -> httpx.Response:
 
 async def _run_with_fields() -> Job:
     service = make_service(with_fields=True)
-    job = service.store.create(DOC, "a.txt")
+    job = service.store.create(DOC, "a.txt", "admin")
     await service.run(job, creds(), content=b"x", mime="text/plain")
     return job
 
@@ -155,7 +155,7 @@ async def test_without_fields_service_stage_is_skipped() -> None:
     _mock_pipeline_inputs()
 
     service = make_service()
-    job = service.store.create(DOC, "a.txt")
+    job = service.store.create(DOC, "a.txt", "admin")
     await service.run(job, creds(), content=b"x", mime="text/plain")
 
     assert job.state == "complete"
@@ -179,7 +179,7 @@ async def test_docling_pages_reach_parquet_locations() -> None:
     _mock_openarch_write()
 
     service = make_service(extractor="docling")
-    job = service.store.create(DOC, "a.pdf")
+    job = service.store.create(DOC, "a.pdf", "admin")
     await service.run(job, creds(), content=b"%PDF", mime="application/pdf")
 
     assert job.state == "complete"
@@ -200,7 +200,7 @@ async def test_extracted_stage_names_the_engine() -> None:
     _mock_openarch_write()
 
     service = make_service(extractor="docling")
-    job = service.store.create(DOC, "a.pdf")
+    job = service.store.create(DOC, "a.pdf", "admin")
     await service.run(job, creds(), content=b"%PDF", mime="application/pdf")
 
     assert job.stage("extracted").detail.startswith("Tika fallback")
@@ -215,7 +215,7 @@ async def test_tika_only_stage_detail_is_plain() -> None:
     _mock_openarch_write()
 
     service = make_service()
-    job = service.store.create(DOC, "a.txt")
+    job = service.store.create(DOC, "a.txt", "admin")
     await service.run(job, creds(), content=b"x", mime="text/plain")
 
     assert job.stage("extracted").detail == "Tika · 9 chars"
@@ -225,7 +225,7 @@ async def test_tika_only_stage_detail_is_plain() -> None:
 async def test_extraction_failure_fails_that_stage() -> None:
     respx.put(TIKA).mock(return_value=httpx.Response(500))
     service = make_service()
-    job = service.store.create(DOC, "a.txt")
+    job = service.store.create(DOC, "a.txt", "admin")
     await service.run(job, creds(), content=b"x", mime="application/pdf")
 
     assert job.state == "failed"
@@ -240,7 +240,7 @@ async def test_mime_mismatch_preserves_document() -> None:
     delete = respx.delete(f"{OA}/api/documents/{DOC}").mock(return_value=httpx.Response(204))
 
     service = make_service()
-    job = service.store.create(DOC, "a.pdf")
+    job = service.store.create(DOC, "a.pdf", "admin")
     await service.run(job, creds(), content=b"not really a pdf", mime="application/pdf")
 
     assert job.state == "failed"
@@ -256,7 +256,7 @@ async def test_embedding_count_mismatch_fails_before_write() -> None:
     upload = respx.post(f"{OA}/api/upload").mock(return_value=httpx.Response(201, json={"id": "x"}))
 
     service = make_service()
-    job = service.store.create(DOC, "a.txt")
+    job = service.store.create(DOC, "a.txt", "admin")
     await service.run(job, creds(), content=b"x", mime="text/plain")
 
     assert job.state == "failed"
@@ -275,7 +275,7 @@ async def test_retry_redownloads_source_from_openarch() -> None:
     _mock_openarch_write()
 
     service = make_service()
-    job = service.store.create(DOC, "a.txt")
+    job = service.store.create(DOC, "a.txt", "admin")
     await service.run(job, creds())  # no content -> triggers download
 
     assert job.state == "complete"
@@ -303,7 +303,7 @@ async def test_re_enrichment_deletes_older_embeddings_children_but_not_the_new_o
     query, delete = _mock_pipeline_with_children(["old1", "old2"])
 
     service = make_service()
-    job = service.store.create(DOC, "a.txt")
+    job = service.store.create(DOC, "a.txt", "admin")
     await service.run(job, creds(), content=b"x", mime="text/plain")
 
     assert job.state == "complete"
@@ -321,7 +321,7 @@ async def test_first_enrichment_deletes_nothing() -> None:
     _, delete = _mock_pipeline_with_children([])
 
     service = make_service()
-    job = service.store.create(DOC, "a.txt")
+    job = service.store.create(DOC, "a.txt", "admin")
     await service.run(job, creds(), content=b"x", mime="text/plain")
 
     assert job.state == "complete" and not delete.called
@@ -333,7 +333,7 @@ async def test_cleanup_failure_leaves_job_complete() -> None:
     delete.mock(side_effect=[httpx.Response(500), httpx.Response(204)])
 
     service = make_service()
-    job = service.store.create(DOC, "a.txt")
+    job = service.store.create(DOC, "a.txt", "admin")
     await service.run(job, creds(), content=b"x", mime="text/plain")
 
     assert job.state == "complete"
@@ -347,7 +347,7 @@ async def test_cleanup_query_failure_leaves_job_complete() -> None:
     query.mock(return_value=httpx.Response(500))
 
     service = make_service()
-    job = service.store.create(DOC, "a.txt")
+    job = service.store.create(DOC, "a.txt", "admin")
     await service.run(job, creds(), content=b"x", mime="text/plain")
 
     assert job.state == "complete" and not delete.called

@@ -273,7 +273,7 @@ async def upload_document(
     if getattr(request.app.state, "baseline_mode", False):
         return document
     service = request.app.state.enrichment
-    job = service.store.create(doc_id, filename)
+    job = service.store.create(doc_id, filename, credentials.username)
     background.add_task(service.run, job, credentials, content=content, mime=mime)
     document["_studioJobId"] = job.id
     return document

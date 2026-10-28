@@ -23,7 +23,8 @@ an OnBase document query). Nothing was created, changed or deleted.
 |---|---|---|
 | Authentication | Session hash: `GET /v1/connection` with username/password headers, `DELETE /v1/connection` to end it | OAuth 2 password grant at the IdentityService token endpoint; bearer token |
 | Walk content | Drawers (`/v1/drawer`), each listing contained folders and documents (`/v1/drawer/{id}`); document pages are the files (`/v1/document/{id}/page`, `/page/{pageId}/file`) | Document type groups and document types (`/document-type-groups`, `/document-types`); documents found through queries (`POST /documents/queries`, then `/results`) |
-| Metadata and change time | `/v7/document/{id}`: document type, drawer, index fields `field1`–`field5`, creation and modification user and time | Keyword types (`/keyword-types`, with a per-type `isSecurityMasked` flag); document keywords per document |
+| Metadata and change time | `/v7/document/{id}`: document type, drawer, index fields `field1`–`field5`, creation and modification user and time | Keyword types (`/keyword-types`, with a per-type `isSecurityMasked` flag); document keywords per document. `/documents/{id}` has only `documentDate` (business date) and `storedDate`; no modified time. The latest revision (`/documents/{id}/revisions/latest`) and its rendition's `created` time are the closest change signal |
+| File content | Page files (above), type from the file extension | `GET /documents/{id}/revisions/{revisionId}/renditions/default/content` returns the native file with its content type (a PDF in the sample). `/revisions/latest/file`, `/documents/{id}/content` and `/file` return 404 |
 | Users and groups | Users (`/v2/user`); departments (`/v1/department`); user groups per department (`/v1/userGroup?departmentId=`) with members (`/v1/userGroup/{id}`) | None found: `/users`, `/user-groups`, `/groups` return 404 |
 | Who can read a document | Not exposed. `/v2/drawer/{id}` reports only the signed-in account's own rights (`canSearchContent`, …). Document privilege/security/ACL paths return 404. `/v1/userGroup/{id}/privilege` exists but returned no privilege sets for any of ~60 groups checked | Not exposed. Document-type rights/privileges/user-groups/security paths and document-level equivalents return 404 |
 
@@ -64,6 +65,11 @@ an OnBase document query). Nothing was created, changed or deleted.
    when an administrator allows the `group` scope for the client the rag-service uses; until then only
    user-level (or everyone) mappings can match OnBase callers. Perceptive caller groups can be read from
    `/v1/userGroup` membership.
+10. **OnBase keyword-only edits are not picked up.** OnBase documents carry no modified time; the
+    connector uses the latest revision's creation time (falling back to `storedDate`). Changing a
+    document's keywords does not create a revision, so keyword edits reach the index only when the
+    document gets a new revision or is re-synced in full. The per-document audit log
+    (`/documents/{id}/history`) records such edits but is too costly to read for every document.
 
 ## Option set aside for now
 

@@ -1,10 +1,25 @@
-export interface SessionInfo {
+export interface PersonaInfo {
   username: string;
+  label: string;
+  groups: string[];
+}
+
+export interface Persona extends PersonaInfo {
+  available: boolean;
+}
+
+export interface SessionInfo {
+  /** The signed-in (origin) user. */
+  username: string;
+  /** Persona the admin is currently viewing as, or null. */
+  actingAs: PersonaInfo | null;
+  demoAdmin: boolean;
 }
 
 export interface AppConfig {
   /** When true, Studio extensions are disabled and only native OpenArch is shown. */
   baselineMode: boolean;
+  demoMode: boolean;
 }
 
 export interface DocumentSummary {

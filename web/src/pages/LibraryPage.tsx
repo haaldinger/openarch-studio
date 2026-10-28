@@ -5,6 +5,7 @@ import { DocumentRow } from "../components/DocumentRow";
 import { Modal } from "../components/Modal";
 import { ApiError, createFolder, deleteDocument, listDocuments, uploadDocument } from "../api";
 import { useScope } from "../scope";
+import { useSession } from "../session";
 import type { DocumentSummary } from "../types";
 
 const ROOT_ID = "00000000-0000-0000-0000-000000000000";
@@ -17,6 +18,7 @@ interface Crumb {
 
 export function LibraryPage({ baselineMode = false }: { baselineMode?: boolean }) {
   const { scope, setScope } = useScope();
+  const { generation } = useSession();
   const [path, setPath] = useState<Crumb[]>([{ id: ROOT_ID, name: "Library" }]);
   const [docs, setDocs] = useState<DocumentSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -37,13 +39,15 @@ export function LibraryPage({ baselineMode = false }: { baselineMode?: boolean }
 
   const refresh = useCallback(() => {
     setLoading(true);
+    setError(null);
     listDocuments(current.id)
       .then((list) => setDocs(list.documents))
       .catch((err) =>
         setError(err instanceof ApiError ? err.message : "Could not load the library."),
       )
       .finally(() => setLoading(false));
-  }, [current.id]);
+    // generation: reload when the acting identity changes.
+  }, [current.id, generation]);
 
   useEffect(refresh, [refresh]);
 

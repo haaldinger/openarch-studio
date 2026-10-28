@@ -1,4 +1,4 @@
-import { useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { PageIntro } from "../components/PageIntro";
 import { ScopeBanner } from "../components/ScopeBanner";
@@ -8,6 +8,7 @@ import { A2uiSurface } from "../components/a2ui/A2uiSurface";
 import type { A2uiMessage } from "../components/a2ui/types";
 import { streamChat } from "../api";
 import { useScope } from "../scope";
+import { useSession } from "../session";
 import type { Citation, ChatMessage } from "../types";
 
 interface Turn {
@@ -24,11 +25,18 @@ interface Turn {
 
 export function AskPage() {
   const { scope } = useScope();
+  const { generation } = useSession();
   const navigate = useNavigate();
   const [turns, setTurns] = useState<Turn[]>([]);
   const [question, setQuestion] = useState("");
   const [busy, setBusy] = useState(false);
   const historyRef = useRef<ChatMessage[]>([]);
+
+  // A conversation belongs to the identity that held it.
+  useEffect(() => {
+    setTurns([]);
+    historyRef.current = [];
+  }, [generation]);
 
   function patchLast(patch: Partial<Turn>) {
     setTurns((prev) => {

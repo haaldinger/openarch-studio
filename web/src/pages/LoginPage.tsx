@@ -1,8 +1,9 @@
 import { useState, type FormEvent } from "react";
 import { ApiError, login } from "../api";
+import type { SessionInfo } from "../types";
 
 interface LoginPageProps {
-  onAuthenticated: (username: string) => void;
+  onAuthenticated: (session: SessionInfo) => void;
 }
 
 /** First impression and the only unauthenticated screen. Validates against OpenArch. */
@@ -19,7 +20,7 @@ export function LoginPage({ onAuthenticated }: LoginPageProps) {
     setError(null);
     try {
       const session = await login(username.trim(), password);
-      onAuthenticated(session.username);
+      onAuthenticated(session);
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         setError("Invalid username or password.");

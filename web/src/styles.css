@@ -2010,3 +2010,87 @@ select.modal-input {
   font-weight: 650;
   letter-spacing: 0.01em;
 }
+
+/* ── ACL showcase: persona switcher, acting-as banner, demo menu ───────── */
+.persona-switch {
+  width: 100%;
+  padding: 8px 10px;
+  background: var(--studio-bg);
+  color: var(--studio);
+  border: 1px solid var(--studio);
+  border-radius: 10px;
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.persona-switch:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.demo-menu-items {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 4px;
+  padding-left: 10px;
+  border-left: 2px solid var(--line);
+}
+.acting-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--studio);
+  background: var(--studio-bg);
+  border-bottom: 1px solid var(--line);
+  padding: 8px 20px;
+}
+.persona-list {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  max-height: 320px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.persona-row {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 10px;
+  width: 100%;
+  padding: 8px 12px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.persona-row:hover:not(:disabled) {
+  border-color: var(--studio);
+}
+.persona-row.current {
+  border-color: var(--studio);
+  background: var(--studio-bg);
+}
+.persona-row:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.persona-name {
+  font-weight: 650;
+  color: var(--ink);
+}
+.persona-label {
+  color: var(--ink-soft);
+}
+.persona-groups {
+  grid-column: 2;
+  font-size: 0.75rem;
+  color: var(--ink-faint);
+}

@@ -2,9 +2,11 @@ import { useEffect, useState } from "react";
 import { PageIntro } from "../components/PageIntro";
 import { EnrichmentStatus } from "../components/EnrichmentStatus";
 import { listJobs, retryJob } from "../api";
+import { useSession } from "../session";
 import type { Job } from "../types";
 
 export function ActivityPage() {
+  const { generation } = useSession();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -20,7 +22,7 @@ export function ActivityPage() {
       active = false;
       clearInterval(timer);
     };
-  }, []);
+  }, [generation]);
 
   return (
     <>

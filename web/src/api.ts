@@ -8,6 +8,7 @@ import type {
   DocumentList,
   GraphData,
   Job,
+  Persona,
   SearchMode,
   SearchResponse,
   SessionInfo,
@@ -72,6 +73,26 @@ export async function getSession(): Promise<SessionInfo | null> {
     if (err instanceof ApiError && err.status === 401) return null;
     throw err;
   }
+}
+
+export function actAs(username: string): Promise<SessionInfo> {
+  return request<SessionInfo>("/api/session/act-as", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username }),
+  });
+}
+
+export function listPersonas(): Promise<Persona[]> {
+  return request<Persona[]>("/api/demo/personas");
+}
+
+export function setupDemo(): Promise<{ folders: Record<string, string>; jobs: string[] }> {
+  return request("/api/demo/setup", { method: "POST" });
+}
+
+export function resetDemo(): Promise<void> {
+  return request<void>("/api/demo", { method: "DELETE" });
 }
 
 /** Authenticated JSON fetch for feature endpoints; 401 surfaces as ApiError(401). */

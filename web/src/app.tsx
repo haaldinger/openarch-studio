@@ -12,26 +12,26 @@ import { CapabilityPage } from "./pages/CapabilityPage";
 import { HelpPage } from "./pages/HelpPage";
 import { getSession, getConfig, setConfig, logout } from "./api";
 import { ScopeProvider } from "./scope";
+import { SessionProvider } from "./session";
+import type { SessionInfo } from "./types";
 
 export function App() {
-  const [username, setUsername] = useState<string | null>(null);
+  const [session, setSession] = useState<SessionInfo | null>(null);
   const [baselineMode, setBaselineMode] = useState(false);
+  const [demoMode, setDemoMode] = useState(false);
   const [restoring, setRestoring] = useState(true);
   const navigate = useNavigate();
 
   // Restore an existing server session and read runtime flags on load.
   useEffect(() => {
     Promise.all([
-      getSession()
-        .then((session) => session?.username ?? null)
-        .catch(() => null),
-      getConfig()
-        .then((config) => config.baselineMode)
-        .catch(() => false),
+      getSession().catch(() => null),
+      getConfig().catch(() => null),
     ])
-      .then(([name, baseline]) => {
-        setUsername(name);
-        setBaselineMode(baseline);
+      .then(([restored, config]) => {
+        setSession(restored && normalise(restored));
+        setBaselineMode(config?.baselineMode ?? false);
+        setDemoMode(config?.demoMode ?? false);
       })
       .finally(() => setRestoring(false));
   }, []);
@@ -40,11 +40,11 @@ export function App() {
     return <div className="boot" role="status" aria-label="Loading" />;
   }
 
-  if (!username) {
+  if (!session) {
     return (
       <LoginPage
-        onAuthenticated={(name) => {
-          setUsername(name);
+        onAuthenticated={(info) => {
+          setSession(normalise(info));
           navigate("/library");
         }}
       />
@@ -55,7 +55,7 @@ export function App() {
     try {
       await logout();
     } finally {
-      setUsername(null);
+      setSession(null);
     }
   }
 
@@ -70,38 +70,48 @@ export function App() {
 
   return (
     <ScopeProvider>
-      <AppShell
-        username={username}
-        baselineMode={baselineMode}
-        onToggleBaseline={handleToggleBaseline}
-        onSignOut={handleSignOut}
-      >
-        <Routes>
-          <Route path="/" element={<Navigate to="/library" replace />} />
-          <Route path="/library" element={<LibraryPage baselineMode={baselineMode} />} />
-          <Route
-            path="/search"
-            element={baselineMode ? <Navigate to="/library" replace /> : <SearchPage />}
-          />
-          <Route
-            path="/ask"
-            element={baselineMode ? <Navigate to="/library" replace /> : <AskPage />}
-          />
-          <Route
-            path="/graph"
-            element={baselineMode ? <Navigate to="/library" replace /> : <GraphPage />}
-          />
-          <Route path="/documents" element={<DocumentPage baselineMode={baselineMode} />} />
-          <Route path="/documents/:docId" element={<DocumentPage baselineMode={baselineMode} />} />
-          <Route
-            path="/activity"
-            element={baselineMode ? <Navigate to="/library" replace /> : <ActivityPage />}
-          />
-          <Route path="/capabilities" element={<CapabilityPage />} />
-          <Route path="/help" element={<HelpPage />} />
-          <Route path="*" element={<Navigate to="/library" replace />} />
-        </Routes>
-      </AppShell>
+      <SessionProvider initial={session} demoMode={demoMode}>
+        <AppShell
+          username={session.username}
+          baselineMode={baselineMode}
+          onToggleBaseline={handleToggleBaseline}
+          onSignOut={handleSignOut}
+        >
+          <Routes>
+            <Route path="/" element={<Navigate to="/library" replace />} />
+            <Route path="/library" element={<LibraryPage baselineMode={baselineMode} />} />
+            <Route
+              path="/search"
+              element={baselineMode ? <Navigate to="/library" replace /> : <SearchPage />}
+            />
+            <Route
+              path="/ask"
+              element={baselineMode ? <Navigate to="/library" replace /> : <AskPage />}
+            />
+            <Route
+              path="/graph"
+              element={baselineMode ? <Navigate to="/library" replace /> : <GraphPage />}
+            />
+            <Route path="/documents" element={<DocumentPage baselineMode={baselineMode} />} />
+            <Route
+              path="/documents/:docId"
+              element={<DocumentPage baselineMode={baselineMode} />}
+            />
+            <Route
+              path="/activity"
+              element={baselineMode ? <Navigate to="/library" replace /> : <ActivityPage />}
+            />
+            <Route path="/capabilities" element={<CapabilityPage />} />
+            <Route path="/help" element={<HelpPage />} />
+            <Route path="*" element={<Navigate to="/library" replace />} />
+          </Routes>
+        </AppShell>
+      </SessionProvider>
     </ScopeProvider>
   );
+}
+
+/** Older/partial session payloads may omit the demo fields. */
+function normalise(info: Partial<SessionInfo> & { username: string }): SessionInfo {
+  return { username: info.username, actingAs: info.actingAs ?? null, demoAdmin: info.demoAdmin ?? false };
 }

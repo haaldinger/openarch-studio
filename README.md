@@ -175,19 +175,23 @@ Baseline results (`eval/baselines/baseline-nomic.json`, overall aggregates):
 
 | Metric | Mean | n |
 | --- | --- | --- |
-| hit | 0.680 | 25 |
-| mrr | 0.568 | 25 |
-| false_abstain | 0.600 | 25 |
+| hit | 0.720 | 25 |
+| mrr | 0.539 | 25 |
+| evidence_hit | 0.450 | 20 |
+| evidence_mrr | 0.278 | 20 |
+| false_abstain | 0.680 | 25 |
 | abstain_correct | 1.000 | 3 |
-| faithfulness | 0.289 | 28 |
-| answer_relevancy | 0.265 | 25 |
-| context_precision | 0.394 | 25 |
-| context_recall | 0.440 | 25 |
+| faithfulness | 0.396 | 28 |
+| answer_relevancy | 0.232 | 25 |
+| context_precision | 0.309 | 25 |
+| context_recall | 0.480 | 25 |
 
-Retrieval finds the right invoice about two-thirds of the time, but Ask (`llama3.2:3b`) declines 60%
-of answerable questions, so answer generation is the weakest link. The baseline used
-`nomic-embed-text` for embeddings, `bge-reranker-base` for reranking (some reranks timed out), and
-`qwen3` as the grader.
+Run note: "studio embed=nomic-embed-text chat=llama3.2:3b rerank=bge-reranker-base"; all 28 questions
+reranked, 0 errors; judge `qwen3`. The right invoice is retrieved for about 72%
+of answerable questions, but the chunk containing the answer only about 45% of the time. Ask
+(`llama3.2:3b`) declines 68% of answerable questions, so answer generation and chunk-level retrieval
+are the weakest links; the next sub-projects (multilingual embeddings, hybrid search) target
+`evidence_hit`.
 
 ## POC limitations (deferred, by design)
 

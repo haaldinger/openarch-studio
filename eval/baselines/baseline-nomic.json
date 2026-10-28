@@ -1,20 +1,24 @@
 {
   "label": "baseline-nomic",
-  "timestamp": "2026-10-28T02:24:31Z",
+  "timestamp": "2026-10-28T03:30:58Z",
+  "note": "studio embed=nomic-embed-text chat=llama3.2:3b rerank=bge-reranker-base",
+  "partial": false,
   "studio_url": "http://localhost:8900",
   "judge_model": "qwen3",
-  "embed_model": "nomic-embed-text",
+  "judge_embed_model": "nomic-embed-text",
   "rerank_statuses": [
-    "reranked",
-    "skipped (timeout)"
+    "reranked"
   ],
+  "rerank_counts": {
+    "reranked": 28
+  },
   "rows": [
     {
       "id": "en-invoice-number",
       "kind": "fact",
       "lang": "en",
       "question": "What is the invoice number on the English invoice from Tail Ltd?",
-      "answer": "I do not have enough information to identify the invoice number on the English invoice from Tail Ltd. In fact, the English invoice section of the provided context is incomplete and does not contain an invoice number.",
+      "answer": "I don't have enough information to extract the invoice number from the provided context, as the English invoice is not explicitly shown. The information is contained in a different chunk [898a45e0-bb78-597b-bf81-4d3a35492c43] which seems to be a code rather than an invoice number.",
       "citations": [
         {
           "doc_id": "4fbaf6f8-abc3-46e3-b55b-5322c68604d5",
@@ -53,7 +57,7 @@
           "title": "21Greek_GR01_InvoiceNo.tif",
           "page": 1,
           "snippet": "## EK IMMA\n52997\n\n<!-- image -->",
-          "score": 0.0023088832,
+          "score": 0.00230888,
           "vector_score": 0.5336303
         },
         {
@@ -70,6 +74,8 @@
       "metrics": {
         "hit": 1.0,
         "mrr": 1.0,
+        "evidence_hit": 0.0,
+        "evidence_mrr": 0.0,
         "abstain_correct": null,
         "false_abstain": 1.0,
         "faithfulness": 0.0,
@@ -83,14 +89,14 @@
       "kind": "fact",
       "lang": "en",
       "question": "Which company issued the English-language invoice addressed to Hyland Software Inc in Freiburg?",
-      "answer": "I do not have enough information to provide the answer.",
+      "answer": "I don't have enough information to determine which company issued the English-language invoice addressed to Hyland Software Inc in Freiburg. The context provided mentions multiple companies with similar addresses and IDs, but without specific details about the invoice itself, it is not possible to accurately identify the issuer.",
       "citations": [
         {
           "doc_id": "4fbaf6f8-abc3-46e3-b55b-5322c68604d5",
           "title": "03English_DE01_STP.tif",
           "page": 1,
           "snippet": "<!-- image -->\n\nCustomer\n\nHyland Software Inc\n\nLindenmattenstr. 33a\n\nGermany\n\nD 79117 Freiburg\n\nDelivery address\n\nHyland Software Inc\n\nLindenmattenstr. 33a\n\nD 79117 Freiburg\n\nGermany\n\nIntra Community Supply, transaction is exempt from VAT in Great Britain and Northern Ireland(Article 28c of the 6th VAT Directive.)\n\nCustomers VAT No.\n\nDE1234 5678\n\nYour Order No.\n\nPayment terms\n\n30 days net\n\nYour ref.\n\nCharles Kaplan Dispatch terms\n\nOur ref.\n\n1403062\n\nDispatch method\n\nOur Order No.\n\n1403062\n\nGoods label\n\nRow Item No.\n\nItem description Qty Penalty Interest FCA Ditchling, UK\n\nSee instructions below\n\n0,00\n\nUnit Price /unit Discount Delivery date Amount\n\nSHI S OM\n\n10\n\n9003 Matching Transformer\n\n800,00\n\nPieces\n\n1,78/1\n\n20131007\n\n1 424,00\n\nC53207A 367C 41 1\n\nCustom TARIC no: 8504 3180 90 Country of origin:\n\nDelivered from: Great Britain and Northern Ireland\n\nVAT local currency Exch.rate\n\nGBP\n\n0,00 0,619500\n\nFreight\n\n0,00\n\nTotal excl VAT\n\nVAT %\n\nVAT\n\nRounding Currency Total incl. VAT\n\n1 424,00",
-          "score": 0.7524123,
+          "score": 0.7524127,
           "vector_score": 0.5060977
         },
         {
@@ -122,7 +128,7 @@
           "title": "21Greek_GR01_InvoiceNo.tif",
           "page": 1,
           "snippet": "## EK IMMA\n| Σuvotik Eikva tou Λovapiaσuo σac - Hutpounvia Eκδoonc   |   Σuvotik Eikva tou Λovapiaσuo σac | Σuvotik Eikva tou Λovapiaσuo σac - oaó   |   Σuvotik Eikva tou Λovapiaσuo σac - MEAIΣΣA ANAΦOPA |\n|---------------------------------------------------------|------------------------------------|------------------------------------------|------------------------------------------------------|\n| 16/01/2020                                              |                           72002220 | 365.06 €                                 |                                               202010 |",
-          "score": 3.741383e-05,
+          "score": 3.741386e-05,
           "vector_score": 0.5067332
         },
         {
@@ -139,9 +145,11 @@
       "metrics": {
         "hit": 1.0,
         "mrr": 1.0,
+        "evidence_hit": 0.0,
+        "evidence_mrr": 0.0,
         "abstain_correct": null,
         "false_abstain": 1.0,
-        "faithfulness": 1.0,
+        "faithfulness": 0.5,
         "answer_relevancy": 0.0,
         "context_precision": 0.0,
         "context_recall": 0.0
@@ -152,67 +160,69 @@
       "kind": "fact",
       "lang": "en",
       "question": "What are the payment terms on invoice 15404052?",
-      "answer": "According to the invoice [de4035d3-712b-5a23-b661-74336c3b50d6], the payment terms are not explicitly stated.",
+      "answer": "Based on the provided context, the payment terms for invoice 15404052 are 30 days net (Pay within 30 days of the invoice date).",
       "citations": [
         {
           "doc_id": "4fbaf6f8-abc3-46e3-b55b-5322c68604d5",
           "title": "03English_DE01_STP.tif",
           "page": 1,
-          "snippet": "<!-- image -->\n\nCustomer\n\nHyland Software Inc\n\nLindenmattenstr. 33a\n\nGermany\n\nD 79117 Freiburg\n\nDelivery address\n\nHyland Software Inc\n\nLindenmattenstr. 33a\n\nD 79117 Freiburg\n\nGermany\n\nIntra Community Supply, transaction is exempt from VAT in Great Britain and Northern Ireland(Article 28c of the 6th VAT Directive.)\n\nCustomers VAT No.\n\nDE1234 5678\n\nYour Order No.\n\nPayment terms\n\n30 days net\n\nYour ref.\n\nCharles Kaplan Dispatch terms\n\nOur ref.\n\n1403062\n\nDispatch method\n\nOur Order No.\n\n1403062\n\nGoods label\n\nRow Item No.\n\nItem description Qty Penalty Interest FCA Ditchling, UK\n\nSee instructions below\n\n0,00\n\nUnit Price /unit Discount Delivery date Amount\n\nSHI S OM\n\n10\n\n9003 Matching Transformer\n\n800,00\n\nPieces\n\n1,78/1\n\n20131007\n\n1 424,00\n\nC53207A 367C 41 1\n\nCustom TARIC no: 8504 3180 90 Country of origin:\n\nDelivered from: Great Britain and Northern Ireland\n\nVAT local currency Exch.rate\n\nGBP\n\n0,00 0,619500\n\nFreight\n\n0,00\n\nTotal excl VAT\n\nVAT %\n\nVAT\n\nRounding Currency Total incl. VAT\n\n1 424,00",
-          "score": 0.56526977,
-          "vector_score": 0.56526977
+          "snippet": "## INVOICE\nInvoice No. Customer No. 15404052 21601 Invoice date 20200107 Due date 20200206\n\nPayer\n\nHyland Software Inc\n\nLindenmattenstr. 33a\n\nD 79117 Freiburg\n\nGermany\n\n1",
+          "score": 0.36519283,
+          "vector_score": 0.551448
         },
         {
           "doc_id": "4fbaf6f8-abc3-46e3-b55b-5322c68604d5",
           "title": "03English_DE01_STP.tif",
           "page": 1,
           "snippet": "0,00\n\n0,00\n\n0,00 USD\n\n1 424,00\n\nPlease pay to IBAN/account no.\n\nTail Ltd\n\nUnit A1\n\nHastings Business Park\n\nHastings\n\nEast Sussex, EN6 EN6\n\nUnited Kingdom Tel\n\n+44 (0)1486 711186\n\nBank England Bank, London Reg No\n\n5121540\n\nFax\n\n+44 (0)1486 711111\n\nSwift VAT No GB 512512512\n\nIBAN No.\n\nRegistered in England and Wales\n\nSort Code",
-          "score": 0.55358285,
+          "score": 0.033092175,
           "vector_score": 0.55358285
         },
         {
           "doc_id": "4fbaf6f8-abc3-46e3-b55b-5322c68604d5",
           "title": "03English_DE01_STP.tif",
           "page": 1,
-          "snippet": "## INVOICE\nInvoice No. Customer No. 15404052 21601 Invoice date 20200107 Due date 20200206\n\nPayer\n\nHyland Software Inc\n\nLindenmattenstr. 33a\n\nD 79117 Freiburg\n\nGermany\n\n1",
-          "score": 0.551448,
-          "vector_score": 0.551448
+          "snippet": "<!-- image -->\n\nCustomer\n\nHyland Software Inc\n\nLindenmattenstr. 33a\n\nGermany\n\nD 79117 Freiburg\n\nDelivery address\n\nHyland Software Inc\n\nLindenmattenstr. 33a\n\nD 79117 Freiburg\n\nGermany\n\nIntra Community Supply, transaction is exempt from VAT in Great Britain and Northern Ireland(Article 28c of the 6th VAT Directive.)\n\nCustomers VAT No.\n\nDE1234 5678\n\nYour Order No.\n\nPayment terms\n\n30 days net\n\nYour ref.\n\nCharles Kaplan Dispatch terms\n\nOur ref.\n\n1403062\n\nDispatch method\n\nOur Order No.\n\n1403062\n\nGoods label\n\nRow Item No.\n\nItem description Qty Penalty Interest FCA Ditchling, UK\n\nSee instructions below\n\n0,00\n\nUnit Price /unit Discount Delivery date Amount\n\nSHI S OM\n\n10\n\n9003 Matching Transformer\n\n800,00\n\nPieces\n\n1,78/1\n\n20131007\n\n1 424,00\n\nC53207A 367C 41 1\n\nCustom TARIC no: 8504 3180 90 Country of origin:\n\nDelivered from: Great Britain and Northern Ireland\n\nVAT local currency Exch.rate\n\nGBP\n\n0,00 0,619500\n\nFreight\n\n0,00\n\nTotal excl VAT\n\nVAT %\n\nVAT\n\nRounding Currency Total incl. VAT\n\n1 424,00",
+          "score": 0.0032624914,
+          "vector_score": 0.56526977
+        },
+        {
+          "doc_id": "63b8204b-52a2-48e2-b1a3-7f2ce3db7924",
+          "title": "21Greek_GR01_InvoiceNo.tif",
+          "page": 1,
+          "snippet": "## EK IMMA\n| AEEΣOYAP           | 1.00                                      | 12.11                                                     | 2.79                                       | 14.90                |\n| NAYEIMO            | 2.00                                      | 12.20                                                     | 2.80                                       | 15.00                |\n| Σúvoλo Λovapiaσuoú | Σúvoλo Λovapiaσuoú                        | 296.80 €                                                  | 68.26 €                                    | 365.06 €             |",
+          "score": 0.0012840286,
+          "vector_score": 0.5200378
         },
         {
           "doc_id": "63b8204b-52a2-48e2-b1a3-7f2ce3db7924",
           "title": "21Greek_GR01_InvoiceNo.tif",
           "page": 1,
           "snippet": "## EK IMMA\n|                                   | 7824470007200222000104           | ZXN 2395                    | H                                  | 97.08                           |\n| Σvoλ Kiv K                        | Σvoλ Kiv K                       | Σvoλ Kiv K                  | Σvoλ Kiv K                         | 365.06 €                        |\n| Σvoλa Λovapiaσuo                  | Σvoλa Λovapiaσuo                 | Σvoλa Λovapiaσuo            | Σvoλa Λovapiaσuo                   | 365.06 €                        |",
-          "score": 0.53782076,
+          "score": 0.0009545011,
           "vector_score": 0.53782076
         },
         {
-          "doc_id": "767c2e3f-7295-473f-a536-581bb4964bec",
-          "title": "22Dutch_NL01_NonVATComp1.tif",
+          "doc_id": "63b8204b-52a2-48e2-b1a3-7f2ce3db7924",
+          "title": "21Greek_GR01_InvoiceNo.tif",
           "page": 1,
-          "snippet": "## FACTUUR\nEendrachtlaan 526 3526 L8 UTRECHT TEL:028-2850028 FAX: 028-2883128\n\nwww.renttent.nl\n\nHyland Software Apollolaan 138, Amsterdam, 1077 BG, Netherlands\n\nBTW nr. NL 1234567A01\n\n<!-- image -->\n\nBankrelatie: Rent Bank Amsterdam\n\nIBANCode\n\n: NL52BNLB5255252552\n\nSwiftcode\n\n: BNLBNL52\n\nBTW nr. NL :\n\nKvK\n\n: Purmerend 33525052",
-          "score": 0.533783,
-          "vector_score": 0.533783
-        },
-        {
-          "doc_id": "b66168fd-032e-438f-8b1e-5e989ef38601",
-          "title": "28Polish_PL01_STP.tif",
-          "page": 1,
-          "snippet": "## SIEBSTWO HANGOWE \"WODA\" KATYNIA IDS 150150570\nKATYNIA573, 34-114 CZESTOCHOWA Tel.: 0-34 5730-342, NIP: 573-343-47-34 BOH Bank S.A. O. w Częstochowie 69 1034 1134 1000 10001000 1959\n\nMiejsce wystawienia: CZESTOCHOWA\n\nData sprzedaży:\n\n2020-01-19\n\nData wystawienia:\n\n2020-01-19\n\nSprzedawca:\n\nNabywca:\n\nPRZEDSIEBIORSTWO HANDLOWO - USLUGOWE \"WOKA\" WOJEWODA JACEK IDS 150524570 BOH. KATYNIA 146/148 42-200 CZESTOCHOWA NIP: 573-020-47-23\n\nHYLAND SOFTWARE GRZYBOWSKA 63, WARSAW, 00-844, POLSKI\n\nNIP: 570-000-04-96",
-          "score": 0.5304637,
-          "vector_score": 0.5304637
+          "snippet": "r\n\n<!-- image -->\n\nHpou Amo 12 À, 151 24 Mapo, 210 9476000 A.Φ.M. : 094472979 - Δ.O.Y. : Φ.A.E. AOHNΩN Ap.M.A.E.33489/01AT/B/95/168(2011) Hpοu Aο 12 À, 151 24 Mpi, 210 9476000 A.Φ.M. : 094472979 - △.O.Y.: Φ.A.E. AOHNΩN Ap.M.A.E.33489/01AT/B/95/168(2011)\n\nAΦ λTn:\n\nKωIkc Πeλrn:\n\nEL098009800\n\n72002220\n\nAovapiaσuòc SAP: 28306284",
+          "score": 0.00021928476,
+          "vector_score": 0.5149565
         }
       ],
-      "rerank": "skipped (timeout)",
+      "rerank": "reranked",
       "error": null,
       "metrics": {
         "hit": 1.0,
         "mrr": 1.0,
+        "evidence_hit": 1.0,
+        "evidence_mrr": 0.3333333333333333,
         "abstain_correct": null,
         "false_abstain": 0.0,
-        "faithfulness": 0.0,
-        "answer_relevancy": 0.0,
-        "context_precision": 0.9999999999,
+        "faithfulness": 1.0,
+        "answer_relevancy": 0.9918986074052448,
+        "context_precision": 0.3333333333,
         "context_recall": 1.0
       }
     },
@@ -221,14 +231,14 @@
       "kind": "fact",
       "lang": "en",
       "question": "What is the invoice number of the Spanish invoice issued to Hyland Software in Madrid?",
-      "answer": "The invoice number for the Spanish invoice issued to Hyland Software in Madrid is 11223344.",
+      "answer": "I do not have enough information to provide the answer to this question.",
       "citations": [
         {
           "doc_id": "1b420262-7043-49b9-8070-73189b7f01f4",
           "title": "04Spanish_ES01_STP.tif",
           "page": 1,
           "snippet": "1\n\nHyland Software Av Hispanidad, 2, 28042 Madrid, Spain N.I.F 11223344\n\nN.I.F.:\n\nES 35107911",
-          "score": 0.715244,
+          "score": 0.7152445,
           "vector_score": 0.54914093
         },
         {
@@ -252,7 +262,7 @@
           "title": "03English_DE01_STP.tif",
           "page": 1,
           "snippet": "<!-- image -->\n\nCustomer\n\nHyland Software Inc\n\nLindenmattenstr. 33a\n\nGermany\n\nD 79117 Freiburg\n\nDelivery address\n\nHyland Software Inc\n\nLindenmattenstr. 33a\n\nD 79117 Freiburg\n\nGermany\n\nIntra Community Supply, transaction is exempt from VAT in Great Britain and Northern Ireland(Article 28c of the 6th VAT Directive.)\n\nCustomers VAT No.\n\nDE1234 5678\n\nYour Order No.\n\nPayment terms\n\n30 days net\n\nYour ref.\n\nCharles Kaplan Dispatch terms\n\nOur ref.\n\n1403062\n\nDispatch method\n\nOur Order No.\n\n1403062\n\nGoods label\n\nRow Item No.\n\nItem description Qty Penalty Interest FCA Ditchling, UK\n\nSee instructions below\n\n0,00\n\nUnit Price /unit Discount Delivery date Amount\n\nSHI S OM\n\n10\n\n9003 Matching Transformer\n\n800,00\n\nPieces\n\n1,78/1\n\n20131007\n\n1 424,00\n\nC53207A 367C 41 1\n\nCustom TARIC no: 8504 3180 90 Country of origin:\n\nDelivered from: Great Britain and Northern Ireland\n\nVAT local currency Exch.rate\n\nGBP\n\n0,00 0,619500\n\nFreight\n\n0,00\n\nTotal excl VAT\n\nVAT %\n\nVAT\n\nRounding Currency Total incl. VAT\n\n1 424,00",
-          "score": 0.0005590085,
+          "score": 0.0005590059,
           "vector_score": 0.53711194
         },
         {
@@ -277,10 +287,12 @@
       "metrics": {
         "hit": 1.0,
         "mrr": 1.0,
+        "evidence_hit": 0.0,
+        "evidence_mrr": 0.0,
         "abstain_correct": null,
-        "false_abstain": 0.0,
+        "false_abstain": 1.0,
         "faithfulness": 0.0,
-        "answer_relevancy": 0.9929103494906476,
+        "answer_relevancy": 0.0,
         "context_precision": 0.0,
         "context_recall": 0.0
       }
@@ -290,7 +302,7 @@
       "kind": "fact",
       "lang": "es",
       "question": "¿Cuál es el TOTAL FACTURA de la factura española de Ken el perro?",
-      "answer": "[8ee11051-0261-5c96-8459-cab94510419b] \n\nSegún el contenido de la factura, el TOTAL FACTURA es de 9.733,33 EUR.",
+      "answer": "No tengo enough information para proporcionar la respuesta. La factura española de Ken el perro se identifica como [e1c8eb0a-70ad-55d2-a8e8-3045666c7de8], pero el campo \"Total I.V.A. TOTAL FACTURA\" se encuentra en [8ddd387d-5383-52ba-bff1-92ca02adaecd], que muestra un valor de \"9.733,33\" para I.V.A., pero no especifica el valor total de la factura.",
       "citations": [
         {
           "doc_id": "1b420262-7043-49b9-8070-73189b7f01f4",
@@ -346,10 +358,12 @@
       "metrics": {
         "hit": 1.0,
         "mrr": 1.0,
+        "evidence_hit": 1.0,
+        "evidence_mrr": 1.0,
         "abstain_correct": null,
         "false_abstain": 0.0,
-        "faithfulness": 0.0,
-        "answer_relevancy": 0.8294585951592973,
+        "faithfulness": 0.3333333333333333,
+        "answer_relevancy": 0.0,
         "context_precision": 0.699999999965,
         "context_recall": 1.0
       }
@@ -359,7 +373,7 @@
       "kind": "fact",
       "lang": "fr",
       "question": "Quel est le numéro de la facture suisse émise en français ?",
-      "answer": "Je n'ai pas assez d'informations pour fournir cette réponse. L'numéro de la facture Swiss émis en français est indiqué comme \"N° TVA 463.271\" au départ.",
+      "answer": "Je n'ai pas suffisamment d'informations pour répondre à cette question. L'idée étant que le numéro de facture suisse est donné sous la forme d'un code client, mais je ne vois pas explicitement le numéros dans le contexte.",
       "citations": [
         {
           "doc_id": "bd9461b9-4de7-4df3-a259-c7b2dc3fccf1",
@@ -415,9 +429,11 @@
       "metrics": {
         "hit": 1.0,
         "mrr": 1.0,
+        "evidence_hit": 1.0,
+        "evidence_mrr": 1.0,
         "abstain_correct": null,
-        "false_abstain": 0.0,
-        "faithfulness": 1.0,
+        "false_abstain": 1.0,
+        "faithfulness": 0.3333333333333333,
         "answer_relevancy": 0.0,
         "context_precision": 0.9999999999,
         "context_recall": 1.0
@@ -428,7 +444,7 @@
       "kind": "fact",
       "lang": "en",
       "question": "What is the total amount including VAT on the French-language Swiss invoice?",
-      "answer": "To calculate the total amount including VAT on the French-language Swiss invoice, we need to look at two sections: \"Montant Total HT\" (HT stands for \"hors taxes\") and the \"VAT\" section.\n\nFor the first line, Montant Total HT |\n|-----------------------|------------|\n| TVA 7,60 %            | 1550,40    |\n\nThe TVA (TVA, also known as \"Impôt sur le valeur ajoutée\") seems to be a tax rate, so it's multiplied by the amount. However, I don't see the total amount before adding the tax. Therefore, I don't have enough information to determine the total invoice amount in CHF.\n\nHowever, if you can provide more information or details about the remaining lines, such as the total amount before tax, I would be able to help you better.",
+      "answer": "I do not have enough information to calculate the total amount including VAT on the French-language Swiss invoice.",
       "citations": [
         {
           "doc_id": "b6c8b880-5ee0-482a-a0af-a80e417bb633",
@@ -484,9 +500,11 @@
       "metrics": {
         "hit": 1.0,
         "mrr": 0.5,
+        "evidence_hit": 1.0,
+        "evidence_mrr": 0.5,
         "abstain_correct": null,
         "false_abstain": 1.0,
-        "faithfulness": 0.4,
+        "faithfulness": 0.0,
         "answer_relevancy": 0.0,
         "context_precision": 0.499999999975,
         "context_recall": 1.0
@@ -497,14 +515,14 @@
       "kind": "fact",
       "lang": "de",
       "question": "Wie lautet die E-Mail-Adresse des Rechnungsstellers auf der deutschen Rechnung?",
-      "answer": "Ich habe die E-Mail-Adresse des Rechnungsstellers auf der deutschen Rechnung gefunden: info@egg-marburg.de",
+      "answer": "Leider habe ich nicht genügend Informationen, um deine Frage auszufüllen. Die E-Mail-Adresse des Rechnungsstellers finden sich in den Daten nicht.",
       "citations": [
         {
           "doc_id": "9a62ed10-5834-4674-8115-f09b3d64646c",
           "title": "08German_DE01_OCRDateErrorBank1.tif",
           "page": 1,
           "snippet": "Schlosserstraße 99 D-99099 Marburg\n\nTelefon 0 60 60 / 60 99-0\n\nTelefax\n\n0 60 21 / 60 99-30\n\nInternet www.egg-marburg.de\n\nE-mail info@egg-marburg.de\n\n<!-- image -->\n\nHYLAND SOFTWARE LINDENMATTENSTR. 33a D79117 FREIBURG DEUTSCHLAND\n\nDE 12345678\n\nEGG\n\n<!-- image -->\n\n<!-- image -->\n\nDas Eigentumsrecht für gelieferte Waren bleibt bis zur restlosen Bezahlung (auch bei Wechse(zahlung) vorbehalten.\n\n<!-- image -->",
-          "score": 0.57512915,
+          "score": 9.621272e-05,
           "vector_score": 0.57512915
         },
         {
@@ -512,51 +530,53 @@
           "title": "22Dutch_NL01_NonVATComp1.tif",
           "page": 1,
           "snippet": "## FACTUUR\n|--------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------|------------------------------------------------------------------------------------|------------------------------------------------------------------------------------|------------------------------------------------------------------------------------|-----------------------------------------------------------|-----------------------------------------------------------|",
-          "score": 0.5621482,
+          "score": 3.8118375e-05,
           "vector_score": 0.5621482
         },
         {
-          "doc_id": "b66168fd-032e-438f-8b1e-5e989ef38601",
-          "title": "28Polish_PL01_STP.tif",
+          "doc_id": "63b8204b-52a2-48e2-b1a3-7f2ce3db7924",
+          "title": "21Greek_GR01_InvoiceNo.tif",
           "page": 1,
-          "snippet": "## Razem do zapłaty:\n1 317,60PLN\n\nSłownie:\n\njeden tysiąc trzysta siedemnaście PLN 60/100\n\n:1317,60\n\nPozostało do zapłaty:\n\nW terminie: 14 dni = 2015-04-02 (PRZELEW)\n\nWystawił(a):\n\nOdebrał(a):\n\nDARIUS JACEK\n\nPod pu   n  vAT\n\n<!-- image -->\n\n<!-- image -->\n\nEa G3\n\n<!-- image -->\n\nPodpis osoby upoważnionej do odbioru faktury VAT\n\n<!-- image -->\n\n000000271066\n\n<!-- image -->",
-          "score": 0.5578339,
-          "vector_score": 0.5578339
-        },
-        {
-          "doc_id": "b6c8b880-5ee0-482a-a0af-a80e417bb633",
-          "title": "24Swedish_DE01_STP.tif",
-          "page": 1,
-          "snippet": "## Faktura\n| Artikelnummer                                          | Beskrivning                                            | Antal   | A'pris   | Summa    |\n|--------------------------------------------------------|--------------------------------------------------------|---------|----------|----------|\n| 15/7 bytt fuktband. Kylcentral 105A Datahall 2019B AA4 | 15/7 bytt fuktband. Kylcentral 105A Datahall 2019B AA4 |         |          |          |\n| ARBe                                                   | Arbetskostnad, Eltekniker                              | 4,00    | 650,00   | 2 600,00 |\n| RES2                                                   | Servicebil, zon 2                                      | 1,00    | 330,00   | 330,00   |\n| M                                                      | Lim PL 400                                             | 1,00    | 240,00   | 240,00   |",
-          "score": 0.55469936,
-          "vector_score": 0.55469936
-        },
-        {
-          "doc_id": "bf047b14-865a-4afb-8065-d51763d999a3",
-          "title": "27Czech_PL01_STP.tif",
-          "page": 1,
-          "snippet": "## ORYGINAL\nNr rachunku: 66-15401014-2001731558690001\n\nNabywca:",
-          "score": 0.5484492,
-          "vector_score": 0.5484492
+          "snippet": "## EK IMMA\n| AEEΣOYAP           | 1.00                                      | 12.11                                                     | 2.79                                       | 14.90                |\n| NAYEIMO            | 2.00                                      | 12.20                                                     | 2.80                                       | 15.00                |\n| Σúvoλo Λovapiaσuoú | Σúvoλo Λovapiaσuoú                        | 296.80 €                                                  | 68.26 €                                    | 365.06 €             |",
+          "score": 3.743549e-05,
+          "vector_score": 0.54039055
         },
         {
           "doc_id": "63b8204b-52a2-48e2-b1a3-7f2ce3db7924",
           "title": "21Greek_GR01_InvoiceNo.tif",
           "page": 1,
           "snippet": "## EK IMMA\n|                    | Σvoλa Σuvaλλavv Eaθapiσo Σnuuaτ - oσnta   | Σvoλa Σuvaλλavv Eaθapiσo Σnuuaτ - ΣÚvoλo (Xωpic ①.∩.A.)   | Σvoλa Σuvaλλavv Eaθapiσo Σnuuaτ - Φ.Π.A.   | ΣÚvoλo (Mε ①.Π.A.)   |\n|--------------------|-------------------------------------------|-----------------------------------------------------------|--------------------------------------------|----------------------|\n| AMOA95 FUELSAVE    | 110.02                                    | 146.47                                                    | 33.69                                      | 180.16               |\n| AMOA V-POWER97     | 48.84                                     | 65.04                                                     | 14.96                                      | 80.00                |\n| VP DIESEL          | 53.65                                     | 60.98                                                     | 14.02                                      | 75.00                |",
-          "score": 0.5464124,
+          "score": 3.7424248e-05,
           "vector_score": 0.5464124
+        },
+        {
+          "doc_id": "bd9461b9-4de7-4df3-a259-c7b2dc3fccf1",
+          "title": "05French_CH01_MissingVend.tif",
+          "page": 1,
+          "snippet": "Valeur en votre aimable réglement à l'adresse suivante : Chemin de la Rueyre 16- CH-1088 Renens\n\n- Soit par chèque à l'ordre de Chemin Suisse\n\n- Soit par virement sur le compte H 7471.74.74, code swift : LCVLCH2LXxX74\n\nConditions de règlement : Net 30 jours\n\nFACTURE",
+          "score": 3.741593e-05,
+          "vector_score": 0.5374742
+        },
+        {
+          "doc_id": "767c2e3f-7295-473f-a536-581bb4964bec",
+          "title": "22Dutch_NL01_NonVATComp1.tif",
+          "page": 1,
+          "snippet": "## FACTUUR\n| Voertuig Kenteken Type Fiscale waarde Referentie Categorie ingezet Categorie berekend                  | 01-XGJ-9 19.054,00 MERCEDES DE MEERN CBM BB                                                            | Economy KI. Benzine Minivan CBM Basic KI. Benzine BB                                                   | Bestuurder Dhr. M. Boot Merelveldlaan 91 3454 CC DE MEERN                          | Kenteken VV NVT                                                                    | Bestuurder Dhr. M. Boot Merelveldlaan 91 3454 CC DE MEERN                          | Bestuurder Dhr. M. Boot Merelveldlaan 91 3454 CC DE MEERN                          | Bestuurder Dhr. M. Boot Merelveldlaan 91 3454 CC DE MEERN | Bestuurder Dhr. M. Boot Merelveldlaan 91 3454 CC DE MEERN |",
+          "score": 3.7412006e-05,
+          "vector_score": 0.53700924
         }
       ],
-      "rerank": "skipped (timeout)",
+      "rerank": "reranked",
       "error": null,
       "metrics": {
         "hit": 1.0,
         "mrr": 1.0,
+        "evidence_hit": 1.0,
+        "evidence_mrr": 1.0,
         "abstain_correct": null,
-        "false_abstain": 0.0,
-        "faithfulness": 1.0,
-        "answer_relevancy": 0.4502540571728216,
+        "false_abstain": 1.0,
+        "faithfulness": 0.0,
+        "answer_relevancy": 0.0,
         "context_precision": 0.9999999999,
         "context_recall": 1.0
       }
@@ -566,7 +586,7 @@
       "kind": "fact",
       "lang": "en",
       "question": "What is the total amount due on the Greek invoice?",
-      "answer": "I do not have enough information to answer this question. The context contains information about Swedish and French invoices, but there is no Greek invoice.",
+      "answer": "The text appears to be invoices in Swedish. I can try to help you, but the currency used seems to be Swedish Crowns (SEK). \n\nTo calculate the total amount due, I will add up the lines for the Greek invoice:\n\n[a9e95d24-58d1-5221-a268-e4ca89e7cf95] | Montant Total HT      | 20400,00   |\n|-----------------------|------------|\n| TVA 7,60 %            | 1550,40    |\n| Montant Total TTC CHF | 21 950,40  |\n\nHowever, I do not have information about the specific contents of lines [6390803] and [de4035d3-712b-5a23-b661-74336c3b50d6] on how they relate to the amount due.\n\nIf you know the line contents of [6390803] and [de4035d3-712b-5a23-b661-74336c3b50d6] or the invoice structure, please share it and I could provide the correct calculation.",
       "citations": [
         {
           "doc_id": "4fbaf6f8-abc3-46e3-b55b-5322c68604d5",
@@ -597,7 +617,7 @@
           "title": "24Swedish_DE01_STP.tif",
           "page": 1,
           "snippet": "## Faktura\n| 6390803                                                | FUKTBAND                                               | 13,00   | 253,00   | 3 289,00 |",
-          "score": 0.0031512147,
+          "score": 0.0031512086,
           "vector_score": 0.53030723
         },
         {
@@ -605,7 +625,7 @@
           "title": "21Greek_GR01_InvoiceNo.tif",
           "page": 1,
           "snippet": "## EK IMMA\n|                                   | 7824470007200222000104           | ZXN 2395                    | H                                  | 97.08                           |\n| Σvoλ Kiv K                        | Σvoλ Kiv K                       | Σvoλ Kiv K                  | Σvoλ Kiv K                         | 365.06 €                        |\n| Σvoλa Λovapiaσuo                  | Σvoλa Λovapiaσuo                 | Σvoλa Λovapiaσuo            | Σvoλa Λovapiaσuo                   | 365.06 €                        |",
-          "score": 0.0016576966,
+          "score": 0.0016576949,
           "vector_score": 0.5232193
         },
         {
@@ -622,10 +642,12 @@
       "metrics": {
         "hit": 1.0,
         "mrr": 0.2,
+        "evidence_hit": 1.0,
+        "evidence_mrr": 0.2,
         "abstain_correct": null,
-        "false_abstain": 1.0,
-        "faithfulness": 0.6666666666666666,
-        "answer_relevancy": 0.0,
+        "false_abstain": 0.0,
+        "faithfulness": 0.75,
+        "answer_relevancy": 0.9578382797675412,
         "context_precision": 0.26666666665333333,
         "context_recall": 1.0
       }
@@ -635,22 +657,30 @@
       "kind": "fact",
       "lang": "nl",
       "question": "Wat is het factuurnummer van de Nederlandse factuur van de autoverhuurder?",
-      "answer": "Ik heb genoeg informatie om het factuurnummer te bepalen. Het factuurnummer is [0b589d3d-f84c-5aa2-8554-29218343eb6c].",
+      "answer": "Ik heb genoeg informatie om de vraag te beoordelen, maar niet genoeg om de precieze antwoorden te geven. Volgens mij kan je weten dat de factuur het nummer 10006198 heeft, maar ik kan niet zeker zijn dat dit de Nederlandse factuur van de autoverhuurder betreft.",
       "citations": [
         {
           "doc_id": "767c2e3f-7295-473f-a536-581bb4964bec",
           "title": "22Dutch_NL01_NonVATComp1.tif",
           "page": 1,
           "snippet": "## FACTUUR\nEendrachtlaan 526 3526 L8 UTRECHT TEL:028-2850028 FAX: 028-2883128\n\nwww.renttent.nl\n\nHyland Software Apollolaan 138, Amsterdam, 1077 BG, Netherlands\n\nBTW nr. NL 1234567A01\n\n<!-- image -->\n\nBankrelatie: Rent Bank Amsterdam\n\nIBANCode\n\n: NL52BNLB5255252552\n\nSwiftcode\n\n: BNLBNL52\n\nBTW nr. NL :\n\nKvK\n\n: Purmerend 33525052",
-          "score": 0.55025804,
+          "score": 0.59864295,
           "vector_score": 0.55025804
+        },
+        {
+          "doc_id": "bd9461b9-4de7-4df3-a259-c7b2dc3fccf1",
+          "title": "05French_CH01_MissingVend.tif",
+          "page": 1,
+          "snippet": "<!-- image -->\n\nRCS. CH-550-0109760-1 N° TVA 463.271\n\nN° Facture\n\n: 10006198\n\nDate facture\n\n:01/01/2020\n\nDate échéance : 02/02/2020\n\nCode client : 1017\n\nProjet : SUL0111\n\nHyland Software Rue de Sainte-Helene 3 3 Etage West 2009 Neuchatel Switzerland\n\nPMP - AT Data Capture &amp; Management Project\n\n<!-- image -->",
+          "score": 0.07947545,
+          "vector_score": 0.52386564
         },
         {
           "doc_id": "767c2e3f-7295-473f-a536-581bb4964bec",
           "title": "22Dutch_NL01_NonVATComp1.tif",
           "page": 1,
           "snippet": "## FACTUUR\n| Berekend t.e.m..                                                                                       | Overdrachtsmoment 12-01-202011.32 Ingangsmoment huur 12-01-202017.00 20-01-2020 15.19                  | Overdrachtsmoment 12-01-202011.32 Ingangsmoment huur 12-01-202017.00 20-01-2020 15.19                  | Kilometers Km-stand retour Km-stand vertrek Verreden km's Vrije km's Km's berekend | Kilometers Km-stand retour Km-stand vertrek Verreden km's Vrije km's Km's berekend | Kilometers Km-stand retour Km-stand vertrek Verreden km's Vrije km's Km's berekend | Kilometers Km-stand retour Km-stand vertrek Verreden km's Vrije km's Km's berekend | 21.630 21.205 425 180 245                                 | 21.630 21.205 425 180 245                                 |",
-          "score": 0.5459397,
+          "score": 0.034589354,
           "vector_score": 0.5459397
         },
         {
@@ -658,7 +688,7 @@
           "title": "22Dutch_NL01_NonVATComp1.tif",
           "page": 1,
           "snippet": "## FACTUUR\n| Voertuig Kenteken Type Fiscale waarde Referentie Categorie ingezet Categorie berekend                  | 01-XGJ-9 19.054,00 MERCEDES DE MEERN CBM BB                                                            | Economy KI. Benzine Minivan CBM Basic KI. Benzine BB                                                   | Bestuurder Dhr. M. Boot Merelveldlaan 91 3454 CC DE MEERN                          | Kenteken VV NVT                                                                    | Bestuurder Dhr. M. Boot Merelveldlaan 91 3454 CC DE MEERN                          | Bestuurder Dhr. M. Boot Merelveldlaan 91 3454 CC DE MEERN                          | Bestuurder Dhr. M. Boot Merelveldlaan 91 3454 CC DE MEERN | Bestuurder Dhr. M. Boot Merelveldlaan 91 3454 CC DE MEERN |",
-          "score": 0.536616,
+          "score": 0.0062786583,
           "vector_score": 0.536616
         },
         {
@@ -666,36 +696,30 @@
           "title": "28Polish_PL01_STP.tif",
           "page": 1,
           "snippet": "## Razem do zapłaty:\n1 317,60PLN\n\nSłownie:\n\njeden tysiąc trzysta siedemnaście PLN 60/100\n\n:1317,60\n\nPozostało do zapłaty:\n\nW terminie: 14 dni = 2015-04-02 (PRZELEW)\n\nWystawił(a):\n\nOdebrał(a):\n\nDARIUS JACEK\n\nPod pu   n  vAT\n\n<!-- image -->\n\n<!-- image -->\n\nEa G3\n\n<!-- image -->\n\nPodpis osoby upoważnionej do odbioru faktury VAT\n\n<!-- image -->\n\n000000271066\n\n<!-- image -->",
-          "score": 0.53022724,
+          "score": 0.002245377,
           "vector_score": 0.53022724
-        },
-        {
-          "doc_id": "767c2e3f-7295-473f-a536-581bb4964bec",
-          "title": "22Dutch_NL01_NonVATComp1.tif",
-          "page": 1,
-          "snippet": "## FACTUUR\n| Dagtarief personen vanaf 1 dag Kosten gereden kilometers Afleverkosten Ophaalkosten Rijklaarmaakkosten | Dagtarief personen vanaf 1 dag Kosten gereden kilometers Afleverkosten Ophaalkosten Rijklaarmaakkosten | Dagtarief personen vanaf 1 dag Kosten gereden kilometers Afleverkosten Ophaalkosten Rijklaarmaakkosten | 2 245                                                                              | dgn km. H                                                                          | 40,05 0,120                                                                        | H H H H                                                                            | H H H H                                                   | 80,10 29,40 17,50 17,50 8,50                              |",
-          "score": 0.5291152,
-          "vector_score": 0.5291152
         },
         {
           "doc_id": "b6c8b880-5ee0-482a-a0af-a80e417bb633",
           "title": "24Swedish_DE01_STP.tif",
           "page": 1,
           "snippet": "## Faktura\n| Totalt netto 6 459,00   | Momsspecifikation: Momssats 0 % Momsunderlag 6 459,00 Moms 0,00   | Moms 0,00             | Frakt                 | Avgift                | Öresavrundning                |\n|-------------------------|-------------------------------------------------------------------|-----------------------|-----------------------|-----------------------|-------------------------------|\n| Vi har F-skattebevis.   | Vi har F-skattebevis.                                             | Vi har F-skattebevis. | Vi har F-skattebevis. | Vi har F-skattebevis. | Vi har F-skattebevis.         |\n|                         |                                                                   |                       |                       |                       | Summa att betala 6 459,00 SEK |",
-          "score": 0.5286164,
+          "score": 0.0017762564,
           "vector_score": 0.5286164
         }
       ],
-      "rerank": "skipped (timeout)",
+      "rerank": "reranked",
       "error": null,
       "metrics": {
         "hit": 1.0,
         "mrr": 1.0,
+        "evidence_hit": 0.0,
+        "evidence_mrr": 0.0,
         "abstain_correct": null,
         "false_abstain": 0.0,
         "faithfulness": 0.0,
-        "answer_relevancy": 0.8884510772091376,
-        "context_precision": 0.99999999995,
+        "answer_relevancy": 0.0,
+        "context_precision": 0.8333333332916666,
         "context_recall": 0.0
       }
     },
@@ -704,67 +728,69 @@
       "kind": "fact",
       "lang": "en",
       "question": "What is the total including VAT on the Dutch car rental invoice?",
-      "answer": "I don't have enough information to calculate the total including VAT on the Dutch car rental invoice. The invoice only provides information on the shipment details and doesn't contain the line items for the car rental invoice.",
+      "answer": "I do not have enough information to determine the total including VAT on the Dutch car rental invoice. The Dutch invoice is not present in the provided context.",
       "citations": [
         {
-          "doc_id": "1b420262-7043-49b9-8070-73189b7f01f4",
-          "title": "04Spanish_ES01_STP.tif",
+          "doc_id": "bd9461b9-4de7-4df3-a259-c7b2dc3fccf1",
+          "title": "05French_CH01_MissingVend.tif",
           "page": 1,
-          "snippet": "|                      | Gastos Complementarios Autopista                                |       1 | 10,00                               | 10,00         |\n|                      |                                                                 |       1 | 31,45                               | 31,45         |\n|                      | Transporte Teléfono                                             |       1 | 90,00                               | 90,00         |\n|                      | Papeleria                                                       |       1 | 9,10                                | 9,10          |\n|                      | Base de IVA (1) 16% IVA Base sin IVA (2)                        |         |                                     |               |\n| 8.390,80 1.342,53    |                                                                 |         | Base                                | 8.390,80      |",
-          "score": 0.54942155,
-          "vector_score": 0.54942155
+          "snippet": "| Montant Total HT      | 20400,00   |\n|-----------------------|------------|\n| TVA 7,60 %            | 1550,40    |\n| Montant Total TTC CHF | 21 950,40  |",
+          "score": 0.74625987,
+          "vector_score": 0.5357325
+        },
+        {
+          "doc_id": "b6c8b880-5ee0-482a-a0af-a80e417bb633",
+          "title": "24Swedish_DE01_STP.tif",
+          "page": 1,
+          "snippet": "## Faktura\n| Totalt netto 6 459,00   | Momsspecifikation: Momssats 0 % Momsunderlag 6 459,00 Moms 0,00   | Moms 0,00             | Frakt                 | Avgift                | Öresavrundning                |\n|-------------------------|-------------------------------------------------------------------|-----------------------|-----------------------|-----------------------|-------------------------------|\n| Vi har F-skattebevis.   | Vi har F-skattebevis.                                             | Vi har F-skattebevis. | Vi har F-skattebevis. | Vi har F-skattebevis. | Vi har F-skattebevis.         |\n|                         |                                                                   |                       |                       |                       | Summa att betala 6 459,00 SEK |",
+          "score": 0.4759765,
+          "vector_score": 0.5101113
+        },
+        {
+          "doc_id": "4fbaf6f8-abc3-46e3-b55b-5322c68604d5",
+          "title": "03English_DE01_STP.tif",
+          "page": 1,
+          "snippet": "0,00\n\n0,00\n\n0,00 USD\n\n1 424,00\n\nPlease pay to IBAN/account no.\n\nTail Ltd\n\nUnit A1\n\nHastings Business Park\n\nHastings\n\nEast Sussex, EN6 EN6\n\nUnited Kingdom Tel\n\n+44 (0)1486 711186\n\nBank England Bank, London Reg No\n\n5121540\n\nFax\n\n+44 (0)1486 711111\n\nSwift VAT No GB 512512512\n\nIBAN No.\n\nRegistered in England and Wales\n\nSort Code",
+          "score": 0.12067483,
+          "vector_score": 0.5138088
+        },
+        {
+          "doc_id": "b6c8b880-5ee0-482a-a0af-a80e417bb633",
+          "title": "24Swedish_DE01_STP.tif",
+          "page": 1,
+          "snippet": "## Faktura\n| 6390803                                                | FUKTBAND                                               | 13,00   | 253,00   | 3 289,00 |",
+          "score": 0.063357644,
+          "vector_score": 0.51890665
         },
         {
           "doc_id": "767c2e3f-7295-473f-a536-581bb4964bec",
           "title": "22Dutch_NL01_NonVATComp1.tif",
           "page": 1,
           "snippet": "## FACTUUR\n|                                                                                                        |                                                                                                        |                                                                                                        | BTW 21,00 % over 153,00                                                            |                                                                                    |                                                                                    |                                                                                    | Factuurtotaal in EUR                                      | 153,00 32,13 185,13                                       |",
-          "score": 0.549171,
+          "score": 0.006771053,
           "vector_score": 0.549171
         },
         {
-          "doc_id": "63b8204b-52a2-48e2-b1a3-7f2ce3db7924",
-          "title": "21Greek_GR01_InvoiceNo.tif",
+          "doc_id": "bf047b14-865a-4afb-8065-d51763d999a3",
+          "title": "27Czech_PL01_STP.tif",
           "page": 1,
-          "snippet": "## EK IMMA\n| AEEΣOYAP           | 1.00                                      | 12.11                                                     | 2.79                                       | 14.90                |\n| NAYEIMO            | 2.00                                      | 12.20                                                     | 2.80                                       | 15.00                |\n| Σúvoλo Λovapiaσuoú | Σúvoλo Λovapiaσuoú                        | 296.80 €                                                  | 68.26 €                                    | 365.06 €             |",
-          "score": 0.53741425,
-          "vector_score": 0.53741425
-        },
-        {
-          "doc_id": "767c2e3f-7295-473f-a536-581bb4964bec",
-          "title": "22Dutch_NL01_NonVATComp1.tif",
-          "page": 1,
-          "snippet": "## FACTUUR\nEendrachtlaan 526 3526 L8 UTRECHT TEL:028-2850028 FAX: 028-2883128\n\nwww.renttent.nl\n\nHyland Software Apollolaan 138, Amsterdam, 1077 BG, Netherlands\n\nBTW nr. NL 1234567A01\n\n<!-- image -->\n\nBankrelatie: Rent Bank Amsterdam\n\nIBANCode\n\n: NL52BNLB5255252552\n\nSwiftcode\n\n: BNLBNL52\n\nBTW nr. NL :\n\nKvK\n\n: Purmerend 33525052",
-          "score": 0.53687054,
-          "vector_score": 0.53687054
-        },
-        {
-          "doc_id": "bd9461b9-4de7-4df3-a259-c7b2dc3fccf1",
-          "title": "05French_CH01_MissingVend.tif",
-          "page": 1,
-          "snippet": "| Montant Total HT      | 20400,00   |\n|-----------------------|------------|\n| TVA 7,60 %            | 1550,40    |\n| Montant Total TTC CHF | 21 950,40  |",
-          "score": 0.5357325,
-          "vector_score": 0.5357325
-        },
-        {
-          "doc_id": "4fbaf6f8-abc3-46e3-b55b-5322c68604d5",
-          "title": "03English_DE01_STP.tif",
-          "page": 1,
-          "snippet": "<!-- image -->\n\nCustomer\n\nHyland Software Inc\n\nLindenmattenstr. 33a\n\nGermany\n\nD 79117 Freiburg\n\nDelivery address\n\nHyland Software Inc\n\nLindenmattenstr. 33a\n\nD 79117 Freiburg\n\nGermany\n\nIntra Community Supply, transaction is exempt from VAT in Great Britain and Northern Ireland(Article 28c of the 6th VAT Directive.)\n\nCustomers VAT No.\n\nDE1234 5678\n\nYour Order No.\n\nPayment terms\n\n30 days net\n\nYour ref.\n\nCharles Kaplan Dispatch terms\n\nOur ref.\n\n1403062\n\nDispatch method\n\nOur Order No.\n\n1403062\n\nGoods label\n\nRow Item No.\n\nItem description Qty Penalty Interest FCA Ditchling, UK\n\nSee instructions below\n\n0,00\n\nUnit Price /unit Discount Delivery date Amount\n\nSHI S OM\n\n10\n\n9003 Matching Transformer\n\n800,00\n\nPieces\n\n1,78/1\n\n20131007\n\n1 424,00\n\nC53207A 367C 41 1\n\nCustom TARIC no: 8504 3180 90 Country of origin:\n\nDelivered from: Great Britain and Northern Ireland\n\nVAT local currency Exch.rate\n\nGBP\n\n0,00 0,619500\n\nFreight\n\n0,00\n\nTotal excl VAT\n\nVAT %\n\nVAT\n\nRounding Currency Total incl. VAT\n\n1 424,00",
-          "score": 0.5210747,
-          "vector_score": 0.5210747
+          "snippet": "## št'astná kráva sp. z o.o.\n| Forma płatności   | Termin     | Kwota   | Stawka   | Netto         | VAT    | Brutto   |\n|-------------------|------------|---------|----------|---------------|--------|----------|\n| przelew           | 2020-02-18 | 780,80  | Razem:   | 640,00 640,00 | 140,80 | 780,80   |\n|                   |            |         | W tym:   | 22 %          | 140,80 | 780,80   |",
+          "score": 0.0044064764,
+          "vector_score": 0.51734704
         }
       ],
-      "rerank": "skipped (timeout)",
+      "rerank": "reranked",
       "error": null,
       "metrics": {
         "hit": 1.0,
-        "mrr": 0.5,
+        "mrr": 0.2,
+        "evidence_hit": 1.0,
+        "evidence_mrr": 0.2,
         "abstain_correct": null,
         "false_abstain": 1.0,
         "faithfulness": 0.0,
         "answer_relevancy": 0.0,
-        "context_precision": 0.8333333333055556,
+        "context_precision": 0.19999999998,
         "context_recall": 1.0
       }
     },
@@ -773,68 +799,70 @@
       "kind": "fact",
       "lang": "en",
       "question": "What is the amount to pay on the Swedish invoice?",
-      "answer": "I do not have enough information to determine the amount to pay on the Swedish invoice. There is no Swedish invoice in the provided context, only a Dutch invoice.",
+      "answer": "According to the context, the amount to pay on the Swedish invoice is 6 459,00 SEK.",
       "citations": [
+        {
+          "doc_id": "63b8204b-52a2-48e2-b1a3-7f2ce3db7924",
+          "title": "21Greek_GR01_InvoiceNo.tif",
+          "page": 1,
+          "snippet": "## EK IMMA\n|                                   | 7824470007200222000104           | ZXN 2395                    | H                                  | 97.08                           |\n| Σvoλ Kiv K                        | Σvoλ Kiv K                       | Σvoλ Kiv K                  | Σvoλ Kiv K                         | 365.06 €                        |\n| Σvoλa Λovapiaσuo                  | Σvoλa Λovapiaσuo                 | Σvoλa Λovapiaσuo            | Σvoλa Λovapiaσuo                   | 365.06 €                        |",
+          "score": 0.11719914,
+          "vector_score": 0.53775626
+        },
         {
           "doc_id": "4fbaf6f8-abc3-46e3-b55b-5322c68604d5",
           "title": "03English_DE01_STP.tif",
           "page": 1,
           "snippet": "0,00\n\n0,00\n\n0,00 USD\n\n1 424,00\n\nPlease pay to IBAN/account no.\n\nTail Ltd\n\nUnit A1\n\nHastings Business Park\n\nHastings\n\nEast Sussex, EN6 EN6\n\nUnited Kingdom Tel\n\n+44 (0)1486 711186\n\nBank England Bank, London Reg No\n\n5121540\n\nFax\n\n+44 (0)1486 711111\n\nSwift VAT No GB 512512512\n\nIBAN No.\n\nRegistered in England and Wales\n\nSort Code",
-          "score": 0.5713285,
+          "score": 0.096616656,
           "vector_score": 0.5713285
+        },
+        {
+          "doc_id": "b6c8b880-5ee0-482a-a0af-a80e417bb633",
+          "title": "24Swedish_DE01_STP.tif",
+          "page": 1,
+          "snippet": "## Faktura\n| Totalt netto 6 459,00   | Momsspecifikation: Momssats 0 % Momsunderlag 6 459,00 Moms 0,00   | Moms 0,00             | Frakt                 | Avgift                | Öresavrundning                |\n|-------------------------|-------------------------------------------------------------------|-----------------------|-----------------------|-----------------------|-------------------------------|\n| Vi har F-skattebevis.   | Vi har F-skattebevis.                                             | Vi har F-skattebevis. | Vi har F-skattebevis. | Vi har F-skattebevis. | Vi har F-skattebevis.         |\n|                         |                                                                   |                       |                       |                       | Summa att betala 6 459,00 SEK |",
+          "score": 0.082510196,
+          "vector_score": 0.5310834
+        },
+        {
+          "doc_id": "bd9461b9-4de7-4df3-a259-c7b2dc3fccf1",
+          "title": "05French_CH01_MissingVend.tif",
+          "page": 1,
+          "snippet": "| Montant Total HT      | 20400,00   |\n|-----------------------|------------|\n| TVA 7,60 %            | 1550,40    |\n| Montant Total TTC CHF | 21 950,40  |",
+          "score": 0.061766855,
+          "vector_score": 0.5273464
         },
         {
           "doc_id": "63b8204b-52a2-48e2-b1a3-7f2ce3db7924",
           "title": "21Greek_GR01_InvoiceNo.tif",
           "page": 1,
           "snippet": "## EK IMMA\n| AEEΣOYAP           | 1.00                                      | 12.11                                                     | 2.79                                       | 14.90                |\n| NAYEIMO            | 2.00                                      | 12.20                                                     | 2.80                                       | 15.00                |\n| Σúvoλo Λovapiaσuoú | Σúvoλo Λovapiaσuoú                        | 296.80 €                                                  | 68.26 €                                    | 365.06 €             |",
-          "score": 0.5647119,
+          "score": 0.020263681,
           "vector_score": 0.5647119
         },
         {
-          "doc_id": "1b420262-7043-49b9-8070-73189b7f01f4",
-          "title": "04Spanish_ES01_STP.tif",
+          "doc_id": "b6c8b880-5ee0-482a-a0af-a80e417bb633",
+          "title": "24Swedish_DE01_STP.tif",
           "page": 1,
-          "snippet": "|                      | Gastos Complementarios Autopista                                |       1 | 10,00                               | 10,00         |\n|                      |                                                                 |       1 | 31,45                               | 31,45         |\n|                      | Transporte Teléfono                                             |       1 | 90,00                               | 90,00         |\n|                      | Papeleria                                                       |       1 | 9,10                                | 9,10          |\n|                      | Base de IVA (1) 16% IVA Base sin IVA (2)                        |         |                                     |               |\n| 8.390,80 1.342,53    |                                                                 |         | Base                                | 8.390,80      |",
-          "score": 0.5489339,
-          "vector_score": 0.5489339
-        },
-        {
-          "doc_id": "767c2e3f-7295-473f-a536-581bb4964bec",
-          "title": "22Dutch_NL01_NonVATComp1.tif",
-          "page": 1,
-          "snippet": "## FACTUUR\n|                                                                                                        |                                                                                                        |                                                                                                        | BTW 21,00 % over 153,00                                                            |                                                                                    |                                                                                    |                                                                                    | Factuurtotaal in EUR                                      | 153,00 32,13 185,13                                       |",
-          "score": 0.5452511,
-          "vector_score": 0.5452511
-        },
-        {
-          "doc_id": "63b8204b-52a2-48e2-b1a3-7f2ce3db7924",
-          "title": "21Greek_GR01_InvoiceNo.tif",
-          "page": 1,
-          "snippet": "## EK IMMA\n|                                   | 7824470007200222000104           | ZXN 2395                    | H                                  | 97.08                           |\n| Σvoλ Kiv K                        | Σvoλ Kiv K                       | Σvoλ Kiv K                  | Σvoλ Kiv K                         | 365.06 €                        |\n| Σvoλa Λovapiaσuo                  | Σvoλa Λovapiaσuo                 | Σvoλa Λovapiaσuo            | Σvoλa Λovapiaσuo                   | 365.06 €                        |",
-          "score": 0.53775626,
-          "vector_score": 0.53775626
-        },
-        {
-          "doc_id": "63b8204b-52a2-48e2-b1a3-7f2ce3db7924",
-          "title": "21Greek_GR01_InvoiceNo.tif",
-          "page": 1,
-          "snippet": "## EK IMMA\n| Σuvotik Eikva tou Λovapiaσuo σac - Hutpounvia Eκδoonc   |   Σuvotik Eikva tou Λovapiaσuo σac | Σuvotik Eikva tou Λovapiaσuo σac - oaó   |   Σuvotik Eikva tou Λovapiaσuo σac - MEAIΣΣA ANAΦOPA |\n|---------------------------------------------------------|------------------------------------|------------------------------------------|------------------------------------------------------|\n| 16/01/2020                                              |                           72002220 | 365.06 €                                 |                                               202010 |",
-          "score": 0.5348384,
-          "vector_score": 0.5348384
+          "snippet": "## Faktura\n| 6390803                                                | FUKTBAND                                               | 13,00   | 253,00   | 3 289,00 |",
+          "score": 0.019560613,
+          "vector_score": 0.5221765
         }
       ],
-      "rerank": "skipped (timeout)",
+      "rerank": "reranked",
       "error": null,
       "metrics": {
-        "hit": 0.0,
-        "mrr": 0.0,
+        "hit": 1.0,
+        "mrr": 0.3333333333333333,
+        "evidence_hit": 1.0,
+        "evidence_mrr": 0.3333333333333333,
         "abstain_correct": null,
-        "false_abstain": 1.0,
-        "faithfulness": 0.0,
-        "answer_relevancy": 0.0,
-        "context_precision": 0.0,
-        "context_recall": 0.0
+        "false_abstain": 0.0,
+        "faithfulness": 1.0,
+        "answer_relevancy": 0.9999999999999994,
+        "context_precision": 0.3333333333,
+        "context_recall": 1.0
       }
     },
     {
@@ -842,67 +870,69 @@
       "kind": "fact",
       "lang": "en",
       "question": "Which company issued the Swedish invoice for the cooling plant repair?",
-      "answer": "You didn't provide enough information, but according to the context, I can see that the Swedish invoice for the cooling plant repair was issued by Huvudkontor moln Sverige AB, with the VAT number SE556545555755 and the address Krossverksgatan 80, 262 80 Limhamn.",
+      "answer": "I don't have enough information to determine which company issued the Swedish invoice for the cooling plant repair, as the context does not contain any evidence of a Swedish invoice.",
       "citations": [
         {
-          "doc_id": "b6c8b880-5ee0-482a-a0af-a80e417bb633",
-          "title": "24Swedish_DE01_STP.tif",
+          "doc_id": "767c2e3f-7295-473f-a536-581bb4964bec",
+          "title": "22Dutch_NL01_NonVATComp1.tif",
           "page": 1,
-          "snippet": "## Faktura\nHuvudkontor moln Sverige AB Box 51 262 80 Limhamn Filialer moln Sverige AB VAT no: SE556545555755 Krossverksgatan 80 E-post: info@moln.se 262 80 Limhamn\n\nOrg.nr: 570143-9701",
-          "score": 0.5168528,
-          "vector_score": 0.5168528
-        },
-        {
-          "doc_id": "b6c8b880-5ee0-482a-a0af-a80e417bb633",
-          "title": "24Swedish_DE01_STP.tif",
-          "page": 1,
-          "snippet": "## Faktura\n| Artikelnummer                                          | Beskrivning                                            | Antal   | A'pris   | Summa    |\n|--------------------------------------------------------|--------------------------------------------------------|---------|----------|----------|\n| 15/7 bytt fuktband. Kylcentral 105A Datahall 2019B AA4 | 15/7 bytt fuktband. Kylcentral 105A Datahall 2019B AA4 |         |          |          |\n| ARBe                                                   | Arbetskostnad, Eltekniker                              | 4,00    | 650,00   | 2 600,00 |\n| RES2                                                   | Servicebil, zon 2                                      | 1,00    | 330,00   | 330,00   |\n| M                                                      | Lim PL 400                                             | 1,00    | 240,00   | 240,00   |",
-          "score": 0.5084972,
-          "vector_score": 0.5084972
-        },
-        {
-          "doc_id": "4fbaf6f8-abc3-46e3-b55b-5322c68604d5",
-          "title": "03English_DE01_STP.tif",
-          "page": 1,
-          "snippet": "<!-- image -->\n\nCustomer\n\nHyland Software Inc\n\nLindenmattenstr. 33a\n\nGermany\n\nD 79117 Freiburg\n\nDelivery address\n\nHyland Software Inc\n\nLindenmattenstr. 33a\n\nD 79117 Freiburg\n\nGermany\n\nIntra Community Supply, transaction is exempt from VAT in Great Britain and Northern Ireland(Article 28c of the 6th VAT Directive.)\n\nCustomers VAT No.\n\nDE1234 5678\n\nYour Order No.\n\nPayment terms\n\n30 days net\n\nYour ref.\n\nCharles Kaplan Dispatch terms\n\nOur ref.\n\n1403062\n\nDispatch method\n\nOur Order No.\n\n1403062\n\nGoods label\n\nRow Item No.\n\nItem description Qty Penalty Interest FCA Ditchling, UK\n\nSee instructions below\n\n0,00\n\nUnit Price /unit Discount Delivery date Amount\n\nSHI S OM\n\n10\n\n9003 Matching Transformer\n\n800,00\n\nPieces\n\n1,78/1\n\n20131007\n\n1 424,00\n\nC53207A 367C 41 1\n\nCustom TARIC no: 8504 3180 90 Country of origin:\n\nDelivered from: Great Britain and Northern Ireland\n\nVAT local currency Exch.rate\n\nGBP\n\n0,00 0,619500\n\nFreight\n\n0,00\n\nTotal excl VAT\n\nVAT %\n\nVAT\n\nRounding Currency Total incl. VAT\n\n1 424,00",
-          "score": 0.5082214,
-          "vector_score": 0.5082214
-        },
-        {
-          "doc_id": "b66168fd-032e-438f-8b1e-5e989ef38601",
-          "title": "28Polish_PL01_STP.tif",
-          "page": 1,
-          "snippet": "## SIEBSTWO HANGOWE \"WODA\" KATYNIA IDS 150150570\nKATYNIA573, 34-114 CZESTOCHOWA Tel.: 0-34 5730-342, NIP: 573-343-47-34 BOH Bank S.A. O. w Częstochowie 69 1034 1134 1000 10001000 1959\n\nMiejsce wystawienia: CZESTOCHOWA\n\nData sprzedaży:\n\n2020-01-19\n\nData wystawienia:\n\n2020-01-19\n\nSprzedawca:\n\nNabywca:\n\nPRZEDSIEBIORSTWO HANDLOWO - USLUGOWE \"WOKA\" WOJEWODA JACEK IDS 150524570 BOH. KATYNIA 146/148 42-200 CZESTOCHOWA NIP: 573-020-47-23\n\nHYLAND SOFTWARE GRZYBOWSKA 63, WARSAW, 00-844, POLSKI\n\nNIP: 570-000-04-96",
-          "score": 0.5068705,
-          "vector_score": 0.5068705
+          "snippet": "## FACTUUR\nEendrachtlaan 526 3526 L8 UTRECHT TEL:028-2850028 FAX: 028-2883128\n\nwww.renttent.nl\n\nHyland Software Apollolaan 138, Amsterdam, 1077 BG, Netherlands\n\nBTW nr. NL 1234567A01\n\n<!-- image -->\n\nBankrelatie: Rent Bank Amsterdam\n\nIBANCode\n\n: NL52BNLB5255252552\n\nSwiftcode\n\n: BNLBNL52\n\nBTW nr. NL :\n\nKvK\n\n: Purmerend 33525052",
+          "score": 0.0006597048,
+          "vector_score": 0.50508904
         },
         {
           "doc_id": "767c2e3f-7295-473f-a536-581bb4964bec",
           "title": "22Dutch_NL01_NonVATComp1.tif",
           "page": 1,
           "snippet": "## FACTUUR\n|--------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------|------------------------------------------------------------------------------------|------------------------------------------------------------------------------------|------------------------------------------------------------------------------------|-----------------------------------------------------------|-----------------------------------------------------------|",
-          "score": 0.50594324,
+          "score": 0.0004102329,
           "vector_score": 0.50594324
         },
         {
-          "doc_id": "1b420262-7043-49b9-8070-73189b7f01f4",
-          "title": "04Spanish_ES01_STP.tif",
+          "doc_id": "4fbaf6f8-abc3-46e3-b55b-5322c68604d5",
+          "title": "03English_DE01_STP.tif",
           "page": 1,
-          "snippet": "|                      | Gastos Complementarios Autopista                                |       1 | 10,00                               | 10,00         |\n|                      |                                                                 |       1 | 31,45                               | 31,45         |\n|                      | Transporte Teléfono                                             |       1 | 90,00                               | 90,00         |\n|                      | Papeleria                                                       |       1 | 9,10                                | 9,10          |\n|                      | Base de IVA (1) 16% IVA Base sin IVA (2)                        |         |                                     |               |\n| 8.390,80 1.342,53    |                                                                 |         | Base                                | 8.390,80      |",
-          "score": 0.5059333,
-          "vector_score": 0.5059333
+          "snippet": "<!-- image -->\n\nCustomer\n\nHyland Software Inc\n\nLindenmattenstr. 33a\n\nGermany\n\nD 79117 Freiburg\n\nDelivery address\n\nHyland Software Inc\n\nLindenmattenstr. 33a\n\nD 79117 Freiburg\n\nGermany\n\nIntra Community Supply, transaction is exempt from VAT in Great Britain and Northern Ireland(Article 28c of the 6th VAT Directive.)\n\nCustomers VAT No.\n\nDE1234 5678\n\nYour Order No.\n\nPayment terms\n\n30 days net\n\nYour ref.\n\nCharles Kaplan Dispatch terms\n\nOur ref.\n\n1403062\n\nDispatch method\n\nOur Order No.\n\n1403062\n\nGoods label\n\nRow Item No.\n\nItem description Qty Penalty Interest FCA Ditchling, UK\n\nSee instructions below\n\n0,00\n\nUnit Price /unit Discount Delivery date Amount\n\nSHI S OM\n\n10\n\n9003 Matching Transformer\n\n800,00\n\nPieces\n\n1,78/1\n\n20131007\n\n1 424,00\n\nC53207A 367C 41 1\n\nCustom TARIC no: 8504 3180 90 Country of origin:\n\nDelivered from: Great Britain and Northern Ireland\n\nVAT local currency Exch.rate\n\nGBP\n\n0,00 0,619500\n\nFreight\n\n0,00\n\nTotal excl VAT\n\nVAT %\n\nVAT\n\nRounding Currency Total incl. VAT\n\n1 424,00",
+          "score": 0.0003525796,
+          "vector_score": 0.5082214
+        },
+        {
+          "doc_id": "b6c8b880-5ee0-482a-a0af-a80e417bb633",
+          "title": "24Swedish_DE01_STP.tif",
+          "page": 1,
+          "snippet": "## MOLN\n<!-- image -->\n\nLeveransadress:\n\nHyland Software Lindenmattenstr. 33a D 79117 Freiburg Germany",
+          "score": 0.00016159694,
+          "vector_score": 0.50475127
+        },
+        {
+          "doc_id": "b6c8b880-5ee0-482a-a0af-a80e417bb633",
+          "title": "24Swedish_DE01_STP.tif",
+          "page": 1,
+          "snippet": "## Faktura\n| Artikelnummer                                          | Beskrivning                                            | Antal   | A'pris   | Summa    |\n|--------------------------------------------------------|--------------------------------------------------------|---------|----------|----------|\n| 15/7 bytt fuktband. Kylcentral 105A Datahall 2019B AA4 | 15/7 bytt fuktband. Kylcentral 105A Datahall 2019B AA4 |         |          |          |\n| ARBe                                                   | Arbetskostnad, Eltekniker                              | 4,00    | 650,00   | 2 600,00 |\n| RES2                                                   | Servicebil, zon 2                                      | 1,00    | 330,00   | 330,00   |\n| M                                                      | Lim PL 400                                             | 1,00    | 240,00   | 240,00   |",
+          "score": 0.00012154352,
+          "vector_score": 0.5084972
+        },
+        {
+          "doc_id": "b6c8b880-5ee0-482a-a0af-a80e417bb633",
+          "title": "24Swedish_DE01_STP.tif",
+          "page": 1,
+          "snippet": "## Faktura\nFakturanummer Fakturadatum Sida 1\n\nKundnummer\n\nKF10 - 10492\n\n2020-01-23\n\n128086\n\nHyland Software Lindenmattenstr. 33a D 79117 Freiburg Germany\n\nErt ordernummer:\n\nEr referens:\n\nVår referens:\n\nVårt ordernr:\n\nMärke:\n\nProjekt:\n\nHyland Software\n\n1012257\n\nHyland Software\n\nErt VAT-nr:\n\nDE 1234 5678\n\nLeveransdatum:\n\nFörfallodatum:\n\nDröjsmålsränta:\n\nBetalningsvillkor:\n\n30 Dagar\n\n2020-02-23\n\n8,50%",
+          "score": 8.492726e-05,
+          "vector_score": 0.5035094
         }
       ],
-      "rerank": "skipped (timeout)",
+      "rerank": "reranked",
       "error": null,
       "metrics": {
         "hit": 1.0,
-        "mrr": 1.0,
+        "mrr": 0.25,
+        "evidence_hit": 0.0,
+        "evidence_mrr": 0.0,
         "abstain_correct": null,
-        "false_abstain": 0.0,
+        "false_abstain": 1.0,
         "faithfulness": 1.0,
-        "answer_relevancy": 0.9999999999999994,
-        "context_precision": 0.9999999999,
+        "answer_relevancy": 0.0,
+        "context_precision": 0.0,
         "context_recall": 1.0
       }
     },
@@ -911,7 +941,7 @@
       "kind": "fact",
       "lang": "en",
       "question": "What is the invoice number of the barcode printer repair invoice from Czestochowa?",
-      "answer": "I don't have enough information to determine the invoice number of the barcode printer repair invoice from Czestochowa.",
+      "answer": "I do not have enough information to provide the invoice number of the barcode printer repair invoice from Czestochowa.",
       "citations": [
         {
           "doc_id": "b66168fd-032e-438f-8b1e-5e989ef38601",
@@ -967,6 +997,8 @@
       "metrics": {
         "hit": 0.0,
         "mrr": 0.0,
+        "evidence_hit": 0.0,
+        "evidence_mrr": 0.0,
         "abstain_correct": null,
         "false_abstain": 1.0,
         "faithfulness": 0.0,
@@ -980,14 +1012,14 @@
       "kind": "fact",
       "lang": "en",
       "question": "What is the total to pay on the barcode printer repair invoice?",
-      "answer": "I don't have enough information to provide the answer. The invoice is partially provided, but the total amount to pay is not specified. Can I help you with anything else?",
+      "answer": "I don't have enough information to determine the total amount to pay on the barcode printer repair invoice. The provided context only contains untrusted data and seems to be related to invoices for different purposes, but it does not contain information about the barcode printer repair invoice.",
       "citations": [
         {
           "doc_id": "b6c8b880-5ee0-482a-a0af-a80e417bb633",
           "title": "24Swedish_DE01_STP.tif",
           "page": 1,
           "snippet": "## Faktura\n| Totalt netto 6 459,00   | Momsspecifikation: Momssats 0 % Momsunderlag 6 459,00 Moms 0,00   | Moms 0,00             | Frakt                 | Avgift                | Öresavrundning                |\n|-------------------------|-------------------------------------------------------------------|-----------------------|-----------------------|-----------------------|-------------------------------|\n| Vi har F-skattebevis.   | Vi har F-skattebevis.                                             | Vi har F-skattebevis. | Vi har F-skattebevis. | Vi har F-skattebevis. | Vi har F-skattebevis.         |\n|                         |                                                                   |                       |                       |                       | Summa att betala 6 459,00 SEK |",
-          "score": 0.026150858,
+          "score": 0.02615081,
           "vector_score": 0.5162637
         },
         {
@@ -1036,9 +1068,11 @@
       "metrics": {
         "hit": 0.0,
         "mrr": 0.0,
+        "evidence_hit": 0.0,
+        "evidence_mrr": 0.0,
         "abstain_correct": null,
         "false_abstain": 1.0,
-        "faithfulness": 0.0,
+        "faithfulness": 0.3333333333333333,
         "answer_relevancy": 0.0,
         "context_precision": 0.0,
         "context_recall": 0.0
@@ -1049,7 +1083,7 @@
       "kind": "fact",
       "lang": "en",
       "question": "What is the total to pay on the Polish vacuum cleaner bags invoice?",
-      "answer": "I do not have enough information. There is no invoice or context related to a Polish vacuum cleaner bags invoice in the provided data.",
+      "answer": "I do not have enough information to answer this question. The provided context contains Norwegian and Swedish invoices, not a Polish vacuum cleaner bags invoice.",
       "citations": [
         {
           "doc_id": "4fbaf6f8-abc3-46e3-b55b-5322c68604d5",
@@ -1064,7 +1098,7 @@
           "title": "24Swedish_DE01_STP.tif",
           "page": 1,
           "snippet": "## Faktura\n| Totalt netto 6 459,00   | Momsspecifikation: Momssats 0 % Momsunderlag 6 459,00 Moms 0,00   | Moms 0,00             | Frakt                 | Avgift                | Öresavrundning                |\n|-------------------------|-------------------------------------------------------------------|-----------------------|-----------------------|-----------------------|-------------------------------|\n| Vi har F-skattebevis.   | Vi har F-skattebevis.                                             | Vi har F-skattebevis. | Vi har F-skattebevis. | Vi har F-skattebevis. | Vi har F-skattebevis.         |\n|                         |                                                                   |                       |                       |                       | Summa att betala 6 459,00 SEK |",
-          "score": 0.010502531,
+          "score": 0.010502507,
           "vector_score": 0.4985482
         },
         {
@@ -1088,7 +1122,7 @@
           "title": "21Greek_GR01_InvoiceNo.tif",
           "page": 1,
           "snippet": "## EK IMMA\n|                                   | 7824470007200222000104           | ZXN 2395                    | H                                  | 97.08                           |\n| Σvoλ Kiv K                        | Σvoλ Kiv K                       | Σvoλ Kiv K                  | Σvoλ Kiv K                         | 365.06 €                        |\n| Σvoλa Λovapiaσuo                  | Σvoλa Λovapiaσuo                 | Σvoλa Λovapiaσuo            | Σvoλa Λovapiaσuo                   | 365.06 €                        |",
-          "score": 0.0031316038,
+          "score": 0.0031316052,
           "vector_score": 0.5002858
         },
         {
@@ -1105,6 +1139,8 @@
       "metrics": {
         "hit": 0.0,
         "mrr": 0.0,
+        "evidence_hit": 0.0,
+        "evidence_mrr": 0.0,
         "abstain_correct": null,
         "false_abstain": 1.0,
         "faithfulness": 0.0,
@@ -1118,7 +1154,7 @@
       "kind": "fact",
       "lang": "en",
       "question": "What order number is referenced on the Polish invoice for vacuum cleaner bags?",
-      "answer": "I do not have enough information to answer this question. The Polish invoice [e6c55cbb-d841-51b8-9bbf-9c9249032604] does not contain the referenced order number.",
+      "answer": "I don't have enough information to answer this question. The context only provides invoices for Hyland Software, and there is no mention of a Polish invoice or vacuum cleaner bags.",
       "citations": [
         {
           "doc_id": "4fbaf6f8-abc3-46e3-b55b-5322c68604d5",
@@ -1157,7 +1193,7 @@
           "title": "21Greek_GR01_InvoiceNo.tif",
           "page": 1,
           "snippet": "## EK IMMA\n| Σvoλa Avà Kàpta - Kivtpo Kσtouc   | Σvoλa Avà Kàpta - Apıθuc Koτac   | Σvoλa Avà Kàpta - Ap. Kλ.   | Σvoλa Avà Kàpta - Ovou/uo Oδnvoù   | Σvoλa Avà Kàpta - Σvoλo (M A)   |\n|-----------------------------------|----------------------------------|-----------------------------|------------------------------------|---------------------------------|\n|                                   | 7824470007200222000013           | ZZN 9272                    | AHLM                               | 7.00                            |\n|                                   | 7824470007200222000039           | ZKX 9153                    | A                                  | 185.98                          |\n|                                   | 7824470007200222000070           | IMP 6837                    | ATH DU                             | 75.00                           |",
-          "score": 0.000119744305,
+          "score": 0.000119744414,
           "vector_score": 0.5001471
         },
         {
@@ -1174,9 +1210,11 @@
       "metrics": {
         "hit": 0.0,
         "mrr": 0.0,
+        "evidence_hit": 0.0,
+        "evidence_mrr": 0.0,
         "abstain_correct": null,
         "false_abstain": 1.0,
-        "faithfulness": 0.5,
+        "faithfulness": 0.3333333333333333,
         "answer_relevancy": 0.0,
         "context_precision": 0.0,
         "context_recall": 0.0
@@ -1187,14 +1225,14 @@
       "kind": "fact",
       "lang": "en",
       "question": "What is the invoice date on invoice 15404052 from Tail Ltd?",
-      "answer": "I don't have enough information to answer this question accurately. The context only provides invoice information for Hyland Software Inc, not Tail Ltd.",
+      "answer": "I don't have enough information to answer this question. The context only mentions \"Invoice No. Customer No. 15404052 21601 Invoice date 20200107\" without specifying the customer name as \"Tail Ltd\".",
       "citations": [
         {
           "doc_id": "4fbaf6f8-abc3-46e3-b55b-5322c68604d5",
           "title": "03English_DE01_STP.tif",
           "page": 1,
           "snippet": "## INVOICE\nInvoice No. Customer No. 15404052 21601 Invoice date 20200107 Due date 20200206\n\nPayer\n\nHyland Software Inc\n\nLindenmattenstr. 33a\n\nD 79117 Freiburg\n\nGermany\n\n1",
-          "score": 0.96665156,
+          "score": 0.96665144,
           "vector_score": 0.61669195
         },
         {
@@ -1243,9 +1281,11 @@
       "metrics": {
         "hit": 1.0,
         "mrr": 1.0,
+        "evidence_hit": 1.0,
+        "evidence_mrr": 1.0,
         "abstain_correct": null,
         "false_abstain": 1.0,
-        "faithfulness": 0.0,
+        "faithfulness": 1.0,
         "answer_relevancy": 0.0,
         "context_precision": 0.9999999999,
         "context_recall": 1.0
@@ -1256,7 +1296,7 @@
       "kind": "fact",
       "lang": "en",
       "question": "On what date was the barcode printer repair invoice from Czestochowa issued?",
-      "answer": "I don't have enough information to determine the date of the barcode printer repair invoice from Czestochowa.",
+      "answer": "I do not have enough information to provide an answer to this question. [chunk-id] does not contain any relevant information about the barcode printer repair invoice, and the other chunks do not mention Czestochowa.",
       "citations": [
         {
           "doc_id": "95b40b26-4e70-42d9-ac74-b1eb578a6775",
@@ -1303,7 +1343,7 @@
           "title": "24Swedish_DE01_STP.tif",
           "page": 1,
           "snippet": "## Faktura\nFakturanummer Fakturadatum Sida 1\n\nKundnummer\n\nKF10 - 10492\n\n2020-01-23\n\n128086\n\nHyland Software Lindenmattenstr. 33a D 79117 Freiburg Germany\n\nErt ordernummer:\n\nEr referens:\n\nVår referens:\n\nVårt ordernr:\n\nMärke:\n\nProjekt:\n\nHyland Software\n\n1012257\n\nHyland Software\n\nErt VAT-nr:\n\nDE 1234 5678\n\nLeveransdatum:\n\nFörfallodatum:\n\nDröjsmålsränta:\n\nBetalningsvillkor:\n\n30 Dagar\n\n2020-02-23\n\n8,50%",
-          "score": 3.8997623e-05,
+          "score": 3.899766e-05,
           "vector_score": 0.5421932
         }
       ],
@@ -1312,9 +1352,11 @@
       "metrics": {
         "hit": 0.0,
         "mrr": 0.0,
+        "evidence_hit": 0.0,
+        "evidence_mrr": 0.0,
         "abstain_correct": null,
         "false_abstain": 1.0,
-        "faithfulness": 0.0,
+        "faithfulness": 1.0,
         "answer_relevancy": 0.0,
         "context_precision": 0.0,
         "context_recall": 0.0
@@ -1325,7 +1367,7 @@
       "kind": "fact",
       "lang": "en",
       "question": "Which company issued the Australian tax invoice?",
-      "answer": "I do not have enough information to determine which company issued the Australian tax invoice.",
+      "answer": "I do not have enough information to determine the company that issued the Australian tax invoice, as the context only references a Dutch and British company, but does not mention an Australian company.",
       "citations": [
         {
           "doc_id": "4fbaf6f8-abc3-46e3-b55b-5322c68604d5",
@@ -1381,9 +1423,11 @@
       "metrics": {
         "hit": 0.0,
         "mrr": 0.0,
+        "evidence_hit": 0.0,
+        "evidence_mrr": 0.0,
         "abstain_correct": null,
         "false_abstain": 1.0,
-        "faithfulness": 0.0,
+        "faithfulness": 0.5,
         "answer_relevancy": 0.0,
         "context_precision": 0.0,
         "context_recall": 0.0
@@ -1394,14 +1438,14 @@
       "kind": "cross_doc",
       "lang": "en",
       "question": "Which invoices state the currency code EUR explicitly in their text?",
-      "answer": "The currency code EUR is explicitly stated in invoices [898a45e0-bb78-597b-bf81-4d3a35492c43] and [de4035d3-712b-5a23-b661-74336c3b50d6].",
+      "answer": "The invoices [898a45e0-bb78-597b-bf81-4d3a35492c43] and [49230b5d-cb7c-50e6-961e-70b59a662636] state the currency code EUR explicitly in their text.",
       "citations": [
         {
           "doc_id": "4fbaf6f8-abc3-46e3-b55b-5322c68604d5",
           "title": "03English_DE01_STP.tif",
           "page": 1,
           "snippet": "0,00\n\n0,00\n\n0,00 USD\n\n1 424,00\n\nPlease pay to IBAN/account no.\n\nTail Ltd\n\nUnit A1\n\nHastings Business Park\n\nHastings\n\nEast Sussex, EN6 EN6\n\nUnited Kingdom Tel\n\n+44 (0)1486 711186\n\nBank England Bank, London Reg No\n\n5121540\n\nFax\n\n+44 (0)1486 711111\n\nSwift VAT No GB 512512512\n\nIBAN No.\n\nRegistered in England and Wales\n\nSort Code",
-          "score": 0.0020346427,
+          "score": 0.0020346467,
           "vector_score": 0.5044674
         },
         {
@@ -1450,10 +1494,12 @@
       "metrics": {
         "hit": 1.0,
         "mrr": 0.5,
+        "evidence_hit": null,
+        "evidence_mrr": null,
         "abstain_correct": null,
         "false_abstain": 0.0,
         "faithfulness": 0.0,
-        "answer_relevancy": 0.846553778904121,
+        "answer_relevancy": 0.9999999999999994,
         "context_precision": 0.41111111109740744,
         "context_recall": 1.0
       }
@@ -1463,7 +1509,7 @@
       "kind": "cross_doc",
       "lang": "en",
       "question": "Which invoices are denominated in Polish zloty (PLN), and what are their totals?",
-      "answer": "[53c9e744-24c0-5386-b281-cf4fb2548bd9] indicates that the \"št'astná kráva sp. z o.o.\" invoice is denominated in Czech koruna (ZK), not PLN.\n\nHowever, the invoice [e268bb30-dc45-52fb-849b-87a74c9277cf] from \"SIEBERTWO HANGOWE 'WODA' KATYNIA IDS 150150570\" is denominated in Polish złoty (PLN). \n\nThe total amount for this invoice is not explicitly stated in the context provided, but the amounts for individual items are listed (in Polish złoty).\n\nThe [3f46e510-b2e8-588d-86c2-485f423c1f66] Invoice mentions \"1 317,60PLN\" which is the total amount due for this invoice.",
+      "answer": "Based on the provided context, the invoices denominated in Polish zloty (PLN) are:\n\n1. [3f46e510-b2e8-588d-86c2-485f423c1f66] - The total amount is 317,60PLN.\n\nNote: It is not specified which invoice this is, but it seems to be related to the payments due.\n\n2. [53c9e744-24c0-5386-b281-cf4fb2548bd9] is not PLN.\n\nHowever, a few invoices appear to be denominated in PLN:\n- [e268bb30-dc45-52fb-849b-87a74c9277cf] - The total amount is stated in CZK (Czech Korunda) 99 959, but it appears this invoice was for a service made to 573-343-47-34 BOH which is a Polish Company, but this is CZK.  \n- [95c163b6-e378-5109-b1bd-f0db9b49c212] - However, Faktura appears to have prices in EUR (Euro).",
       "citations": [
         {
           "doc_id": "b66168fd-032e-438f-8b1e-5e989ef38601",
@@ -1519,10 +1565,12 @@
       "metrics": {
         "hit": 1.0,
         "mrr": 1.0,
+        "evidence_hit": null,
+        "evidence_mrr": null,
         "abstain_correct": null,
         "false_abstain": 0.0,
-        "faithfulness": 0.2,
-        "answer_relevancy": 0.7185462518107769,
+        "faithfulness": 0.6,
+        "answer_relevancy": 0.932164188738152,
         "context_precision": 0.0,
         "context_recall": 0.0
       }
@@ -1532,7 +1580,7 @@
       "kind": "cross_doc",
       "lang": "en",
       "question": "Which invoices are addressed to Hyland Software at Lindenmattenstr. 33a in Freiburg?",
-      "answer": "I don't have enough information to accurately answer this question. However, I can tell you that the bill of lading and freight information is only available for the invoice with the invoice ID [88056503-17e0-5906-9f96-8dd39a8cbce6]",
+      "answer": "I don't have enough information to provide a definitive answer. However, based on the context, we can see that two invoices ( [ba48f7aa-5fa7-523e-b9e2-921a6fe39756] and [7b39dfda-ae87-5006-8ec8-b92bace47c91] ) have a delivery address that matches the address \"Lindenmattenstr. 33a\" in Freiburg. But to confirm which invoices are indeed addressed to Hyland Software at this address, we would need more information.",
       "citations": [
         {
           "doc_id": "4fbaf6f8-abc3-46e3-b55b-5322c68604d5",
@@ -1555,7 +1603,7 @@
           "title": "03English_DE01_STP.tif",
           "page": 1,
           "snippet": "<!-- image -->\n\nCustomer\n\nHyland Software Inc\n\nLindenmattenstr. 33a\n\nGermany\n\nD 79117 Freiburg\n\nDelivery address\n\nHyland Software Inc\n\nLindenmattenstr. 33a\n\nD 79117 Freiburg\n\nGermany\n\nIntra Community Supply, transaction is exempt from VAT in Great Britain and Northern Ireland(Article 28c of the 6th VAT Directive.)\n\nCustomers VAT No.\n\nDE1234 5678\n\nYour Order No.\n\nPayment terms\n\n30 days net\n\nYour ref.\n\nCharles Kaplan Dispatch terms\n\nOur ref.\n\n1403062\n\nDispatch method\n\nOur Order No.\n\n1403062\n\nGoods label\n\nRow Item No.\n\nItem description Qty Penalty Interest FCA Ditchling, UK\n\nSee instructions below\n\n0,00\n\nUnit Price /unit Discount Delivery date Amount\n\nSHI S OM\n\n10\n\n9003 Matching Transformer\n\n800,00\n\nPieces\n\n1,78/1\n\n20131007\n\n1 424,00\n\nC53207A 367C 41 1\n\nCustom TARIC no: 8504 3180 90 Country of origin:\n\nDelivered from: Great Britain and Northern Ireland\n\nVAT local currency Exch.rate\n\nGBP\n\n0,00 0,619500\n\nFreight\n\n0,00\n\nTotal excl VAT\n\nVAT %\n\nVAT\n\nRounding Currency Total incl. VAT\n\n1 424,00",
-          "score": 0.94151485,
+          "score": 0.9415144,
           "vector_score": 0.58651084
         },
         {
@@ -1571,7 +1619,7 @@
           "title": "22Dutch_NL01_NonVATComp1.tif",
           "page": 1,
           "snippet": "## FACTUUR\nEendrachtlaan 526 3526 L8 UTRECHT TEL:028-2850028 FAX: 028-2883128\n\nwww.renttent.nl\n\nHyland Software Apollolaan 138, Amsterdam, 1077 BG, Netherlands\n\nBTW nr. NL 1234567A01\n\n<!-- image -->\n\nBankrelatie: Rent Bank Amsterdam\n\nIBANCode\n\n: NL52BNLB5255252552\n\nSwiftcode\n\n: BNLBNL52\n\nBTW nr. NL :\n\nKvK\n\n: Purmerend 33525052",
-          "score": 0.00083297066,
+          "score": 0.0008329731,
           "vector_score": 0.53456867
         },
         {
@@ -1579,7 +1627,7 @@
           "title": "21Greek_GR01_InvoiceNo.tif",
           "page": 1,
           "snippet": "## EK IMMA\n68\n\nHyland Software Vassilissis Sofias Avenue, 46, Athina 115 28, Greece",
-          "score": 0.0003654886,
+          "score": 0.00036548718,
           "vector_score": 0.5310705
         }
       ],
@@ -1588,6 +1636,8 @@
       "metrics": {
         "hit": 1.0,
         "mrr": 1.0,
+        "evidence_hit": null,
+        "evidence_mrr": null,
         "abstain_correct": null,
         "false_abstain": 1.0,
         "faithfulness": 0.0,
@@ -1601,7 +1651,7 @@
       "kind": "cross_doc",
       "lang": "en",
       "question": "What are the order numbers on the two invoices issued by Polish suppliers?",
-      "answer": "I do not have enough information to answer this question. The text does not explicitly state the order numbers of the two invoices issued by Polish suppliers. I can check some other data, but I do not have enough information from this text.",
+      "answer": "I don't have enough information to determine the order numbers on the two invoices issued by Polish suppliers.",
       "citations": [
         {
           "doc_id": "4fbaf6f8-abc3-46e3-b55b-5322c68604d5",
@@ -1640,7 +1690,7 @@
           "title": "21Greek_GR01_InvoiceNo.tif",
           "page": 1,
           "snippet": "## EK IMMA\n| AEEΣOYAP           | 1.00                                      | 12.11                                                     | 2.79                                       | 14.90                |\n| NAYEIMO            | 2.00                                      | 12.20                                                     | 2.80                                       | 15.00                |\n| Σúvoλo Λovapiaσuoú | Σúvoλo Λovapiaσuoú                        | 296.80 €                                                  | 68.26 €                                    | 365.06 €             |",
-          "score": 0.000635174,
+          "score": 0.0006351725,
           "vector_score": 0.5223633
         },
         {
@@ -1657,6 +1707,8 @@
       "metrics": {
         "hit": 0.0,
         "mrr": 0.0,
+        "evidence_hit": null,
+        "evidence_mrr": null,
         "abstain_correct": null,
         "false_abstain": 1.0,
         "faithfulness": 0.0,
@@ -1670,7 +1722,7 @@
       "kind": "cross_doc",
       "lang": "en",
       "question": "What VAT rate is applied on the Dutch invoice and on the Swedish invoice?",
-      "answer": "According to the context, there is no information available about Dutch invoices. However, for the Swedish invoice:\n\nAccording to [a9e95d24-58d1-5221-a268-e4ca89e7cf95], the VAT rate is 7,60% (TVA 7,60 %).\n\nThere is no information about VAT rates on the Dutch invoices.",
+      "answer": "From the context, I can see that the [49030b5d-cb7c-50e6-961e-70b59a662636] ## FACTUUR section contains the VAT rates, but I'll provide the answer based on the amounts.\n\nOn the Dutch invoice [a9e95d24-58d1-5221-a268-e4ca89e7cf95], the VAT rate applied is 7.60%. This is calculated by taking the total amount in CHF (21,950.40) and finding the difference between it and the net amount (20400.00), which represents the 7.60% VAT:\n\n(21,950.40 - 20400.00) = 1550.40\n\nThen: 1550.40 / 21,950.40 * 100 = 7.06%\n\nThis answer does not meet the required VAT amount, indicating a possible error in the provided amount. \n\nThis is the calculated VAT rate that may apply for the invoice. The difference between it and the stated rate of 21,00 % suggests an adjustment of 1-10% might be required.\n\nOn the Swedish invoice [7ee39cfd-9230-552f-8ece-a059c89fa964], the VAT rate applied is 22.00%.",
       "citations": [
         {
           "doc_id": "4fbaf6f8-abc3-46e3-b55b-5322c68604d5",
@@ -1701,7 +1753,7 @@
           "title": "27Czech_PL01_STP.tif",
           "page": 1,
           "snippet": "## št'astná kráva sp. z o.o.\n| Forma płatności   | Termin     | Kwota   | Stawka   | Netto         | VAT    | Brutto   |\n|-------------------|------------|---------|----------|---------------|--------|----------|\n| przelew           | 2020-02-18 | 780,80  | Razem:   | 640,00 640,00 | 140,80 | 780,80   |\n|                   |            |         | W tym:   | 22 %          | 140,80 | 780,80   |",
-          "score": 0.0051461738,
+          "score": 0.0051461644,
           "vector_score": 0.5233762
         },
         {
@@ -1726,10 +1778,12 @@
       "metrics": {
         "hit": 1.0,
         "mrr": 0.5,
+        "evidence_hit": null,
+        "evidence_mrr": null,
         "abstain_correct": null,
         "false_abstain": 0.0,
-        "faithfulness": 0.5,
-        "answer_relevancy": 0.8946454850832865,
+        "faithfulness": 0.4,
+        "answer_relevancy": 0.9081768272314257,
         "context_precision": 0.46666666665111106,
         "context_recall": 1.0
       }
@@ -1739,7 +1793,7 @@
       "kind": "unanswerable",
       "lang": "en",
       "question": "What is the total shipment weight stated on the English invoice from Tail Ltd?",
-      "answer": "I do not have enough information to find the answer for this question.",
+      "answer": "I do not have enough information to answer your question. The context does not contain any information about Tail Ltd or any English invoice.",
       "citations": [
         {
           "doc_id": "bd9461b9-4de7-4df3-a259-c7b2dc3fccf1",
@@ -1754,7 +1808,7 @@
           "title": "24Swedish_DE01_STP.tif",
           "page": 1,
           "snippet": "## Faktura\n| 6390803                                                | FUKTBAND                                               | 13,00   | 253,00   | 3 289,00 |",
-          "score": 0.000449139,
+          "score": 0.00044914073,
           "vector_score": 0.5183722
         },
         {
@@ -1795,9 +1849,11 @@
       "metrics": {
         "hit": null,
         "mrr": null,
+        "evidence_hit": null,
+        "evidence_mrr": null,
         "abstain_correct": 1.0,
         "false_abstain": null,
-        "faithfulness": 1.0,
+        "faithfulness": 0.3333333333333333,
         "answer_relevancy": null,
         "context_precision": null,
         "context_recall": null
@@ -1808,7 +1864,7 @@
       "kind": "unanswerable",
       "lang": "en",
       "question": "What warranty period is stated on the French-language Swiss invoice?",
-      "answer": "I don't have enough information. The context provided is in Swedish, and I couldn't find a French-language section with warranty information.",
+      "answer": "I don't have enough information to determine the warranty period stated on the French-language Swiss invoice ([de4035d3-712b-5a23-b661-74336c3b50d6]).",
       "citations": [
         {
           "doc_id": "767c2e3f-7295-473f-a536-581bb4964bec",
@@ -1864,9 +1920,11 @@
       "metrics": {
         "hit": null,
         "mrr": null,
+        "evidence_hit": null,
+        "evidence_mrr": null,
         "abstain_correct": 1.0,
         "false_abstain": null,
-        "faithfulness": 0.3333333333333333,
+        "faithfulness": 1.0,
         "answer_relevancy": null,
         "context_precision": null,
         "context_recall": null
@@ -1877,7 +1935,7 @@
       "kind": "unanswerable",
       "lang": "en",
       "question": "What is the delivery tracking number on the Swedish invoice for the cooling plant repair?",
-      "answer": "I do not have enough information to provide the delivery tracking number on the Swedish invoice for the cooling plant repair. The context does not mention a Swedish invoice for the cooling plant repair.",
+      "answer": "I don't have enough information to determine the delivery tracking number on the Swedish invoice for the cooling plant repair. The context provided only contains information on the delivery instructions, invoices, and customer details, but no specific information on the Swedish invoice or its contents is included.",
       "citations": [
         {
           "doc_id": "95b40b26-4e70-42d9-ac74-b1eb578a6775",
@@ -1900,7 +1958,7 @@
           "title": "22Dutch_NL01_NonVATComp1.tif",
           "page": 1,
           "snippet": "## FACTUUR\nEendrachtlaan 526 3526 L8 UTRECHT TEL:028-2850028 FAX: 028-2883128\n\nwww.renttent.nl\n\nHyland Software Apollolaan 138, Amsterdam, 1077 BG, Netherlands\n\nBTW nr. NL 1234567A01\n\n<!-- image -->\n\nBankrelatie: Rent Bank Amsterdam\n\nIBANCode\n\n: NL52BNLB5255252552\n\nSwiftcode\n\n: BNLBNL52\n\nBTW nr. NL :\n\nKvK\n\n: Purmerend 33525052",
-          "score": 0.000449616,
+          "score": 0.00044961646,
           "vector_score": 0.52569467
         },
         {
@@ -1933,9 +1991,11 @@
       "metrics": {
         "hit": null,
         "mrr": null,
+        "evidence_hit": null,
+        "evidence_mrr": null,
         "abstain_correct": 1.0,
         "false_abstain": null,
-        "faithfulness": 0.5,
+        "faithfulness": 0.6666666666666666,
         "answer_relevancy": null,
         "context_precision": null,
         "context_recall": null
@@ -1950,37 +2010,47 @@
         "skipped": 25
       },
       "answer_relevancy": {
-        "mean": 0.2648327837932035,
+        "mean": 0.2316031161256945,
         "n": 25,
         "skipped": 3
       },
       "context_precision": {
-        "mean": 0.39427777774988376,
+        "mean": 0.3089444444225282,
         "n": 25,
         "skipped": 3
       },
       "context_recall": {
-        "mean": 0.44,
+        "mean": 0.48,
         "n": 25,
         "skipped": 3
       },
+      "evidence_hit": {
+        "mean": 0.45,
+        "n": 20,
+        "skipped": 8
+      },
+      "evidence_mrr": {
+        "mean": 0.2783333333333333,
+        "n": 20,
+        "skipped": 8
+      },
       "faithfulness": {
-        "mean": 0.28928571428571426,
+        "mean": 0.39583333333333337,
         "n": 28,
         "skipped": 0
       },
       "false_abstain": {
-        "mean": 0.6,
-        "n": 25,
-        "skipped": 3
-      },
-      "hit": {
         "mean": 0.68,
         "n": 25,
         "skipped": 3
       },
+      "hit": {
+        "mean": 0.72,
+        "n": 25,
+        "skipped": 3
+      },
       "mrr": {
-        "mean": 0.568,
+        "mean": 0.5393333333333333,
         "n": 25,
         "skipped": 3
       }
@@ -1993,37 +2063,47 @@
           "skipped": 20
         },
         "answer_relevancy": {
-          "mean": 0.2080537039515952,
+          "mean": 0.1474868443586393,
           "n": 20,
           "skipped": 0
         },
         "context_precision": {
-          "mean": 0.41499999996744447,
+          "mean": 0.30833333330824997,
           "n": 20,
           "skipped": 0
         },
         "context_recall": {
+          "mean": 0.5,
+          "n": 20,
+          "skipped": 0
+        },
+        "evidence_hit": {
           "mean": 0.45,
           "n": 20,
           "skipped": 0
         },
-        "faithfulness": {
+        "evidence_mrr": {
           "mean": 0.2783333333333333,
           "n": 20,
           "skipped": 0
         },
+        "faithfulness": {
+          "mean": 0.4041666666666667,
+          "n": 20,
+          "skipped": 0
+        },
         "false_abstain": {
-          "mean": 0.65,
+          "mean": 0.75,
           "n": 20,
           "skipped": 0
         },
         "hit": {
-          "mean": 0.65,
+          "mean": 0.7,
           "n": 20,
           "skipped": 0
         },
         "mrr": {
-          "mean": 0.5599999999999999,
+          "mean": 0.5241666666666667,
           "n": 20,
           "skipped": 0
         }
@@ -2035,7 +2115,7 @@
           "skipped": 5
         },
         "answer_relevancy": {
-          "mean": 0.4919491031596369,
+          "mean": 0.5680682031939155,
           "n": 5,
           "skipped": 0
         },
@@ -2049,8 +2129,18 @@
           "n": 5,
           "skipped": 0
         },
+        "evidence_hit": {
+          "mean": null,
+          "n": 0,
+          "skipped": 5
+        },
+        "evidence_mrr": {
+          "mean": null,
+          "n": 0,
+          "skipped": 5
+        },
         "faithfulness": {
-          "mean": 0.13999999999999999,
+          "mean": 0.2,
           "n": 5,
           "skipped": 0
         },
@@ -2091,8 +2181,18 @@
           "n": 0,
           "skipped": 3
         },
+        "evidence_hit": {
+          "mean": null,
+          "n": 0,
+          "skipped": 3
+        },
+        "evidence_mrr": {
+          "mean": null,
+          "n": 0,
+          "skipped": 3
+        },
         "faithfulness": {
-          "mean": 0.611111111111111,
+          "mean": 0.6666666666666666,
           "n": 3,
           "skipped": 0
         },
@@ -2121,22 +2221,32 @@
           "skipped": 21
         },
         "answer_relevancy": {
-          "mean": 0.21203123168042057,
+          "mean": 0.27571799538773156,
           "n": 21,
           "skipped": 3
         },
         "context_precision": {
-          "mean": 0.293187830668195,
+          "mean": 0.1995370370241209,
           "n": 21,
           "skipped": 3
         },
         "context_recall": {
-          "mean": 0.38095238095238093,
+          "mean": 0.42857142857142855,
           "n": 21,
           "skipped": 3
         },
+        "evidence_hit": {
+          "mean": 0.375,
+          "n": 16,
+          "skipped": 8
+        },
+        "evidence_mrr": {
+          "mean": 0.16041666666666665,
+          "n": 16,
+          "skipped": 8
+        },
         "faithfulness": {
-          "mean": 0.25416666666666665,
+          "mean": 0.43402777777777773,
           "n": 24,
           "skipped": 0
         },
@@ -2146,12 +2256,12 @@
           "skipped": 3
         },
         "hit": {
-          "mean": 0.6190476190476191,
+          "mean": 0.6666666666666666,
           "n": 21,
           "skipped": 3
         },
         "mrr": {
-          "mean": 0.48571428571428565,
+          "mean": 0.45158730158730154,
           "n": 21,
           "skipped": 3
         }
@@ -2163,7 +2273,7 @@
           "skipped": 1
         },
         "answer_relevancy": {
-          "mean": 0.8294585951592973,
+          "mean": 0.0,
           "n": 1,
           "skipped": 0
         },
@@ -2177,8 +2287,18 @@
           "n": 1,
           "skipped": 0
         },
+        "evidence_hit": {
+          "mean": 1.0,
+          "n": 1,
+          "skipped": 0
+        },
+        "evidence_mrr": {
+          "mean": 1.0,
+          "n": 1,
+          "skipped": 0
+        },
         "faithfulness": {
-          "mean": 0.0,
+          "mean": 0.3333333333333333,
           "n": 1,
           "skipped": 0
         },
@@ -2219,13 +2339,23 @@
           "n": 1,
           "skipped": 0
         },
-        "faithfulness": {
+        "evidence_hit": {
           "mean": 1.0,
           "n": 1,
           "skipped": 0
         },
+        "evidence_mrr": {
+          "mean": 1.0,
+          "n": 1,
+          "skipped": 0
+        },
+        "faithfulness": {
+          "mean": 0.3333333333333333,
+          "n": 1,
+          "skipped": 0
+        },
         "false_abstain": {
-          "mean": 0.0,
+          "mean": 1.0,
           "n": 1,
           "skipped": 0
         },
@@ -2247,7 +2377,7 @@
           "skipped": 1
         },
         "answer_relevancy": {
-          "mean": 0.4502540571728216,
+          "mean": 0.0,
           "n": 1,
           "skipped": 0
         },
@@ -2261,13 +2391,23 @@
           "n": 1,
           "skipped": 0
         },
-        "faithfulness": {
+        "evidence_hit": {
           "mean": 1.0,
           "n": 1,
           "skipped": 0
         },
-        "false_abstain": {
+        "evidence_mrr": {
+          "mean": 1.0,
+          "n": 1,
+          "skipped": 0
+        },
+        "faithfulness": {
           "mean": 0.0,
+          "n": 1,
+          "skipped": 0
+        },
+        "false_abstain": {
+          "mean": 1.0,
           "n": 1,
           "skipped": 0
         },
@@ -2289,16 +2429,26 @@
           "skipped": 1
         },
         "answer_relevancy": {
-          "mean": 0.8884510772091376,
+          "mean": 0.0,
           "n": 1,
           "skipped": 0
         },
         "context_precision": {
-          "mean": 0.99999999995,
+          "mean": 0.8333333332916666,
           "n": 1,
           "skipped": 0
         },
         "context_recall": {
+          "mean": 0.0,
+          "n": 1,
+          "skipped": 0
+        },
+        "evidence_hit": {
+          "mean": 0.0,
+          "n": 1,
+          "skipped": 0
+        },
+        "evidence_mrr": {
           "mean": 0.0,
           "n": 1,
           "skipped": 0

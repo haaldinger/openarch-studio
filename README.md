@@ -8,6 +8,10 @@ One workflow, end to end:
 
 > **sign in → upload → enrich → inspect → search → ask → open citation**
 
+Studio is an add-on to the public [Hyland/OpenArch](https://github.com/Hyland/OpenArch)
+deployment: clone it into an OpenArch checkout and one `docker compose up` starts both — see
+[Run it on Hyland OpenArch](#run-it-on-hyland-openarch).
+
 Upload a document; Studio stores it in OpenArch, extracts text with Docling (Tika as fallback),
 chunks and embeds it with a local model, and writes the vectors back as an OpenArch `SysEmbeddings` child. Then search
 it three ways and ask an agent questions whose answers are grounded in — and cited from — only the
@@ -68,13 +72,25 @@ Browser (React/Vite SPA)
 - Every OpenArch call is made as the signed-in user, so ACLs stay in force through search and chat.
 - No OpenArch Java module is modified — this stack lives entirely under `pocs/openarch-studio/`.
 
-## Run it (full stack)
+## Run it on Hyland OpenArch
 
-Requires Docker. From this directory:
+Studio runs on top of the standard OpenArch deployment from
+[Hyland/OpenArch](https://github.com/Hyland/OpenArch). Its Compose file includes that repo's
+`docker-compose.yml` (OpenArch app on `8080`, MongoDB, OpenSearch, Dashboards), so Studio must be
+cloned into `pocs/openarch-studio` inside an OpenArch checkout. Nothing in OpenArch is modified.
+
+Requires Docker and Git.
 
 ```bash
-cp .env.example .env
-export OPENARCH_VERSION=1.0.0        # the OpenArch base image tag
+# 1. OpenArch, from Hyland's GitHub
+git clone https://github.com/Hyland/OpenArch && cd OpenArch
+
+# 2. Studio, inside it
+git clone https://github.com/haaldinger/openarch-studio pocs/openarch-studio
+cd pocs/openarch-studio
+
+# 3. Configure and start OpenArch + Studio together
+cp .env.example .env                 # sets OPENARCH_VERSION=1.0.60 (public image, no login)
 docker compose up -d --build
 
 # one-time: pull the local models Ollama will serve
@@ -84,6 +100,10 @@ docker compose exec ollama ollama pull llama3.2:3b   # chat, graph, classificati
 # open the UI
 open http://localhost:8900
 ```
+
+OpenArch itself stays on its usual endpoints: REST/Swagger at
+`http://localhost:8080/swagger-ui/index.html` (basic auth `admin` / `password`), OpenSearch
+Dashboards at `http://localhost:5601`.
 
 Sign in with an OpenArch user (the default dev store includes `admin` / `password`). Upload a PDF,
 DOCX, TXT, Markdown, HTML, or image file, watch it enrich on the **Activity** page, then try
@@ -191,7 +211,9 @@ reranked, 0 errors; judge `qwen3`. The right invoice is retrieved for about 72%
 of answerable questions, but the chunk containing the answer only about 45% of the time. Ask
 (`llama3.2:3b`) declines 68% of answerable questions, so answer generation and chunk-level retrieval
 are the weakest links; the next sub-projects (multilingual embeddings, hybrid search) target
-`evidence_hit`.
+`evidence_hit`. OpenArch 1.0.60 already supports hybrid search natively: `POST /api/query/embeddings`
+takes an optional `chunkFTS` term list and merges kNN with BM25 using reciprocal rank fusion (RRF);
+Studio doesn't use it yet.
 
 ## POC limitations (deferred, by design)
 

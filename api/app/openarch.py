@@ -137,9 +137,6 @@ class OpenArchClient:
         )
         return response.json()["id"]
 
-    async def attach_blob(self, doc_id: str, upload_id: str, *, xpath: str = "sysfile_blob") -> dict[str, Any]:
-        return await self.update_document(doc_id, {xpath: {"uploadId": upload_id}})
-
     async def get_effective_acl(self, doc_id: str, users: list[str] | None = None) -> dict[str, Any]:
         params = {"users": ",".join(users)} if users else None
         response = await self._request(

@@ -2094,3 +2094,133 @@ select.modal-input {
   font-size: 0.75rem;
   color: var(--ink-faint);
 }
+
+/* ── Permissions panel ──────────────────────────────────────────────────── */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.perm-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+.perm-heading {
+  margin: 0 0 10px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-faint);
+}
+.perm-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+.perm-table th,
+.perm-table td {
+  padding: 8px 10px;
+  text-align: left;
+  vertical-align: middle;
+  border-top: 1px solid var(--line);
+}
+.perm-table thead th {
+  border-top: none;
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+}
+.perm-table tbody th {
+  font-weight: inherit;
+}
+.perm-table .perm-check {
+  text-align: center;
+  width: 110px;
+}
+.perm-name {
+  font-weight: 650;
+}
+.perm-sub {
+  margin-left: 8px;
+  font-size: 0.78rem;
+  color: var(--ink-faint);
+}
+.perm-yes {
+  color: var(--native);
+}
+.perm-no {
+  color: var(--ink-faint);
+}
+.perm-window {
+  display: block;
+  font-variant-numeric: tabular-nums;
+}
+.perm-status {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 3px 9px;
+  border-radius: 999px;
+  color: var(--ink-soft);
+  background: var(--paper-2);
+}
+.perm-status-effective {
+  color: var(--native);
+  background: var(--native-bg);
+}
+.perm-status-pending {
+  color: var(--model);
+  background: var(--model-bg);
+}
+.perm-note {
+  margin: 10px 0 0;
+  font-size: 0.85rem;
+}
+.rule-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+.rule-field {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+.rule-field-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+.rule-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.rule-chip {
+  padding: 6px 12px;
+  background: #fff;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+  color: var(--ink);
+}
+.rule-chip:hover {
+  border-color: var(--studio);
+}
+.rule-chip.active {
+  background: var(--studio-bg);
+  border-color: var(--studio);
+  color: var(--studio);
+  font-weight: 650;
+}
+.rule-custom {
+  max-width: 260px;
+}

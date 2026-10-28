@@ -1,5 +1,6 @@
 import type { A2uiMessage } from "./components/a2ui/types";
 import type {
+  AccessInfo,
   AppConfig,
   Citation,
   DocumentDetail,
@@ -8,6 +9,8 @@ import type {
   DocumentList,
   GraphData,
   Job,
+  Principal,
+  RuleInput,
   Persona,
   SearchMode,
   SearchResponse,
@@ -118,8 +121,21 @@ export function getDocument(id: string): Promise<DocumentDetail> {
   return apiFetch<DocumentDetail>(`/api/documents/${encodeURIComponent(id)}`);
 }
 
-export function getDocumentAcl(id: string): Promise<unknown> {
-  return apiFetch<unknown>(`/api/documents/${encodeURIComponent(id)}/acl`);
+export function getAccess(id: string): Promise<AccessInfo> {
+  return apiFetch<AccessInfo>(`/api/documents/${encodeURIComponent(id)}/access`);
+}
+
+/** Replaces the document's local rules; returns the refreshed access view. */
+export function putAccess(id: string, rules: RuleInput[]): Promise<AccessInfo> {
+  return apiFetch<AccessInfo>(`/api/documents/${encodeURIComponent(id)}/access`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ rules }),
+  });
+}
+
+export function searchPrincipals(q: string): Promise<Principal[]> {
+  return apiFetch<Principal[]>(`/api/principals?q=${encodeURIComponent(q)}`);
 }
 
 export function getDocumentEmbeddings(id: string): Promise<DocumentEmbeddings> {

@@ -138,6 +138,48 @@ export interface GraphData {
   entityTypes: string[];
 }
 
+export interface Principal {
+  kind: "user" | "group";
+  id: string;
+  name: string | null;
+  label?: string;
+}
+
+export type AccessSource =
+  | { kind: "local" }
+  | { kind: "inherited"; id: string | null; title: string | null };
+
+export interface AccessRule {
+  principal: Principal;
+  permission: string;
+  granted: boolean;
+  begin: string | null;
+  end: string | null;
+  status: "EFFECTIVE" | "PENDING" | "ARCHIVED" | null;
+  source: AccessSource;
+}
+
+export interface EffectiveAccess {
+  userId: string | null;
+  username: string;
+  label?: string;
+  permissions: string[];
+}
+
+export interface AccessInfo {
+  canManage: boolean;
+  rules: AccessRule[];
+  effective: EffectiveAccess[];
+}
+
+/** A rule as sent to `PUT /api/documents/{id}/access` (local rules only). */
+export interface RuleInput {
+  principal: { kind: "user" | "group"; id: string };
+  permission: string;
+  begin?: string;
+  end?: string;
+}
+
 export type HealthState = "up" | "degraded" | "down";
 
 export interface Health {

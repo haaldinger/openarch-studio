@@ -3,12 +3,12 @@ import { useParams, useNavigate, useSearchParams, Link } from "react-router-dom"
 import { FileText, Search, FolderInput } from "lucide-react";
 import { PageIntro } from "../components/PageIntro";
 import { Modal } from "../components/Modal";
+import { PermissionsPanel } from "../components/PermissionsPanel";
 import {
   ApiError,
   contentUrl,
   previewUrl,
   getDocument,
-  getDocumentAcl,
   getDocumentEmbeddings,
   getDocumentEmbeddingsRaw,
   deleteDocument,
@@ -38,7 +38,6 @@ export function DocumentPage({ baselineMode = false }: { baselineMode?: boolean 
   const [searchParams] = useSearchParams();
   const page = Number(searchParams.get("page")) || undefined;
   const [doc, setDoc] = useState<DocumentDetail | null>(null);
-  const [acl, setAcl] = useState<unknown>(null);
   const [embeddings, setEmbeddings] = useState<EmbeddingChunk[] | null>(null);
   const [embRaw, setEmbRaw] = useState<Record<string, unknown>[] | null>(null);
   const [embView, setEmbView] = useState<"chunks" | "raw">("chunks");
@@ -71,9 +70,6 @@ export function DocumentPage({ baselineMode = false }: { baselineMode?: boolean 
   }, [docId, page]);
 
   useEffect(() => {
-    if (tab === "permissions" && docId && acl === null) {
-      getDocumentAcl(docId).then(setAcl).catch(() => setAcl({ error: "ACL unavailable" }));
-    }
     if (tab === "embeddings" && docId && embeddings === null) {
       getDocumentEmbeddings(docId)
         .then((e) => setEmbeddings(e.embeddings))
@@ -84,7 +80,7 @@ export function DocumentPage({ baselineMode = false }: { baselineMode?: boolean 
         .then((e) => setEmbRaw(e.raw))
         .catch(() => setEmbRaw([]));
     }
-  }, [tab, docId, acl, embeddings, embView, embRaw]);
+  }, [tab, docId, embeddings, embView, embRaw]);
 
   const loadFinder = useCallback(() => {
     listFiles()
@@ -244,12 +240,12 @@ export function DocumentPage({ baselineMode = false }: { baselineMode?: boolean 
         </div>
       )}
 
-      {tab === "permissions" && (
+      {tab === "permissions" && docId && (
         <div className="kv-panel">
           <p className="panel-attr">
-            <span className="tag native">OpenArch</span> effective ACL for this document.
+            <span className="tag native">OpenArch</span> decides who can access this item.
           </p>
-          <pre className="json">{JSON.stringify(acl ?? "Loading…", null, 2)}</pre>
+          <PermissionsPanel docId={docId} />
         </div>
       )}
 

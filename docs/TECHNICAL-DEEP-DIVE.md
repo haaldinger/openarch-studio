@@ -188,15 +188,22 @@ flowchart LR
      `cinctx_contextProperties` key from the first value it sees, so a key must
      always have the same JSON type. A name matching
      `(^|_)(total|subtotal|amount|tax|vat|price|cost|quantity|qty|balance|discount|fee|charge|sum)(_|$)`
-     is numeric: native numbers are kept, strings are coerced as money, and
-     anything that is not a finite number is dropped (including `"1.234"`,
-     which is ambiguous between English and German, bools, lists and integers
-     over 15 digits). Every other name is always a string: native numbers
+     is numeric unless its last `_` segment is one of id, number, no, nr, num,
+     code, rate, percent, pct, percentage, date, currency, type, name, period,
+     method, center, centre, terms, status, ref, reference (so `vat_id`,
+     `tax_rate`, `total_currency` stay text). Numeric values are always stored as
+     decimals (floats, never longs): native numbers are converted, strings are
+     coerced as money, and anything that is not a finite number is dropped
+     (including `"1.234"`, which is ambiguous between English and German,
+     bools, lists and absolute values ≥ 1e15). Every other name is always a
+     string: native numbers
      become decimal strings, bools `"true"`/`"false"`, and numeric-looking
      strings (`"10115"`, `"00501"`) stay as written. Range queries only work
-     on numeric names.
+     on numeric names. An OpenArch index that already saw a field with a
+     different type needs that document re-enriched (or a fresh index), because
+     OpenSearch can't change a field's type in place.
    - **Storage.** `store` adds the `CinContext` mixin and writes
-     `cinctx_contextProperties` = `{"document_type": …, …fields}` (a flat map,
+     `cinctx_contextProperties` = `{…fields, "document_type": …}` (a flat map,
      replaced on each run) and `cinctx_contextPropertyNames` (its keys).
      `document_type` is written last so it always wins.
      Written as the signed-in user.

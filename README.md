@@ -17,9 +17,12 @@ After indexing, a small local model also classifies each document and extracts t
 (vendor, date, total, …). They are written to OpenArch's native `CinContext` mixin, shown in the
 document inspector and as type chips in the Library, and searchable with HXQL, for example
 `SELECT * FROM SysContent WHERE cinctx_contextProperties.total > 1000`.
-Field value types are fixed by field name (names like `total`, `tax_amount`, `quantity` are numbers;
-all others are strings), so HXQL range queries work on amount-like fields only. Retrying or
-re-enriching a document replaces its embeddings rather than adding a second set.
+Field value types are fixed by field name: amount-like names (`total`, `tax_amount`, `quantity`)
+are stored as decimals (floats), while id/number/rate/date/currency-style names (`vat_id`,
+`tax_rate`, `total_currency`) and all others stay text, so HXQL range queries work on amount-like
+fields only. An OpenArch index that already saw a field with a different type needs that document
+re-enriched (or a fresh index), because OpenSearch can't change a field's type in place.
+Retrying or re-enriching a document replaces its embeddings rather than adding a second set.
 
 ## What's OpenArch vs. what Studio adds
 

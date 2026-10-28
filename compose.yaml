@@ -14,6 +14,12 @@ services:
     volumes:
       - opensearch-data:/usr/share/opensearch/data
 
+  # Same problem for OpenArch's binary store: without a volume a recreate keeps the
+  # Mongo records but loses every file ("Missing blob" on download).
+  openarch-app:
+    volumes:
+      - openarch-data:/deployments/nxserver/data
+
   studio-api:
     build: ./api
     environment:
@@ -88,4 +94,5 @@ volumes:
   ollama-data:
   studio-data:
   opensearch-data:
+  openarch-data:
   reranker-models:

@@ -18,7 +18,10 @@ _RERUN_HINT = "Delete it from the Eval corpus folder and re-run."
 
 
 class StudioError(Exception):
-    pass
+    def __init__(self, message: str, *, fatal: bool = False) -> None:
+        super().__init__(message)
+        # fatal: retrying other questions cannot help (auth, disabled Ask, sign-in)
+        self.fatal = fatal
 
 
 @dataclass
@@ -99,10 +102,10 @@ class StudioClient:
     def __exit__(self, *exc: object) -> None:
         self._http.close()
 
-    def _transport_error(self, exc: httpx.TransportError) -> StudioError:
+    def _transport_error(self, exc: httpx.TransportError, *, fatal: bool = False) -> StudioError:
         if isinstance(exc, (httpx.ConnectError, httpx.ConnectTimeout)):
-            return StudioError(f"cannot reach Studio at {self.base_url}")
-        return StudioError(f"Studio request failed: {type(exc).__name__}: {exc}")
+            return StudioError(f"cannot reach Studio at {self.base_url}", fatal=fatal)
+        return StudioError(f"Studio request failed: {type(exc).__name__}: {exc}", fatal=fatal)
 
     def _request(self, method: str, url: str, **kwargs: Any) -> httpx.Response:
         try:
@@ -110,7 +113,7 @@ class StudioClient:
         except httpx.TransportError as exc:
             raise self._transport_error(exc) from None
         if response.status_code == 401:
-            raise StudioError("not signed in / sign-in expired")
+            raise StudioError("not signed in / sign-in expired", fatal=True)
         if response.status_code >= 400:
             raise StudioError(f"{method} {url} failed: HTTP {response.status_code}")
         return response
@@ -121,11 +124,11 @@ class StudioClient:
                 "/api/session", json={"username": self._user, "password": self._password}
             )
         except httpx.TransportError as exc:
-            raise self._transport_error(exc) from None
+            raise self._transport_error(exc, fatal=True) from None
         if response.status_code == 401:
-            raise StudioError(f"sign-in failed for user {self._user}")
+            raise StudioError(f"sign-in failed for user {self._user}", fatal=True)
         if response.status_code >= 400:
-            raise StudioError(f"sign-in failed: HTTP {response.status_code}")
+            raise StudioError(f"sign-in failed: HTTP {response.status_code}", fatal=True)
 
     def _children(self, parent_id: str) -> list[dict[str, Any]]:
         response = self._request("GET", "/api/documents", params={"parentId": parent_id})
@@ -212,11 +215,16 @@ class StudioClient:
                 "POST", "/api/chat", json={"question": question, "scope": scope}, timeout=timeout
             ) as response:
                 if response.status_code == 401:
-                    raise StudioError("not signed in / sign-in expired")
+                    raise StudioError("not signed in / sign-in expired", fatal=True)
                 if response.status_code == 403:
-                    raise StudioError("Ask is disabled — is Studio in baseline mode?")
+                    raise StudioError(
+                        "Ask is disabled — is Studio in baseline mode?", fatal=True
+                    )
                 if response.status_code >= 400:
-                    raise StudioError(f"POST /api/chat failed: HTTP {response.status_code}")
+                    raise StudioError(
+                        f"POST /api/chat failed: HTTP {response.status_code}",
+                        fatal=response.status_code < 500,
+                    )
                 return parse_chat_stream(response.iter_lines())
         except httpx.TransportError as exc:
             raise self._transport_error(exc) from None

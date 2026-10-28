@@ -486,3 +486,58 @@ def test_ensure_corpus_checks_only_reused_docs(samples, monkeypatch):
     with StudioClient(BASE, "u", "p") as c:
         c.ensure_corpus("F", samples)
     assert seen == ["id-c.tif"]
+
+
+# --- StudioError.fatal ----------------------------------------------------
+
+@respx.mock
+@pytest.mark.parametrize("status", [401, 403, 404])
+def test_ask_client_errors_are_fatal(client, status):
+    respx.post(f"{BASE}/api/chat").mock(return_value=httpx.Response(status))
+    with pytest.raises(StudioError) as exc:
+        client.ask("Q?", "f")
+    assert exc.value.fatal is True
+
+
+@respx.mock
+@pytest.mark.parametrize("status", [500, 502, 503])
+def test_ask_5xx_is_not_fatal(client, status):
+    respx.post(f"{BASE}/api/chat").mock(return_value=httpx.Response(status))
+    with pytest.raises(StudioError, match=f"HTTP {status}") as exc:
+        client.ask("Q?", "f")
+    assert exc.value.fatal is False
+
+
+@respx.mock
+@pytest.mark.parametrize(
+    "error", [httpx.ReadTimeout("slow"), httpx.RemoteProtocolError("cut"), httpx.ConnectError("x")]
+)
+def test_ask_transport_errors_are_not_fatal(client, error):
+    respx.post(f"{BASE}/api/chat").mock(side_effect=error)
+    with pytest.raises(StudioError) as exc:
+        client.ask("Q?", "f")
+    assert exc.value.fatal is False
+
+
+@respx.mock
+def test_login_errors_are_fatal(client):
+    respx.post(f"{BASE}/api/session").mock(
+        side_effect=[httpx.Response(401), httpx.Response(500), httpx.ConnectError("x")]
+    )
+    for _ in range(3):
+        with pytest.raises(StudioError) as exc:
+            client.login()
+        assert exc.value.fatal is True
+
+
+@respx.mock
+def test_request_401_is_fatal(client):
+    respx.get(f"{BASE}/api/documents").mock(return_value=httpx.Response(401))
+    with pytest.raises(StudioError) as exc:
+        client.ensure_folder("x")
+    assert exc.value.fatal is True
+
+
+def test_studio_error_defaults_to_not_fatal():
+    assert StudioError("x").fatal is False
+    assert StudioError("x", fatal=True).fatal is True

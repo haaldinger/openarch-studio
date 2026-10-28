@@ -217,7 +217,27 @@ reranked, 0 errors; judge `qwen3`. The right invoice is retrieved for about 72%
 of answerable questions, but the chunk containing the answer only about 45% of the time. Ask
 (`llama3.2:3b`) declines 68% of answerable questions, so answer generation and chunk-level retrieval
 are the weakest links; the next sub-projects (multilingual embeddings, hybrid search) target
-`evidence_hit`. Hybrid search now uses OpenArch's native `chunkFTS` (kNN + BM25 merged with RRF).
+`evidence_hit`.
+
+### Hybrid search vs. baseline
+
+[`eval/baselines/hybrid-1060.json`](eval/baselines/hybrid-1060.json): OpenArch 1.0.60, Ask with hybrid
+search (`chunkFTS`, kNN + BM25 merged with RRF), otherwise the same models. Compare with
+`studio-eval compare eval/baselines/baseline-nomic.json eval/baselines/hybrid-1060.json`.
+
+| Metric | Baseline | Hybrid | Change |
+|---|---|---|---|
+| hit | 0.720 | 0.840 | +0.120 |
+| evidence_hit | 0.450 | 0.600 | +0.150 |
+| evidence_mrr | 0.278 | 0.349 | +0.071 |
+| false_abstain (lower is better) | 0.680 | 0.600 | −0.080 |
+| faithfulness | 0.396 | 0.457 | +0.061 |
+| answer_relevancy | 0.232 | 0.378 | +0.146 |
+| context_precision | 0.309 | 0.357 | +0.048 |
+| context_recall | 0.480 | 0.600 | +0.120 |
+
+The baseline ran on OpenArch 1.0.0, so the OpenArch version differs as well as retrieval; one rerank
+call timed out in the hybrid run.
 
 ## POC limitations (deferred, by design)
 

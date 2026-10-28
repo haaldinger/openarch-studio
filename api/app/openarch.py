@@ -84,8 +84,14 @@ class OpenArchClient:
         return response
 
     async def authenticate(self) -> str:
-        """Validate credentials against the repository root; return the username."""
-        await self._request("GET", f"/api/documents/{ROOT_DOCUMENT_ID}")
+        """Validate credentials against the repository root; return the username.
+
+        A 403 on root means the credentials are valid but the user cannot read root.
+        """
+        try:
+            await self._request("GET", f"/api/documents/{ROOT_DOCUMENT_ID}")
+        except OpenArchForbidden:
+            pass
         return self._credentials.username
 
     async def get_document(self, doc_id: str) -> dict[str, Any]:

@@ -108,6 +108,21 @@ def test_act_as_unknown_persona(settings: Settings) -> None:
 
 
 @respx.mock
+def test_act_as_persona_without_root_read_succeeds(settings: Settings) -> None:
+    _mock_user("admin")
+    respx.get(ROOT, headers={"Authorization": _basic("sam")}).mock(
+        return_value=httpx.Response(403)
+    )
+    client = _demo_client(settings)
+    _sign_in(client, "admin")
+
+    response = client.post("/api/session/act-as", json={"username": "sam"})
+
+    assert response.status_code == 200
+    assert response.json()["actingAs"]["username"] == "sam"
+
+
+@respx.mock
 def test_act_as_persona_signin_failure(settings: Settings) -> None:
     _mock_user("admin")
     _mock_user("sam", status=401)

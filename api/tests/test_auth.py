@@ -31,6 +31,16 @@ def test_login_sets_httponly_session_cookie(client: TestClient) -> None:
 
 
 @respx.mock
+def test_login_as_user_without_root_read_succeeds(client: TestClient) -> None:
+    respx.get(ROOT).mock(return_value=httpx.Response(403))
+
+    response = client.post("/api/session", json={"username": "sam", "password": "password"})
+
+    assert response.status_code == 200
+    assert response.json()["username"] == "sam"
+
+
+@respx.mock
 def test_invalid_credentials_return_401(client: TestClient) -> None:
     respx.get(ROOT).mock(return_value=httpx.Response(401))
 

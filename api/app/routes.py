@@ -108,14 +108,12 @@ async def act_as(
     store: SessionStore = Depends(get_session_store),
     settings: Settings = Depends(get_settings_dep),
 ) -> SessionInfo:
-    from .openarch import OpenArchClient, OpenArchError, OpenArchForbidden, OpenArchUnavailable
+    from .openarch import OpenArchClient, OpenArchError, OpenArchUnavailable
 
     target = persona_credentials(demo, body.username, session.origin)
     if target is not session.origin:
         try:
             await OpenArchClient(settings.openarch_url, target).authenticate()
-        except OpenArchForbidden:
-            pass  # authenticated; the root folder just isn't readable by this persona
         except OpenArchUnavailable:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="OpenArch is unreachable"

@@ -171,7 +171,23 @@ cd eval && python3 -m venv .venv && .venv/bin/pip install -e '.[test]'
 .venv/bin/studio-eval run --label my-change
 ```
 
-Baseline results: see `eval/baselines/baseline-nomic.json`.
+Baseline results (`eval/baselines/baseline-nomic.json`, overall aggregates):
+
+| Metric | Mean | n |
+| --- | --- | --- |
+| hit | 0.680 | 25 |
+| mrr | 0.568 | 25 |
+| false_abstain | 0.600 | 25 |
+| abstain_correct | 1.000 | 3 |
+| faithfulness | 0.289 | 28 |
+| answer_relevancy | 0.265 | 25 |
+| context_precision | 0.394 | 25 |
+| context_recall | 0.440 | 25 |
+
+Retrieval finds the right invoice about two-thirds of the time, but Ask (`llama3.2:3b`) declines 60%
+of answerable questions, so answer generation is the weakest link. The baseline used
+`nomic-embed-text` for embeddings, `bge-reranker-base` for reranking (some reranks timed out), and
+`qwen3` as the grader.
 
 ## POC limitations (deferred, by design)
 

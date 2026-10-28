@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "studio-eval"
+version = "0.1.0"
+description = "Evaluation harness for OpenArch Studio Ask quality"
+requires-python = ">=3.11"
+dependencies = [
+    "httpx",
+    "pyyaml",
+    "ragas==0.4.3",
+    "openai",
+    # ragas 0.4.3 imports langchain_community.chat_models.vertexai, removed in langchain-community 0.4
+    "langchain<1",
+    "langchain-core<1",
+    "langchain-community<0.4",
+    "langchain-openai<1",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest",
+    "respx",
+    "pytest-asyncio",
+]
+
+[project.scripts]
+studio-eval = "studio_eval.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["studio_eval*"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]

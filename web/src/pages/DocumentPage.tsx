@@ -4,6 +4,7 @@ import { FileText, Search, FolderInput } from "lucide-react";
 import { PageIntro } from "../components/PageIntro";
 import { Modal } from "../components/Modal";
 import { PermissionsPanel } from "../components/PermissionsPanel";
+import { useSession } from "../session";
 import {
   ApiError,
   contentUrl,
@@ -35,6 +36,7 @@ const SYS_LABEL: Record<string, string> = {
 export function DocumentPage({ baselineMode = false }: { baselineMode?: boolean }) {
   const { docId } = useParams<{ docId: string }>();
   const navigate = useNavigate();
+  const { generation } = useSession();
   const [searchParams] = useSearchParams();
   const page = Number(searchParams.get("page")) || undefined;
   const [doc, setDoc] = useState<DocumentDetail | null>(null);
@@ -54,6 +56,9 @@ export function DocumentPage({ baselineMode = false }: { baselineMode?: boolean 
   useEffect(() => {
     if (!docId) return;
     setError(null);
+    setDoc(null);
+    setEmbeddings(null);
+    setEmbRaw(null);
     getDocument(docId)
       .then(setDoc)
       .catch((err) =>
@@ -63,7 +68,7 @@ export function DocumentPage({ baselineMode = false }: { baselineMode?: boolean 
             : "Could not load the document.",
         ),
       );
-  }, [docId]);
+  }, [docId, generation]);
 
   useEffect(() => {
     if (page) setTab("content");
@@ -86,13 +91,13 @@ export function DocumentPage({ baselineMode = false }: { baselineMode?: boolean 
     listFiles()
       .then(setFinderItems)
       .catch(() => setFinderItems([]));
-  }, []);
+  }, [generation]);
   useEffect(loadFinder, [loadFinder]);
   useEffect(() => {
     listFolders()
       .then(setFolders)
       .catch(() => setFolders([]));
-  }, []);
+  }, [generation]);
 
   const title = (doc?.sys_title as string) || (doc?.sys_name as string) || docId || "";
   const mixins = (doc?.sys_mixinTypes as string[]) ?? [];

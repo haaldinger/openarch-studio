@@ -199,6 +199,26 @@ describe("Ask compare", () => {
 });
 
 describe("Ask abort", () => {
+  it("tells the user to use Re-ask when a compare column fails", async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        if (url === "/api/demo/personas") {
+          return new Response(JSON.stringify(PERSONAS), { status: 200 });
+        }
+        throw new Error("network down");
+      }),
+    );
+    renderAsk();
+    await user.click(screen.getByRole("button", { name: /compare/i }));
+    await user.type(screen.getByLabelText(/your question/i), "q");
+    await user.click(screen.getByRole("button", { name: /^ask$/i }));
+
+    expect((await screen.findAllByText(/use Re-ask to try again/)).length).toBe(2);
+    expect(screen.queryByText(/Your question is kept/)).not.toBeInTheDocument();
+  });
+
   it("aborts an in-flight stream on unmount", async () => {
     let signal: AbortSignal | undefined;
     vi.stubGlobal(

@@ -1,11 +1,5 @@
-# OpenArch User Store — Test Fixture
-#
-# This file is bundled in the openarch-login-filestore test-jar and serves as the
-# default user store for tests that use UserManagerFileStoreFeature.
-#
-# It is a copy of server/openarch-app/src/main/resources/openarch-users.yml.
-# The UUIDs match UserManagerMock constants used across the test suite.
-# Do not change the UUIDs — they are stored in test documents and fixtures.
+# OpenArch's default user store plus the Studio ACL-showcase groups and personas,
+# mounted into OpenArch by compose.demo.yaml. Do not change the UUIDs — they are stored in documents.
 
 administratorsGroups:
   - administrators

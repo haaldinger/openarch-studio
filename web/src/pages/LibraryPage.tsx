@@ -106,6 +106,7 @@ export function LibraryPage({ baselineMode = false }: { baselineMode?: boolean }
   const [dragging, setDragging] = useState(false);
   const [folderOpen, setFolderOpen] = useState(false);
   const [folderName, setFolderName] = useState("");
+  const [folderError, setFolderError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [uploadAccess, setUploadAccess] = useState<AccessChoiceState>(SAME_AS_FOLDER);
   const [folderAccess, setFolderAccess] = useState<AccessChoiceState>(SAME_AS_FOLDER);
@@ -131,6 +132,10 @@ export function LibraryPage({ baselineMode = false }: { baselineMode?: boolean }
   }, [current.id, generation]);
 
   useEffect(refresh, [refresh]);
+
+  useEffect(() => {
+    setPath([{ id: ROOT_ID, name: "Library" }]);
+  }, [generation]);
 
   async function handleFiles(files: FileList | null) {
     if (!files || files.length === 0) return;
@@ -159,6 +164,7 @@ export function LibraryPage({ baselineMode = false }: { baselineMode?: boolean }
     const access = resolveAccess(folderAccess);
     if (!name || access === null) return;
     setCreating(true);
+    setFolderError(null);
     try {
       await createFolder(name, atRoot ? undefined : current.id, access);
       setFolderOpen(false);
@@ -166,7 +172,7 @@ export function LibraryPage({ baselineMode = false }: { baselineMode?: boolean }
       setFolderAccess(SAME_AS_FOLDER);
       refresh();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Could not create folder.");
+      setFolderError(err instanceof ApiError ? err.message : "Could not create folder.");
     } finally {
       setCreating(false);
     }
@@ -213,7 +219,15 @@ export function LibraryPage({ baselineMode = false }: { baselineMode?: boolean }
           ))}
         </nav>
         <div className="lib-actions">
-          <button type="button" className="btn-ghost" onClick={() => setFolderOpen(true)}>
+          <button
+            type="button"
+            className="btn-ghost"
+            onClick={() => {
+              setError(null);
+              setFolderError(null);
+              setFolderOpen(true);
+            }}
+          >
             <FolderPlus size={16} /> New folder
           </button>
           {!atRoot &&
@@ -352,6 +366,11 @@ export function LibraryPage({ baselineMode = false }: { baselineMode?: boolean }
           <span className="tag native">OpenArch</span> <code>SysFolder</code>.
         </p>
         <AccessChoice value={folderAccess} onChange={setFolderAccess} />
+        {folderError && (
+          <p className="form-error" role="alert">
+            {folderError}
+          </p>
+        )}
       </Modal>
 
       <Modal

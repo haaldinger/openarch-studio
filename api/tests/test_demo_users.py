@@ -26,6 +26,7 @@ def test_loads_personas_and_admins() -> None:
     assert demo.personas["erin"].groups == ("finance", "hr", "sales", "members")
     assert demo.personas["sam"].label == "Sales rep"
     assert demo.personas["sam"].password == "password"
+    assert "password" not in repr(demo.personas["sam"])
     assert "admin" in demo.admins
     assert demo.group_ids["sales"] == "3f1a0c52-6b0e-4d7e-9a51-0c3d7e2a1f03"
 

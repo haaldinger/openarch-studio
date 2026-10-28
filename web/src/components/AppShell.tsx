@@ -72,7 +72,8 @@ export function AppShell({
     setDemoMenuOpen(false);
     return run(async () => {
       await setupDemo();
-      await refresh();
+      // Setup jobs belong to the origin, so Activity must show the origin's view.
+      await refresh(actingAs ? await actAs(origin) : undefined);
       navigate("/activity");
     }, "Couldn't set up the demo.");
   }

@@ -3,6 +3,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { LibraryPage } from "../src/pages/LibraryPage";
+import { SessionProvider, useSession } from "../src/session";
 
 function mockApi(docs: unknown[]) {
   return vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -257,4 +258,78 @@ describe("Library access on create", () => {
     await user.upload(input, new File(["a"], "a.pdf", { type: "application/pdf" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("You can't set access in this folder");
   });
+
+  it("shows a folder-create error inside the New folder dialog", async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal(
+      "fetch",
+      accessApi((url, init) =>
+        init?.method === "POST" && url.includes("/api/folders")
+          ? new Response(JSON.stringify({ detail: "You can't set access in this folder" }), {
+              status: 403,
+            })
+          : undefined,
+      ),
+    );
+    renderLibrary();
+    await waitFor(() => screen.getByText(/this folder is empty/i));
+
+    await user.click(screen.getByRole("button", { name: /new folder/i }));
+    const dialog = screen.getByRole("dialog", { name: "New folder" });
+    await user.type(within(dialog).getByLabelText("Folder name"), "Shared");
+    await user.click(within(dialog).getByRole("button", { name: "Create folder" }));
+
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+      "You can't set access in this folder",
+    );
+  });
 });
+
+describe("Library identity switch", () => {
+  it("returns to the root breadcrumb when the identity changes", async () => {
+    const user = userEvent.setup();
+    const folder = {
+      id: "f1",
+      title: "Finance",
+      name: "Finance",
+      primaryType: "SysFolder",
+      isFolderish: true,
+      mixinTypes: [],
+      parentId: "root",
+    };
+    vi.stubGlobal("fetch", mockApi([folder]));
+    render(
+      <MemoryRouter>
+        <SessionProvider initial={{ username: "admin", actingAs: null, demoAdmin: true }} demoMode>
+          <SwitchButton />
+          <LibraryPage />
+        </SessionProvider>
+      </MemoryRouter>,
+    );
+    await user.click(await screen.findByText("Finance"));
+    const nav = screen.getByRole("navigation", { name: "Folder path" });
+    await waitFor(() => expect(within(nav).getByText("Finance")).toBeInTheDocument());
+
+    await user.click(screen.getByRole("button", { name: "switch" }));
+
+    await waitFor(() => expect(within(nav).queryByText("Finance")).not.toBeInTheDocument());
+  });
+});
+
+function SwitchButton() {
+  const { refresh } = useSession();
+  return (
+    <button
+      type="button"
+      onClick={() =>
+        void refresh({
+          username: "admin",
+          actingAs: { username: "sam", label: "Sales rep", groups: [] },
+          demoAdmin: true,
+        })
+      }
+    >
+      switch
+    </button>
+  );
+}

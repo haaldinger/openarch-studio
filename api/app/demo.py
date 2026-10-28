@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import yaml
@@ -20,7 +20,7 @@ class Persona:
     user_id: str
     label: str
     groups: tuple[str, ...]
-    password: str | None  # None = encoding Studio cannot use (not {noop})
+    password: str | None = field(repr=False)  # None = encoding Studio cannot use (not {noop})
 
 
 @dataclass(frozen=True)

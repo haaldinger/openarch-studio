@@ -12,10 +12,14 @@ import httpx
 import pytest
 import respx
 from fastapi.testclient import TestClient
+from pydantic import SecretStr
 
 from app.config import Settings
 from app.demo import load_demo_users
+from app.demo_setup import _find_child
 from app.main import create_app
+from app.models import Credentials
+from app.openarch import OpenArchClient
 
 ROOT_DIR = Path(__file__).resolve().parents[2] / "demo"
 USERS_FILE = str(ROOT_DIR / "openarch-users.yml")
@@ -63,9 +67,15 @@ class FakeOpenArch:
 
     def _query(self, request: httpx.Request) -> httpx.Response:
         self.requests.append(request)
-        query = json.loads(request.content)["query"]
+        payload = json.loads(request.content)
+        query = payload["query"]
         parent = re.search(r"sys_parentId = '([^']+)'", query).group(1)  # type: ignore[union-attr]
-        return httpx.Response(200, json={"documents": self.children.get(parent, [])})
+        docs = sorted(self.children.get(parent, []), key=lambda d: d["sys_title"])
+        title = re.search(r"sys_title = '((?:[^']|'')*)'", query)
+        if title:
+            wanted = title.group(1).replace("''", "'")
+            docs = [d for d in docs if d["sys_title"] == wanted]
+        return httpx.Response(200, json={"documents": docs[: payload.get("limit", 100)]})
 
     def _upload(self, request: httpx.Request) -> httpx.Response:
         self.requests.append(request)
@@ -186,6 +196,49 @@ def test_setup_only_uploads_missing_files(demo_client: TestClient) -> None:
     assert "bonus-policy-2027.md" in _file_payloads(fake)
     assert "Demo · HR" not in _folder_payloads(fake)
     assert response.json()["folders"]["HR"] == hr
+
+
+@respx.mock
+def test_setup_finds_folder_beyond_the_first_page_of_root_children(demo_client: TestClient) -> None:
+    fake = FakeOpenArch()
+    for i in range(150):
+        fake.seed(ROOT_ID, f"A item {i:03d}")
+    hr = fake.seed(ROOT_ID, "Demo · HR")
+    fake.install()
+    _sign_in(demo_client)
+
+    response = demo_client.post("/api/demo/setup")
+
+    assert response.status_code == 200
+    assert "Demo · HR" not in _folder_payloads(fake)
+    assert response.json()["folders"]["HR"] == hr
+
+
+@respx.mock
+def test_reset_finds_folder_beyond_the_first_page_of_root_children(demo_client: TestClient) -> None:
+    fake = FakeOpenArch()
+    for i in range(150):
+        fake.seed(ROOT_ID, f"A item {i:03d}")
+    hr = fake.seed(ROOT_ID, "Demo · HR")
+    fake.install()
+    _sign_in(demo_client)
+
+    assert demo_client.delete("/api/demo").status_code == 204
+    assert fake.deleted == [hr]
+
+
+@respx.mock
+async def test_title_with_quote_is_escaped_in_lookup() -> None:
+    fake = FakeOpenArch()
+    folder = fake.seed(ROOT_ID, "Demo · HR")
+    fake.seed(folder, "o'brien.md", "SysFile")
+    fake.install()
+
+    client = OpenArchClient(OA, Credentials(username="admin", password=SecretStr("password")))
+    found = await _find_child(client, folder, "o'brien.md")
+
+    assert found is not None
+    assert "o''brien.md" in json.loads(fake.requests[-1].content)["query"]
 
 
 @respx.mock

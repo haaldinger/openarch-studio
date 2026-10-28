@@ -120,7 +120,7 @@ export function AskPage() {
         persona,
       );
     } catch {
-      live({ error: "The answer could not be generated. Your question is kept — try again." });
+      live({ error: "The answer could not be generated. Something went wrong — use Re-ask to try again." });
     } finally {
       live({ streaming: false, searching: false });
     }

@@ -33,7 +33,17 @@ def _group_read(demo: DemoUsers, group: str) -> list[RuleIn]:
 
 
 async def _find_child(client: OpenArchClient, parent_id: str, title: str) -> str | None:
-    result = await client.browse_children(parent_id)
+    escaped = title.replace("'", "''")
+    result = await client.query(
+        {
+            "query": (
+                "SELECT * FROM SysContent "
+                f"WHERE sys_parentId = '{parent_id}' AND sys_title = '{escaped}'"
+            ),
+            "limit": 1,
+            "offset": 0,
+        }
+    )
     for doc in result.get("documents", []):
         if doc.get("sys_title") == title:
             return doc["sys_id"]
@@ -89,11 +99,10 @@ async def setup_demo(
                 client, ROOT_DOCUMENT_ID, _title(name), _group_read(demo, group)
             )
             folders[name] = folder_id
-            existing = {
-                d.get("sys_title") for d in (await client.browse_children(folder_id)).get("documents", [])
-            }
             for path in sorted((samples / name).glob("*")):
-                if path.name in existing or path.suffix.lower() not in SUPPORTED_TYPES:
+                if path.suffix.lower() not in SUPPORTED_TYPES:
+                    continue
+                if await _find_child(client, folder_id, path.name) is not None:
                     continue
                 reader = PERSONA_READS.get((name, path.name))
                 access = (

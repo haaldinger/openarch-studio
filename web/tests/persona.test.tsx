@@ -139,6 +139,23 @@ describe("persona switcher in the shell", () => {
     expect(await screen.findByRole("heading", { name: "Activity", level: 1 })).toBeInTheDocument();
   });
 
+  it("Set up demo while acting as a persona switches back to the origin first", async () => {
+    const fetchMock = mockApi({ actingAs: SAM });
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    renderApp();
+    await screen.findByText(/You're seeing what Sam/);
+
+    await user.click(await screen.findByRole("button", { name: /^demo/i }));
+    await user.click(screen.getByRole("button", { name: "Set up demo" }));
+
+    expect(await screen.findByRole("heading", { name: "Activity", level: 1 })).toBeInTheDocument();
+    const actAsCalls = calls(fetchMock, "/api/session/act-as", "POST");
+    expect(actAsCalls).toHaveLength(1);
+    expect(JSON.parse(String(actAsCalls[0][1]?.body))).toEqual({ username: "admin" });
+    expect(screen.queryByText(/You're seeing what/)).not.toBeInTheDocument();
+  });
+
   it("Reset demo asks for confirmation first", async () => {
     const fetchMock = mockApi();
     vi.stubGlobal("fetch", fetchMock);

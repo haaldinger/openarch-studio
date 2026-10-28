@@ -1,7 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { DocumentPage } from "../src/pages/DocumentPage";
+import { SessionProvider, useSession } from "../src/session";
 
 const DOC = {
   sys_id: "d1",
@@ -34,6 +36,59 @@ function renderDoc(baselineMode: boolean) {
     </MemoryRouter>,
   );
 }
+
+function SwitchButton() {
+  const { refresh } = useSession();
+  return (
+    <button
+      type="button"
+      onClick={() =>
+        void refresh({
+          username: "admin",
+          actingAs: { username: "sam", label: "Sales rep", groups: [] },
+          demoAdmin: true,
+        })
+      }
+    >
+      switch
+    </button>
+  );
+}
+
+describe("Identity switch", () => {
+  it("re-fetches the document and lists when the session generation changes", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith("/api/documents/d1")) {
+        return new Response(JSON.stringify(DOC), { status: 200 });
+      }
+      return new Response(JSON.stringify({ results: [] }), { status: 200 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const count = (suffix: string) =>
+      fetchMock.mock.calls.filter(([u]) => String(u).endsWith(suffix)).length;
+    render(
+      <MemoryRouter initialEntries={["/documents/d1"]}>
+        <SessionProvider initial={{ username: "admin", actingAs: null, demoAdmin: true }} demoMode>
+          <SwitchButton />
+          <Routes>
+            <Route path="/documents/:docId" element={<DocumentPage />} />
+          </Routes>
+        </SessionProvider>
+      </MemoryRouter>,
+    );
+    await waitFor(() => screen.getByText("vendor_name"));
+    expect(count("/api/documents/d1")).toBe(1);
+    const before = fetchMock.mock.calls.length;
+
+    await user.click(screen.getByRole("button", { name: "switch" }));
+
+    await waitFor(() => expect(count("/api/documents/d1")).toBe(2));
+    expect(fetchMock.mock.calls.length).toBeGreaterThan(before + 1);
+    await waitFor(() => screen.getByText("vendor_name"));
+  });
+});
 
 describe("Extracted fields panel", () => {
   it("shows the type badge, fields and attribution", async () => {

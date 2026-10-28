@@ -8,6 +8,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI
 
+from .access import router as access_router
 from .auth import SessionStore
 from .baseline import require_extensions
 from .config import Settings, get_settings
@@ -55,6 +56,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.reranker = Reranker(settings)
     app.include_router(router)
     app.include_router(library_router)
+    app.include_router(access_router)
     app.include_router(capabilities_router)
     # Extension surfaces — disabled wholesale when baseline mode is on.
     extension_only = [Depends(require_extensions)]

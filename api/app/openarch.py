@@ -143,11 +143,32 @@ class OpenArchClient:
         )
         return response.json()["id"]
 
-    async def get_effective_acl(self, doc_id: str, users: list[str] | None = None) -> dict[str, Any]:
-        params = {"users": ",".join(users)} if users else None
+    async def get_effective_acl(
+        self, doc_id: str, user_ids: list[str] | None = None
+    ) -> dict[str, Any]:
+        params = {"usernames": ",".join(user_ids)} if user_ids else None
         response = await self._request(
             "GET", f"/api/documents/{doc_id}/fulleffectiveacl", params=params
         )
+        return response.json()
+
+    async def get_effective_permissions(
+        self, doc_id: str, user_ids: list[str]
+    ) -> dict[str, Any]:
+        # OpenArch's `usernames` parameter takes user ids, not names.
+        response = await self._request(
+            "GET",
+            f"/api/documents/{doc_id}/fulleffectivepermissions",
+            params={"usernames": ",".join(user_ids)},
+        )
+        return response.json()
+
+    async def find_users(self, name: str) -> list[dict[str, Any]]:
+        response = await self._request("GET", "/api/user", params={"name": name})
+        return response.json()
+
+    async def find_groups(self, name: str) -> list[dict[str, Any]]:
+        response = await self._request("GET", "/api/group", params={"name": name})
         return response.json()
 
     async def download(self, doc_id: str, xpath: str = "sysfile_blob") -> tuple[bytes, str]:

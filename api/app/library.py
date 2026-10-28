@@ -115,10 +115,12 @@ async def delete_document(
 @router.get("/documents/{doc_id}/acl")
 async def get_document_acl(
     doc_id: str,
+    usernames: str | None = None,
     client: OpenArchClient = Depends(get_openarch_client),
 ) -> dict[str, Any]:
     try:
-        return await client.get_effective_acl(doc_id)
+        ids = [u for u in (usernames or "").split(",") if u]
+        return await client.get_effective_acl(doc_id, ids or None)
     except Exception as exc:  # noqa: BLE001
         raise _translate(exc) from exc
 

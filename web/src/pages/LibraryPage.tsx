@@ -119,15 +119,19 @@ export function LibraryPage({ baselineMode = false }: { baselineMode?: boolean }
   const atRoot = current.id === ROOT_ID;
   const isScoped = scope?.id === current.id;
 
+  const latestRequest = useRef(0);
+
   const refresh = useCallback(() => {
+    const request = ++latestRequest.current;
+    const isLatest = () => request === latestRequest.current;
     setLoading(true);
     setError(null);
     listDocuments(current.id)
-      .then((list) => setDocs(list.documents))
-      .catch((err) =>
-        setError(err instanceof ApiError ? err.message : "Could not load the library."),
-      )
-      .finally(() => setLoading(false));
+      .then((list) => isLatest() && setDocs(list.documents))
+      .catch((err) => {
+        if (isLatest()) setError(err instanceof ApiError ? err.message : "Could not load the library.");
+      })
+      .finally(() => isLatest() && setLoading(false));
     // generation: reload when the acting identity changes.
   }, [current.id, generation]);
 
@@ -309,6 +313,7 @@ export function LibraryPage({ baselineMode = false }: { baselineMode?: boolean }
                 setPath([...path, { id: f.id, name: f.title ?? f.name ?? f.id }])
               }
               onDeleteFolder={setPendingDelete}
+              onAccessExpired={refresh}
             />
           ))
         )}

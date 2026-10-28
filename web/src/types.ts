@@ -32,6 +32,14 @@ export interface DocumentSummary {
   mixinTypes: string[];
   documentType?: string | null;
   parentId: string | null;
+  access?: AccessSummary;
+}
+
+export interface AccessSummary {
+  mine: "read" | "edit" | "manage" | null;
+  /** Null when the caller can't manage security (OpenArch hides the rules). */
+  sharedWith: { kind: "user" | "group"; name: string }[] | null;
+  expiresAt: string | null;
 }
 
 export interface DocumentList {

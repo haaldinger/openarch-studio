@@ -216,6 +216,10 @@ folder, with its time window and OpenArch status). Users with Manage security ca
 rules; uploads and new folders can be shared with someone in the same call. OpenArch has no deny rules,
 so to restrict one document inside a shared folder, move it.
 
+Library rows carry access badges taken from the same listing call: your own access (**Read only**,
+**Can edit**, **Manage**), who the item is shared with (managers only, since OpenArch shows the rules
+only to them), and a countdown when a rule ends within a day.
+
 **Demo mode is for local demos only; never point it at real users.** It keeps the personas' passwords in
 the API process and lets a demo admin act as them.
 

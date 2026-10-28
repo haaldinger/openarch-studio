@@ -108,12 +108,16 @@ export function listDocuments(parentId?: string): Promise<DocumentList> {
   return apiFetch<DocumentList>(`/api/documents${q}`);
 }
 
-export function createFolder(title: string, parentId?: string): Promise<DocumentDetail> {
+export function createFolder(
+  title: string,
+  parentId?: string,
+  access?: RuleInput[],
+): Promise<DocumentDetail> {
   const q = parentId ? `?parentId=${encodeURIComponent(parentId)}` : "";
   return apiFetch<DocumentDetail>(`/api/folders${q}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ title }),
+    body: JSON.stringify(access?.length ? { title, access } : { title }),
   });
 }
 
@@ -176,9 +180,14 @@ export async function listFolders(): Promise<{ id: string; title: string | null 
     .map((x) => ({ id: x.id as string, title: x.title ?? null }));
 }
 
-export function uploadDocument(file: File, parentId?: string): Promise<DocumentDetail> {
+export function uploadDocument(
+  file: File,
+  parentId?: string,
+  access?: RuleInput[],
+): Promise<DocumentDetail> {
   const form = new FormData();
   form.append("file", file);
+  if (access?.length) form.append("access", JSON.stringify(access));
   const q = parentId ? `?parentId=${encodeURIComponent(parentId)}` : "";
   return apiFetch<DocumentDetail>(`/api/documents${q}`, { method: "POST", body: form });
 }

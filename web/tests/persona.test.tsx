@@ -101,7 +101,7 @@ describe("persona switcher in the shell", () => {
     renderApp();
 
     await user.click(await screen.findByRole("button", { name: /acting as: admin/i }));
-    await user.click(await screen.findByRole("button", { name: /sam/i }));
+    await user.click(await screen.findByRole("button", { name: /^sam\b/i }));
 
     expect(await screen.findByText(/You're seeing what Sam \(Sales rep\) can see/)).toBeInTheDocument();
     expect(JSON.parse(String(calls(fetchMock, "/api/session/act-as", "POST")[0][1]?.body))).toEqual({

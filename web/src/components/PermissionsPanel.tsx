@@ -8,6 +8,8 @@ import type { AccessInfo, AccessRule, RuleInput } from "../types";
 
 // Extra wait after an expiry so the server has archived the rule when we refetch.
 const REFETCH_MARGIN_MS = 1000;
+// Browsers clamp setTimeout delays beyond ~24.8 days to ~1 ms; far-off boundaries are covered by the next load.
+const MAX_BOUNDARY_WAIT_MS = 24 * 3600 * 1000;
 
 const COLUMNS: { label: string; grants: string[] }[] = [
   { label: "Read", grants: ["Read", "ReadWrite", "Everything"] },
@@ -62,6 +64,8 @@ export function PermissionsPanel({ docId }: { docId: string }) {
   const { generation } = useSession();
   const [data, setData] = useState<AccessInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Survives the reload a 409 triggers; cleared by the next user action.
+  const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [draft, setDraft] = useState<RuleDraft>(EMPTY_DRAFT);
   const [reloadKey, setReloadKey] = useState(0);
@@ -105,7 +109,9 @@ export function PermissionsPanel({ docId }: { docId: string }) {
   useEffect(() => {
     const boundary = data ? nextBoundary(data.rules, Date.now()) : null;
     if (boundary === null) return;
-    const timer = setTimeout(reload, boundary - Date.now() + REFETCH_MARGIN_MS);
+    const delay = boundary - Date.now() + REFETCH_MARGIN_MS;
+    if (delay > MAX_BOUNDARY_WAIT_MS) return;
+    const timer = setTimeout(reload, delay);
     return () => clearTimeout(timer);
   }, [data, reload]);
 
@@ -115,22 +121,31 @@ export function PermissionsPanel({ docId }: { docId: string }) {
   async function save(next: RuleInput[]) {
     setBusy(true);
     setError(null);
+    setNotice(null);
     try {
       setData(await putAccess(docId, next));
       setNow(Date.now());
       return true;
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not change access.");
-      if (err instanceof ApiError && err.status === 409) reload();
+      if (err instanceof ApiError && err.status === 409) {
+        setNotice(err.message);
+        reload();
+      } else {
+        setError(err instanceof Error ? err.message : "Could not change access.");
+      }
       return false;
     } finally {
       setBusy(false);
     }
   }
 
-  // Archived rules can't be re-sent (their end is in the past); dropping them is what OpenArch would do anyway.
-  const sendable = (except?: AccessRule) =>
-    local.filter((r) => r !== except && r.status !== "ARCHIVED").map(ruleToInput);
+  // Expired rules can't be re-sent (the server rejects an end in the past), and OpenArch archives them up to ~15 s late.
+  const sendable = (except?: AccessRule) => {
+    const t = Date.now();
+    return local
+      .filter((r) => r !== except && r.status !== "ARCHIVED" && !(r.end && Date.parse(r.end) <= t))
+      .map(ruleToInput);
+  };
 
   async function handleAdd() {
     const rule = draftToRule(draft);
@@ -155,6 +170,11 @@ export function PermissionsPanel({ docId }: { docId: string }) {
       {error && (
         <p className="form-error" role="alert">
           {error}
+        </p>
+      )}
+      {notice && (
+        <p className="muted perm-note" role="status">
+          {notice}
         </p>
       )}
 

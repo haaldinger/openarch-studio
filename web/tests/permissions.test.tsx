@@ -69,8 +69,8 @@ function accessCalls(mock: ReturnType<typeof stubFetch>, method: string) {
 }
 
 afterEach(() => {
-  vi.useRealTimers();
   vi.unstubAllGlobals();
+  vi.useRealTimers();
 });
 
 describe("PermissionsPanel", () => {
@@ -182,6 +182,72 @@ describe("PermissionsPanel", () => {
     expect(body.rules[1].permission).toBe("Read");
     const end = new Date(body.rules[1].end).getTime();
     expect(Math.abs(end - (before + 120_000))).toBeLessThan(5000);
+  });
+
+  it("does not refetch in a loop for a rule that ends far in the future", async () => {
+    vi.useFakeTimers();
+    const far: AccessRule = {
+      ...LOCAL_FIONA,
+      end: new Date(Date.now() + 60 * 24 * 3600_000).toISOString(),
+    };
+    const mock = stubFetch(access({ rules: [far] }));
+    // Browsers clamp delays beyond 2^31-1 ms to ~1 ms; emulate that so an over-long timer fires at once.
+    const fakeSetTimeout = globalThis.setTimeout;
+    vi.stubGlobal("setTimeout", ((fn: () => void, ms?: number, ...args: unknown[]) =>
+      fakeSetTimeout(fn, ms !== undefined && ms > 2 ** 31 - 1 ? 1 : ms, ...args)) as typeof setTimeout);
+    renderPanel();
+    // Separate act() calls so each reload's re-render is flushed before the next tick.
+    for (let i = 0; i < 5; i++) {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1000);
+      });
+    }
+    expect(accessCalls(mock, "GET")).toHaveLength(1);
+  });
+
+  it("keeps the 409 notice on screen after reloading", async () => {
+    const mock = stubFetch(access(), (_url, init) =>
+      init?.method === "PUT"
+        ? new Response(JSON.stringify({ detail: "Access changed meanwhile; reloaded" }), { status: 409 })
+        : undefined,
+    );
+    const user = userEvent.setup();
+    renderPanel();
+    await user.click(await screen.findByRole("button", { name: /^Remove/ }));
+    await waitFor(() => expect(accessCalls(mock, "GET").length).toBeGreaterThanOrEqual(2));
+    expect(await screen.findByText("Access changed meanwhile; reloaded")).toBeInTheDocument();
+  });
+
+  it("does not re-send expired rules that are still marked effective", async () => {
+    const expired: AccessRule = {
+      ...LOCAL_FIONA,
+      end: new Date(Date.now() - 5000).toISOString(),
+    };
+    const sam: AccessRule = {
+      ...LOCAL_FIONA,
+      principal: { kind: "user", id: "u-sam", name: "sam" },
+    };
+    const mock = stubFetch(access({ rules: [expired, sam] }), (url, init) => {
+      if (url.includes("/api/principals")) {
+        return new Response(JSON.stringify([{ kind: "user", id: "u-cory", name: "cory", label: "Contractor" }]));
+      }
+      if (init?.method === "PUT") return new Response(JSON.stringify(access()), { status: 200 });
+      return undefined;
+    });
+    const user = userEvent.setup();
+    renderPanel();
+    await user.click(await screen.findByRole("button", { name: "Choose person or group" }));
+    await user.type(screen.getByRole("searchbox"), "cor");
+    await user.click(await screen.findByRole("button", { name: /cory/ }));
+    await user.click(screen.getByRole("button", { name: "2 min" }));
+    await user.click(screen.getByRole("button", { name: "Add rule" }));
+
+    await waitFor(() => expect(accessCalls(mock, "PUT")).toHaveLength(1));
+    const body = JSON.parse(String(accessCalls(mock, "PUT")[0][1]?.body));
+    expect(body.rules.map((r: { principal: { id: string } }) => r.principal.id)).toEqual([
+      "u-sam",
+      "u-cory",
+    ]);
   });
 
   it("shows the permission error when the change is refused", async () => {

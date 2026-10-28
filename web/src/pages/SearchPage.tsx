@@ -145,7 +145,10 @@ export function SearchPage() {
                 <div className="result" key={`${r.id}-${i}`}>
                   <div className="result-head">
                     {r.id ? (
-                      <Link to={`/documents/${r.id}`} className="result-title">
+                      <Link
+                        to={`/documents/${r.id}${r.page ? `?page=${r.page}` : ""}`}
+                        className="result-title"
+                      >
                         {r.title ?? r.id}
                       </Link>
                     ) : (

@@ -184,6 +184,42 @@ describe("Ask", () => {
     expect(screen.getByText(/Rerank/).closest("li")).toHaveTextContent("reranked");
   });
 
+  it("search results link to the cited page, plain link without one", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              mode: "semantic",
+              results: [
+                { id: "d1", title: "Paged", snippet: "s", score: 0.9, page: 3 },
+                { id: "d2", title: "Unpaged", snippet: "s", score: 0.8 },
+              ],
+              provenance: {
+                providedBy: "OpenArch vector search",
+                requestPath: "/api/query/embeddings",
+                tookMs: 5,
+              },
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          ),
+      ),
+    );
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <SearchPage />
+      </MemoryRouter>,
+    );
+    await user.type(screen.getByLabelText(/search query/i), "policy");
+    await user.click(screen.getByRole("button", { name: /^search$/i }));
+
+    const paged = await screen.findByRole("link", { name: "Paged" });
+    expect(paged).toHaveAttribute("href", "/documents/d1?page=3");
+    expect(screen.getByRole("link", { name: "Unpaged" })).toHaveAttribute("href", "/documents/d2");
+  });
+
   it("keeps the question visible if generation errors", async () => {
     vi.stubGlobal(
       "fetch",

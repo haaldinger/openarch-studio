@@ -86,6 +86,67 @@ sequenceDiagram
     A-->>B: response
 ```
 
+### Demo mode: origin, active identity and the ACL panel
+
+Only when `STUDIO_DEMO_MODE=true` (set by `compose.demo.yaml`); otherwise none of this exists and
+behavior is unchanged.
+
+- **Session origin vs. active.** A session holds `origin` (who signed in) and `active` (who requests run
+  as). `current_credentials` returns `active`, so Library, Search, Ask, Graph and Activity need no change.
+  `POST /api/session/act-as` switches `active` to an available persona (or back to the origin); it is
+  allowed only when the origin is a demo admin (a user in an `administratorsGroups` group of the demo
+  users file). Login and act-as treat a 403 on the repository root as a successful sign-in, because
+  personas cannot read the root. `GET /api/session` adds `actingAs` and `demoAdmin`.
+- **Personas.** [`demo.py`](../api/app/demo.py) parses the users file at startup: personas are users with
+  `attributes.studioPersona`; only `{noop}` passwords are usable; zero usable personas fails startup.
+  `GET /api/demo/personas` returns `username`, `label`, `groups`, `available`, never a password.
+  Passwords stay in API memory.
+- **Chat `actAs`.** `/api/chat` accepts an optional `actAs` persona, honoured only for a demo-admin
+  origin. Side-by-side Ask sends two requests in parallel, one per column.
+- **Activity jobs** are visible (and retryable) only to the identity that started them, so a persona
+  never sees titles of documents it can't read.
+- **`GET /api/documents/{id}/access`** returns `canManage` (true when OpenArch included `sys_acl`, which
+  it does only for `ManageSecurity`), local rules, inherited rules from each ancestor (nearest first,
+  with the source folder), and `effective` permissions. In demo mode, when the caller can manage
+  security, `effective` has one row per persona from `fulleffectivepermissions`. Otherwise it has one row
+  for the active user taken from the document's `sys_effectivePermissions`, because OpenArch answers 401
+  to non-managers on the effective-permissions endpoint.
+- **`PUT /api/documents/{id}/access`** replaces the document's local rules (read-modify-write of
+  `sys_acl`). Permissions are whitelisted (`Read`, `ReadWrite`, `Write`, `ManageSecurity`,
+  `Everything`), principal kind is `user` or `group`, `begin < end`, at most 50 rules, all sent with
+  `granted: true`. 403 maps to "You don't have permission to change access here" and 409 to "Access
+  changed meanwhile; reloaded". The panel drops rules whose end has already passed when saving, and
+  refetches at an expiry boundary only for windows within 24 hours.
+- **`GET /api/principals?q=`** merges `/api/user?name=` and `/api/group?name=` (max 20) for the principal
+  picker; personas carry their label.
+- **`POST /api/documents` and `POST /api/folders`** accept an optional `access` field sent as `sys_acl`
+  in the create call. 403 maps to "You can't set access in this folder".
+- **`POST /api/demo/setup`** (demo admin only) is idempotent, find-or-create by title, and runs as the
+  signed-in admin even while acting as a persona. It builds `Studio Demo` > `Company`, `Finance`, `HR`,
+  `Sales` with `sys_acl`, and uploads `demo/samples/<Folder>/` (`STUDIO_DEMO_SAMPLES_DIR`, mounted by
+  the overlay). `Sales/q4-pricing.md` also gets a document-level `Read` for `cory`. `DELETE /api/demo`
+  removes the folder.
+- Studio never evaluates permissions. Everything the panel shows comes from `sys_acl`,
+  `fulleffectiveacl` and `fulleffectivepermissions` (called with `usernames` = comma-joined **user ids**).
+
+**Verified OpenArch 1.0.60 behaviour** (test stack, 2026-10-28):
+
+| Fact | Consequence |
+|---|---|
+| `sys_acl` is accepted on `POST /api/documents/{parentId}` | Folders and uploads can be created with access in one call. |
+| Folder ACEs are inherited by children | Department folders carry the rules; documents inherit. |
+| Non-admin users see nothing unless granted | Personas need demo content shared with them. |
+| `PUT /api/documents/{id}` with `sys_acl` replaces the document's local ACL | Edits are read-modify-write of local rules. |
+| Revoke is immediate for the document and its embedding chunks (no re-index wait) | Live revoke works. |
+| An ACE with `end` stops granting within ~15 s of expiry; its status becomes `ARCHIVED` | Time-limited demo with a 2-minute window works. |
+| Negative ACEs are rejected (`Negative ACL not allowed`); REST has no block-inheritance | No "deny here". Restrict by editing the folder rule or moving the document. |
+| Any `permission` string is accepted (even `Bogus`) | Studio whitelists permission names. |
+| `fulleffectivepermissions` / `fulleffectiveacl` take **user ids** in `usernames` | The earlier client sent `users` and got nothing back; fixed. |
+| `fulleffectiveacl` returns local and inherited ACEs per user; `fulleffectivepermissions` returns the expanded set (ReadWrite → Read, Write, Delete, …) | Panel data comes straight from these. |
+| `sys_acl` is only returned to callers with `ManageSecurity`; the effective-permissions endpoint answers 401 to non-managers | Non-managers see their own effective permissions only. |
+| A query scoped by `sys_ancestorIds` to an unreadable folder returns 403, not an empty list | Studio maps it to "You no longer have access to this folder". |
+| Personas cannot read the repository root (403) | Sign-in treats a root 403 as success. |
+
 ---
 
 ## 3. Data model inside OpenArch
@@ -413,7 +474,8 @@ Studio/Docling/Tika/Ollama and extensions never claim native status.
   inline viewer, text/metadata extraction, chunking & embedding, embeddings
   inspection, guided search, reranking, RAG + streaming chat, graph extraction &
   visualization, citations & retrieval trace, deletion reflected in Q&A & graph,
-  the session gateway.
+  the session gateway, permission visualization and persona compare (they
+  display OpenArch's ACL data, never decide access).
 
 ---
 
@@ -497,10 +559,10 @@ Open `http://localhost:8900`, sign in with OpenArch credentials
 
 ## 13. Testing
 
-- **API:** `cd api && .venv/bin/pytest -q` (256 passing) — covers the Parquet
+- **API:** `cd api && .venv/bin/pytest -q` (417 passing) — covers the Parquet
   schema/normalization, search modes, agent retrieve/verify, capability
   attribution invariants, graph parsing/merge/scope, and deletion.
-- **Web:** `cd web && npx vitest run` (28 passing) and `npx tsc -b --noEmit`.
+- **Web:** `cd web && npx vitest run` (61 passing) and `npx tsc -b --noEmit`.
 - **Eval harness:** `cd eval && .venv/bin/pytest -q` (see §14).
 
 ---

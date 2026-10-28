@@ -53,6 +53,8 @@ _EXTENSIONS = [
     ("A2UI generative surfaces", "Studio", "Agent-composed UI rendered from the client's own catalog.", "/api/chat CUSTOM a2ui"),
     ("Deletion reflected in Q&A & graph", "Studio", "Removed documents leave retrieval and the graph.", "DELETE /api/documents/{id}"),
     ("Same-origin session gateway", "Studio", "Memory-only Basic-auth session.", "/api/session"),
+    ("Permission visualization", "Studio", "Shows a document's local and inherited rules and effective permissions as OpenArch reports them.", "/api/documents/{id}/access"),
+    ("Persona compare", "Studio", "Asks one question as two demo personas and compares what each cites.", "/api/chat actAs"),
 ]
 
 _RUNTIMES = [

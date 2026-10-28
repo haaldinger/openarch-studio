@@ -97,6 +97,11 @@ const KNOW: { icon: LucideIcon; title: string; body: string }[] = [
     body: "On Library, open a folder and choose “Scope to this folder.” Search, Ask, and Graph then stay inside that subtree — a simple way to silo one project's content.",
   },
   {
+    icon: ShieldCheck,
+    title: "Permissions panel and demo personas",
+    body: "A document's Permissions tab lists who can access it and every rule, local or inherited from a folder. In demo mode, an admin can act as a persona (Sam, Erin…) and compare two personas on the same question in Ask.",
+  },
+  {
     icon: Sparkles,
     title: "Deleting cleans up everything",
     body: "Delete a document and its embeddings go with it (they're child records in OpenArch), so it disappears from search, chat, and the graph automatically.",

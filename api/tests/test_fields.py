@@ -97,8 +97,8 @@ def test_bool_is_not_a_number():
 
 def test_native_numbers_kept():
     r = parse_classification('{"type":"a","fields":{"qty":3,"price":2.5}}')
-    assert r.fields == {"qty": 3, "price": 2.5}
-    assert isinstance(r.fields["qty"], int)
+    assert r.fields == {"qty": 3.0, "price": 2.5}
+    assert all(isinstance(v, float) for v in r.fields.values())
 
 
 def test_none_dropped():
@@ -138,7 +138,7 @@ def test_list_with_containers_dropped():
 def test_number_coercion(text, expected):
     value = parse_classification(json.dumps({"type": "a", "fields": {"total": text}})).fields["total"]
     assert value == expected
-    assert isinstance(value, int) == isinstance(expected, int)
+    assert isinstance(value, float)
 
 
 @pytest.mark.parametrize("text", ["INV-2024-001", "DE1234 5678", "1.2.3", "12abc", "1,2,3"])
@@ -231,14 +231,43 @@ def test_other_names_are_never_numbers(name):
     assert _named(name, '"12345"') == {name: "12345"}
 
 
-def test_tax_amount_native_int_kept():
+def test_tax_amount_native_int_becomes_float():
     value = _named("tax_amount", "12")["tax_amount"]
-    assert value == 12 and isinstance(value, int)
+    assert value == 12.0 and isinstance(value, float)
 
 
-def test_quantity_string_becomes_int():
+def test_quantity_string_becomes_float():
     value = _named("quantity", '"3"')["quantity"]
-    assert value == 3 and isinstance(value, int)
+    assert value == 3.0 and isinstance(value, float)
+
+
+def test_total_native_int_is_float():
+    value = _named("total", "46000")["total"]
+    assert value == 46000.0 and isinstance(value, float)
+
+
+@pytest.mark.parametrize("literal", ["1e300", "1e15", "-1e15", '"1e300"', "1000000000000000"])
+def test_huge_values_dropped_under_numeric_name(literal):
+    assert _named("total", literal) == {}
+
+
+@pytest.mark.parametrize(
+    "name,value_json,expected",
+    [
+        ("vat_id", '"DE123456789"', "DE123456789"),
+        ("tax_number", '"12345"', "12345"),
+        ("tax_rate", '"19%"', "19%"),
+        ("total_currency", '"EUR"', "EUR"),
+        ("cost_center", '"4711"', "4711"),
+        ("balance_due_date", '"01.03.2026"', "2026-03-01"),
+        ("tax_date", '"01.03.2026"', "2026-03-01"),
+        ("discount_code", '"SAVE10"', "SAVE10"),
+        ("tax_rate", "19", "19"),
+        ("payment_terms", '"30 days"', "30 days"),
+    ],
+)
+def test_identifier_rate_date_currency_names_stay_text(name, value_json, expected):
+    assert _named(name, value_json) == {name: expected}
 
 
 def test_identifier_names_keep_numeric_looking_strings():
@@ -273,7 +302,7 @@ def test_bools_under_numeric_names_dropped_and_strings_elsewhere():
 
 def test_huge_native_int_dropped_under_numeric_name():
     assert _named("total", "1" + "0" * 15) == {}
-    assert _named("total", "9" * 15) == {"total": int("9" * 15)}
+    assert _named("total", "9" * 15) == {"total": float("9" * 15)}
 
 
 def test_list_under_numeric_name_dropped():
@@ -290,16 +319,23 @@ _MIXED_INPUTS = [
 ]
 
 
-@pytest.mark.parametrize("name", ["total", "tax_amount", "quantity", "zip", "invoice_number", "vendor"])
+@pytest.mark.parametrize(
+    "name",
+    [
+        "total", "tax_amount", "quantity", "total_due", "unit_price", "zip", "invoice_number", "vendor",
+        "vat_id", "tax_number", "tax_rate", "total_currency", "cost_center", "balance_due_date",
+        "tax_date", "discount_code",
+    ],
+)
 def test_output_type_is_stable_per_name(name):
-    numeric = name in {"total", "tax_amount", "quantity"}
+    numeric = name in {"total", "tax_amount", "quantity", "total_due", "unit_price"}
     for value_json in _MIXED_INPUTS:
         out = _named(name, value_json)
         if not out:
             continue
         value = out[name]
         if numeric:
-            assert isinstance(value, (int, float)) and not isinstance(value, bool), value_json
+            assert isinstance(value, float), value_json
         else:
             assert isinstance(value, str), value_json
 

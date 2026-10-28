@@ -29,12 +29,17 @@ _NUMERIC_NAME = re.compile(
     r"(^|_)(total|subtotal|amount|tax|vat|price|cost|quantity|qty|balance|discount|fee|charge|sum)(_|$)"
 )
 MAX_SIGNIFICANT_DIGITS = 15
+_MAX_NUMERIC = 1e15
+_TEXT_SUFFIXES = frozenset(
+    "id number no nr num code rate percent pct percentage date currency type name period method"
+    " center centre terms status ref reference".split()
+)
 
 
 @dataclass
 class ClassifiedFields:
     document_type: str
-    fields: dict[str, str | int | float]
+    fields: dict[str, str | float]
 
 
 def normalize_name(raw: str) -> str:
@@ -95,20 +100,26 @@ def _scalar_text(value: object) -> str | None:
     return None
 
 
-def _numeric_value(value: object) -> int | float | None:
+def _numeric_value(value: object) -> float | None:
     if isinstance(value, bool):
         return None
-    if isinstance(value, int):
-        return value if len(str(abs(value))) <= MAX_SIGNIFICANT_DIGITS else None
-    if isinstance(value, float):
-        return value if math.isfinite(value) else None
     if isinstance(value, str):
-        return _as_number(value)
-    return None
+        value = _as_number(value)
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        return None
+    try:
+        result = float(value)
+    except OverflowError:
+        return None
+    return result if math.isfinite(result) and abs(result) < _MAX_NUMERIC else None
 
 
-def _clean_value(name: str, value: object) -> str | int | float | None:
-    if _NUMERIC_NAME.search(name):
+def _is_numeric_name(name: str) -> bool:
+    return bool(_NUMERIC_NAME.search(name)) and name.rsplit("_", 1)[-1] not in _TEXT_SUFFIXES
+
+
+def _clean_value(name: str, value: object) -> str | float | None:
+    if _is_numeric_name(name):
         return _numeric_value(value)
     if isinstance(value, (bool, int, float)):
         text = _scalar_text(value)
@@ -142,7 +153,7 @@ def parse_classification(raw: str) -> ClassifiedFields:
     raw_type = data.get("type")
     document_type = (normalize_name(raw_type) if isinstance(raw_type, str) else "") or "other"
 
-    fields: dict[str, str | int | float] = {}
+    fields: dict[str, str | float] = {}
     raw_fields = data.get("fields")
     for key, value in (raw_fields.items() if isinstance(raw_fields, dict) else ()):
         name = normalize_name(key)

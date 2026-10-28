@@ -2,7 +2,13 @@ import pytest
 
 from studio_eval.client import ChatResult, Citation
 from studio_eval.golden import GoldenEntry, Source
-from studio_eval.metrics import abstention_scores, aggregate, declined, retrieval_scores
+from studio_eval.metrics import (
+    abstention_scores,
+    aggregate,
+    declined,
+    evidence_scores,
+    retrieval_scores,
+)
 
 FIXED = "I don't have enough information in the indexed content to answer that."
 
@@ -122,6 +128,31 @@ def test_non_english_refusal_short_is_declined(answer):
     assert declined(answer)
 
 
+@pytest.mark.parametrize(
+    "answer",
+    [
+        "Je n'ai pas assez d'informations pour répondre à cette question, même avec les extraits fournis [1][2][3].",
+        "Je n\u2019ai pas suffisamment d\u2019informations pour répondre.",
+        "Ich habe nicht genügend Informationen, um die Frage zu beantworten.",
+        "Dazu gibt es nicht genug Informationen.",
+        "Es gibt keine ausreichenden Informationen dazu.",
+        "No hay suficiente información en los documentos.",
+        "Información insuficiente para responder.",
+        "No tengo suficiente información para responder a esto, según los fragmentos indicados [1][2].",
+        "Er is niet genoeg informatie om dit te beantwoorden.",
+        "Er is onvoldoende informatie beschikbaar.",
+        "Jag har inte tillräckligt med information för att svara.",
+    ],
+)
+def test_non_english_not_enough_information_declines_even_with_citations(answer):
+    assert declined(answer, has_citations=True)
+
+
+def test_dutch_genoeg_informatie_without_negation_is_not_declined():
+    assert not declined("Ik heb genoeg informatie om te antwoorden: het totaal is 10 EUR.")
+    assert not declined("Ik heb genoeg informatie om te antwoorden.", has_citations=True)
+
+
 def test_long_answer_with_citations_mentioning_no_mention_of_is_not_declined():
     answer = (
         "The policy covers water damage in detail across several sections [1][2]. "
@@ -131,6 +162,37 @@ def test_long_answer_with_citations_mentioning_no_mention_of_is_not_declined():
     )
     assert len(answer) >= 200
     assert not declined(answer, has_citations=True)
+
+
+def fact(evidence: str | None = "Total: 10 EUR", kind: str = "fact") -> GoldenEntry:
+    return GoldenEntry("e1", "q", "a", evidence, [Source("a.pdf", 1)], "en", kind)
+
+
+def snip(text: str) -> Citation:
+    return Citation("d", "a.pdf", 1, text, None, None)
+
+
+def test_evidence_hit_and_rank():
+    r = result([snip("nothing here"), snip("x total:  10\n EUR y")])
+    assert evidence_scores(fact(), r) == {"evidence_hit": 1.0, "evidence_mrr": 0.5}
+
+
+def test_evidence_match_is_case_and_whitespace_insensitive():
+    r = result([snip("TOTAL:\t10   eur")])
+    assert evidence_scores(fact(), r) == {"evidence_hit": 1.0, "evidence_mrr": 1.0}
+
+
+def test_evidence_no_match_is_zero():
+    r = result([snip("Total: 11 EUR")])
+    assert evidence_scores(fact(), r) == {"evidence_hit": 0.0, "evidence_mrr": 0.0}
+    assert evidence_scores(fact(), result()) == {"evidence_hit": 0.0, "evidence_mrr": 0.0}
+
+
+def test_evidence_none_without_evidence_or_on_error():
+    none = {"evidence_hit": None, "evidence_mrr": None}
+    assert evidence_scores(fact(evidence=None, kind="cross_doc"), result([snip("x")])) == none
+    assert evidence_scores(fact(kind="unanswerable"), result([snip("Total: 10 EUR")])) == none
+    assert evidence_scores(fact(), result([snip("Total: 10 EUR")], error="boom")) == none
 
 
 def test_abstention_unanswerable():

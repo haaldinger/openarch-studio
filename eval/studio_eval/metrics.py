@@ -14,6 +14,17 @@ _ALWAYS_DECLINE = (
     "don't have enough information",
     "do not have enough information",
     "not enough information",
+    "nicht genügend informationen",
+    "nicht genug informationen",
+    "keine ausreichenden informationen",
+    "pas assez d'informations",
+    "pas suffisamment d'informations",
+    "no tengo suficiente información",
+    "no hay suficiente información",
+    "información insuficiente",
+    "niet genoeg informatie",
+    "onvoldoende informatie",
+    "inte tillräckligt med information",
 )
 _GUARDED_DECLINE = (
     "cannot find",
@@ -30,7 +41,6 @@ _GUARDED_DECLINE = (
     "aucune information",
     "pas d'information",
     "no hay información",
-    "no tengo suficiente información",
     "geen informatie",
 )
 _SHORT_ANSWER_CHARS = 200
@@ -52,6 +62,21 @@ def retrieval_scores(entry: GoldenEntry, result: ChatResult) -> dict[str, float 
         if (c.title, c.page) in expected:
             return {"hit": 1.0, "mrr": 1 / rank}
     return {"hit": 0.0, "mrr": 0.0}
+
+
+def _squash(text: str) -> str:
+    return " ".join(text.lower().split())
+
+
+def evidence_scores(entry: GoldenEntry, result: ChatResult) -> dict[str, float | None]:
+    """Does a retrieved chunk contain the golden evidence string, and at what rank?"""
+    if entry.kind != "fact" or not entry.evidence or result.error:
+        return {"evidence_hit": None, "evidence_mrr": None}
+    needle = _squash(entry.evidence)
+    for rank, c in enumerate(result.citations, start=1):
+        if needle in _squash(c.snippet):
+            return {"evidence_hit": 1.0, "evidence_mrr": 1 / rank}
+    return {"evidence_hit": 0.0, "evidence_mrr": 0.0}
 
 
 def abstention_scores(entry: GoldenEntry, result: ChatResult) -> dict[str, float | None]:

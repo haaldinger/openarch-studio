@@ -132,7 +132,8 @@ async def search(
         else:
             raise HTTPException(status_code=400, detail=f"Unknown search mode: {body.mode}")
     except OpenArchForbidden:
-        raise HTTPException(status_code=403, detail="Not permitted") from None
+        detail = "You no longer have access to this folder" if body.scope else "Not permitted"
+        raise HTTPException(status_code=403, detail=detail) from None
     except OpenArchUnavailable:
         raise HTTPException(status_code=503, detail="OpenArch is unreachable") from None
 

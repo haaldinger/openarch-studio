@@ -90,6 +90,26 @@ Perceptive Content's
   take no part in the predicate". A connector whose source has deny-wins rules must resolve them itself
   and emit only who can read.
 
+### Perceptive test fixture (dev server, created through the API)
+
+Users, groups and privileges can be created through Integration Server (`POST /v1/user`,
+`POST /v1/userGroup`, `PUT /v2/userGroup|user/{id}/privilege`, `POST /v1/document` + `/page`); drawers,
+document types, views and **passwords** cannot. Created in the `Sandbox - GT` department, privileges set
+only on the new groups and users (ids in `~/.cltest/perceptive-manifest.json`, removed by
+`~/.cltest/teardown_perceptive.py`). Document types must belong to the groups' department (types from
+other departments answer 400). Page files download as `application/octet-stream`.
+
+| Document | Drawer (grants) | Type (grants) | Expected readers |
+|---|---|---|---|
+| restricted 1, restricted 2 (2 pages) | `GT-Human Resources` (A granted; `cltest-c` denied) | `GT - Grade Change` | `cltest-a` |
+| open 1 | `GT-Financial Aid` (A, B granted) | `GT - Grade Change` | `cltest-a`, `cltest-b`, `cltest-c` |
+| open denied-type | `GT-Financial Aid` (A, B granted) | `GT - W4` (A denied) | `cltest-b` |
+| typeonly granted | `GT-UG Registrar` (none) | `GT - LOA` (B granted) | `cltest-b` if a type grant alone suffices |
+| typeonly normal | `GT-UG Registrar` (none) | `GT - Grade Change` | nobody |
+
+Groups: `CL Test A` = `cltest-a`, `cltest-c`; `CL Test B` = `cltest-b`. To compare these expectations
+with what each user can really open, an administrator must set the three test users' passwords.
+
 ## Limitations to carry into the design, READMEs and upstream issue
 
 1. **OnBase: no API reports who may read a document.** The OnBase connector uses an operator-configured

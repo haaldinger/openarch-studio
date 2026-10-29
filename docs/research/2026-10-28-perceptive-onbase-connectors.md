@@ -48,6 +48,11 @@ Perceptive Content's
   conflict, deny wins, including drawer against document type ("if a drawer privilege allows access and
   a document type privilege denies access … access is denied"); `UNSET` is a soft deny. Privileges apply
   only in the department where they were assigned.
+- **Department managers bypass privileges.** The configured demo account belongs to one group with no
+  privileges, yet opened documents in all 67 drawers that had any. It is a department manager of nearly
+  every department (`/v1/department/{id}` lists `departmentManagers`). Its own group's drawer privileges
+  answered 400 from its current department. So the one configured account cannot validate the reader
+  rules; that needs ordinary (non-manager) accounts with known privileges.
 - **Department visibility.** 117 of 167 groups answered 400 "not owned by the current department or
   has not been shared with the current department" for the demo account. What the service account can
   evaluate depends on its department.
@@ -136,6 +141,9 @@ Perceptive Content's
 13. **Perceptive privileges are department-scoped.** The service account can only read privileges of
     groups owned by or shared with its department. Where the readers of a drawer cannot be fully
     determined, its documents are skipped and reported rather than guessed.
+14. **Perceptive managers are not granted through management rights.** Department managers (and
+    owners) open content without holding privileges. The connector grants only what privileges grant,
+    so a manager without privileges does not find that content through search.
 
 ## Option set aside for now
 

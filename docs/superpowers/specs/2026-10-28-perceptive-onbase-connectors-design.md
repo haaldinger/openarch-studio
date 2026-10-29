@@ -243,7 +243,9 @@ Documented in each README. Needs an administrator: two restricted test users in 
 and an open container, a read-only connector account; for Perceptive also one user-level deny and one
 document-type deny; for OnBase, the `group` scope allowed for the rag-service client. Run the end-to-end
 checks against the real server, and for Perceptive compare the computed readers with what each test user
-can actually open in the client. Each connector is labelled **preview** until this passes.
+can actually open in the client. The test users must be ordinary accounts: department managers open
+content without privileges, so the configured demo account (a manager of nearly every department) cannot
+validate the rules. Each connector is labelled **preview** until this passes.
 
 ## Documentation
 
@@ -291,6 +293,8 @@ given that `cin_deny` is not enforced?* Commits use `type: description`.
     view per drawer that the service account can run. Folder structure is not reproduced.
 13. Perceptive privileges are department-scoped; groups the account cannot read make a drawer's readers
     uncertain, and by default that drawer is skipped.
+14. Perceptive department managers and owners, who open content through management rights rather than
+    privileges, are not granted it in the index unless they also hold the privileges.
 
 ## Open questions for review
 
